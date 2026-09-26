@@ -1,0 +1,19 @@
+# .NET build and test output
+bin/
+obj/
+TestResults/
+coverage/
+
+# Local tooling and editor state
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+.DS_Store
+
+# Local configuration
+.env
+.env.*
+!.env.example
