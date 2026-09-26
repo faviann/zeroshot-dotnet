@@ -8,7 +8,7 @@ public static class CliApp
         {
             output.WriteLine("Zeroshot CLI");
             output.WriteLine("Usage: zeroshot-cli [--help]");
-            output.WriteLine("Commands will be added after the client protocol is designed.");
+            output.WriteLine("Commands will be added after the SDK boundary is designed.");
             return 0;
         }
 

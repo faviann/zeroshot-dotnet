@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.68.17" />
-    <ProjectReference Include="../../src/Zeroshot.Client/Zeroshot.Client.csproj" />
+    <ProjectReference Include="../../src/Zeroshot.Sdk/Zeroshot.Sdk.csproj" />
   </ItemGroup>
 
 </Project>

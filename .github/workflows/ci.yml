@@ -15,4 +15,4 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build Zeroshot.sln --configuration Release
       - run: dotnet test --project tests/Zeroshot.Cli.Tests/Zeroshot.Cli.Tests.csproj --configuration Release --no-restore
-      - run: dotnet test --project tests/Zeroshot.Client.Tests/Zeroshot.Client.Tests.csproj --configuration Release --no-restore --ignore-exit-code 8
+      - run: dotnet test --project tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --configuration Release --no-restore --ignore-exit-code 8

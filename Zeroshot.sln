@@ -5,13 +5,13 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Client", "src\Zeroshot.Client\Zeroshot.Client.csproj", "{3100C184-3C1A-4697-BF82-47B0D718A6CC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Sdk", "src\Zeroshot.Sdk\Zeroshot.Sdk.csproj", "{3100C184-3C1A-4697-BF82-47B0D718A6CC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Cli", "src\Zeroshot.Cli\Zeroshot.Cli.csproj", "{9BA15EFC-E0BD-4584-A17C-1573EE99AD6D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Client.Tests", "tests\Zeroshot.Client.Tests\Zeroshot.Client.Tests.csproj", "{268F4E17-A1CC-4C01-B750-4342CC1FEC14}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Sdk.Tests", "tests\Zeroshot.Sdk.Tests\Zeroshot.Sdk.Tests.csproj", "{268F4E17-A1CC-4C01-B750-4342CC1FEC14}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zeroshot.Cli.Tests", "tests\Zeroshot.Cli.Tests\Zeroshot.Cli.Tests.csproj", "{6F242D75-1674-48CA-AC40-EBC0DC85CE2A}"
 EndProject
