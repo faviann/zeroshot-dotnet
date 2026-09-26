@@ -2,7 +2,7 @@ using TUnit.Assertions;
 using TUnit.Core;
 using Zeroshot.Cli;
 
-namespace Zeroshot.Tests;
+namespace Zeroshot.Cli.Tests;
 
 public sealed class CliSmokeTests
 {
