@@ -39,8 +39,8 @@ public sealed partial class NativeClient
         return new TargetSubmissionAttempt(Origin, correlationId, prepared, outcome, receipt, failure);
     }
 
-    private static bool IsSubmissionRefusal(NativeHttpException failure) =>
-        (failure.StatusCode, failure.Problem!.Code) is
+    private static bool IsSubmissionRefusal(HttpStatusCode? status, string code) =>
+        (status, code) is
             (HttpStatusCode.BadRequest, "request.invalid" or "run.rejected") or
             (HttpStatusCode.Unauthorized, "request.unauthorized") or
             (HttpStatusCode.NotFound, "request.not_found") or

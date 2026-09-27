@@ -207,7 +207,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
     private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptJsonAsync<T>(
         OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
-        Func<NativeHttpException, bool> isRefusal, CancellationToken cancellationToken, bool noStore = false) where T : class
+        Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken, bool noStore = false) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
@@ -235,7 +235,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         var captured = Volatile.Read(ref response);
         var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
             : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
-            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus, Problem: not null } refused && isRefusal(refused)
+            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus, Problem: { } problem } refused &&
+                isRefusal(refused.StatusCode, problem.Code)
                 ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
         return (correlationId, outcome, captured, captured is null ? failure : null);
     }

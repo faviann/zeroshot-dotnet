@@ -15,12 +15,12 @@ public sealed partial class NativeClient
             _ => { }, cancellationToken, noStore: true);
     }
 
-    internal async Task<NativeAttempt<T>> MutateConnectionAsync<T>(OperationDescriptor operation, TargetDiscoveryDocument discovery,
+    internal async Task<NativeAttempt<T>> MutateConnectionAsync<T>(OperationDescriptor operation,
+        Func<(Uri List, Uri Set, Uri Delete), Uri> route, TargetDiscoveryDocument discovery,
         TargetHttpContract request, TargetControlCredentials credentials, CancellationToken cancellationToken) where T : class
     {
         var (routes, body) = PrepareConnectionCall(discovery, request, credentials);
-        var route = operation == NativeConnectionsClient.SetOperation ? routes.Set : routes.Delete;
-        var (correlationId, outcome, response, failure) = await AttemptJsonAsync<T>(operation, route, body, credentials,
+        var (correlationId, outcome, response, failure) = await AttemptJsonAsync<T>(operation, route(routes), body, credentials,
             IsConnectionRefusal, cancellationToken, noStore: true).ConfigureAwait(false);
         return new NativeAttempt<T>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
@@ -34,6 +34,7 @@ public sealed partial class NativeClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(credentials);
         var body = NativeJson.SerializeUtf8(request);
+        // No remote descriptor may influence credential-bearing dispatch until validated.
         _ = NativeJson.SerializeUtf8(discovery);
         // Native refuses direct targets; only hosted OAuth discovery can carry this capability.
         if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
@@ -53,10 +54,11 @@ public sealed partial class NativeClient
             NativeRoutes.CompileLiteralRoute(baseUrl, wire.RouteTemplates.Delete)), body);
     }
 
-    // Native's shared TargetHttpProblem vocabulary (contract/http_error.rs) for refusals before any effect.
-    // Conflict, rate limiting, unavailability and other received failures leave the effect unknown.
-    private static bool IsConnectionRefusal(NativeHttpException failure) =>
-        (failure.StatusCode, failure.Problem!.Code) is
+    // Native's status-derived default codes (default_http_error_code in contract/http_error.rs), which native
+    // itself uses only when a response has no parseable problem. A hosted server's own codes are not pinned
+    // and native serves no connection routes; every other received failure leaves the effect unknown.
+    private static bool IsConnectionRefusal(HttpStatusCode? status, string code) =>
+        (status, code) is
             (HttpStatusCode.BadRequest, "invalid_request") or
             (HttpStatusCode.Unauthorized, "unauthorized") or
             (HttpStatusCode.Forbidden, "forbidden") or
@@ -81,10 +83,10 @@ public sealed class NativeConnectionsClient
     /// <summary>Stores static values once. Operational failures and cancellation return evidence.</summary>
     public Task<NativeAttempt<ConnectionMutationResult>> SetAsync(TargetDiscoveryDocument discovery, ConnectionSetRequest request,
         TargetControlCredentials credentials, CancellationToken cancellationToken = default)
-        => client.MutateConnectionAsync<ConnectionMutationResult>(SetOperation, discovery, request, credentials, cancellationToken);
+        => client.MutateConnectionAsync<ConnectionMutationResult>(SetOperation, routes => routes.Set, discovery, request, credentials, cancellationToken);
 
     /// <summary>Deletes one record once. Operational failures and cancellation return evidence.</summary>
     public Task<NativeAttempt<ConnectionDeleteResult>> DeleteAsync(TargetDiscoveryDocument discovery, ConnectionDeleteRequest request,
         TargetControlCredentials credentials, CancellationToken cancellationToken = default)
-        => client.MutateConnectionAsync<ConnectionDeleteResult>(DeleteOperation, discovery, request, credentials, cancellationToken);
+        => client.MutateConnectionAsync<ConnectionDeleteResult>(DeleteOperation, routes => routes.Delete, discovery, request, credentials, cancellationToken);
 }

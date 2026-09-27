@@ -247,8 +247,9 @@ UTF-8 bytes and free of control characters; `baseUrl` must be same-origin; and a
 four templates, including `resolve`, must be bounded literal routes. The resolve
 declaration is validated as native does but is never compiled into a caller
 operation: it names the host's run-scoped resolver callback, a separate contract.
-A wrong target, absent capability or invalid descriptor throws `ArgumentException`
-without dispatch, like other invalid use.
+A wrong target, absent capability, invalid descriptor or invalid request throws
+`ArgumentException` or `JsonException`, whichever applies, without dispatch, like
+other invalid use.
 
 Requests and results are strict camelCase records. `ConnectionScope` is `user` or
 `org`. `ConnectionSummary.Kind` is an open string: native names
@@ -262,10 +263,14 @@ must be valid JSON within 64 KiB (or the smaller configured limit).
 `ListAsync` returns the result or throws `NativeHttpException`. `SetAsync` and
 `DeleteAsync` return the shared `NativeAttempt<T>`: `Acknowledged` with a valid
 result, `NotSent` when nothing was dispatched, and `Rejected` only for a valid
-`TargetHttpProblem` whose status/code pair is one of native's own pre-effect
-refusals: 400 `invalid_request`, 401 `unauthorized`, 403 `forbidden` or 404
-`not_found`. Every other received failure, including 409 `request_conflict`, 429
-`rate_limited`, 503 and malformed results, is `Unknown`. `Failure.Problem` keeps
+`TargetHttpProblem` with one of these status/code pairs: 400 `invalid_request`,
+401 `unauthorized`, 403 `forbidden` or 404 `not_found`. These are native's
+status-derived default codes (`default_http_error_code` in
+`contract/http_error.rs`), which native itself uses only when a response has no
+parseable problem body. Native serves no connection routes, and a hosted server's
+own problem codes are not pinned. Every other received failure, including 409
+`request_conflict`, 429 `rate_limited`, 503, other codes and malformed results, is
+`Unknown`. `Failure.Problem` keeps
 the received problem for the caller to decide.
 
 Secret values are ordinary request data: the caller can read them and they are
