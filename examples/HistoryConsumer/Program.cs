@@ -41,11 +41,12 @@ Check(heads.All(head => head.StatusCode == HttpStatusCode.OK && head.ContentLeng
 
 var unknown = new RunId("0195af77-9999-7000-8000-000000000001");
 var missing = await Refused(native.History.DetailAsync(discovery, unknown, cancellationToken: token));
-Check(missing is { StatusCode: HttpStatusCode.NotFound, HistoryProblem: RunHistoryProblemCode.RunNotFound }, "unknown run problem");
+Check(missing is { StatusCode: HttpStatusCode.NotFound, HistoryProblem: RunHistoryProblemCode.RunNotFound, UiProblem.Code: "run_not_found", Problem: null },
+    "unknown run problem from the UI router");
 var ahead = await Refused(native.History.PageAsync(discovery, runId, new Cursor("v2:999999"), cancellationToken: token));
 Check(ahead is { StatusCode: HttpStatusCode.BadRequest, HistoryProblem: RunHistoryProblemCode.InvalidCursor }, "cursor ahead problem");
 var headMissing = await Refused(native.History.HeadDetailAsync(discovery, unknown, cancellationToken: token));
-Check(headMissing is { StatusCode: HttpStatusCode.NotFound, Problem: null }, "HEAD refusal has status only");
+Check(headMissing is { StatusCode: HttpStatusCode.NotFound, Problem: null, UiProblem: null }, "HEAD refusal has status only");
 
 // The UI router would otherwise keep a pooled history connection and answer this control request with 404.
 var session = await native.Target.CreateOecpSessionAsync(discovery, cancellationToken: token);

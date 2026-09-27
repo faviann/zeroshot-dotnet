@@ -70,11 +70,14 @@ public sealed class NativeHttpException : Exception
     public HttpStatusCode? StatusCode { get; }
     /// <summary>Validated remote facts, if received. Never included in default exception formatting.</summary>
     public TargetHttpProblem? Problem { get; }
-    /// <summary>The closed native history category of <see cref="Problem"/>, for history operations only.
+    /// <summary>A validated problem from a direct target's UI router, for UI-routed operations only.
+    /// Never included in default exception formatting.</summary>
+    public UiProblem? UiProblem { get; }
+    /// <summary>The closed native history category of the received problem, for history operations only.
     /// An unknown or malformed history problem leaves it null and keeps the observed status.</summary>
     public RunHistoryProblemCode? HistoryProblem { get; }
     internal NativeHttpException(OperationFailure failure, TargetHttpProblem? problem = null,
-        HttpStatusCode? receivedStatus = null) : base(failure.Message)
+        HttpStatusCode? receivedStatus = null, UiProblem? uiProblem = null) : base(failure.Message)
     {
         Operation = failure.Operation;
         CorrelationId = failure.CorrelationId;
@@ -82,9 +85,11 @@ public sealed class NativeHttpException : Exception
         Kind = Enum.Parse<NativeHttpFailureKind>(failure.Kind.ToString());
         StatusCode = failure.StatusCode ?? receivedStatus;
         Problem = problem;
-        if (problem is not null && NativeHistoryClient.IsHistoryOperation(Operation))
+        UiProblem = uiProblem;
+        // The direct UI mount and hosted hosts send the same closed code in their respective problem shapes.
+        if (NativeHistoryClient.IsHistoryOperation(Operation) && (uiProblem?.Code ?? problem?.Code) is { } code)
             HistoryProblem = Enum.GetValues<RunHistoryProblemCode>().Cast<RunHistoryProblemCode?>()
-                .FirstOrDefault(code => JsonNamingPolicy.SnakeCaseLower.ConvertName(code!.Value.ToString()) == problem.Code);
+                .FirstOrDefault(value => JsonNamingPolicy.SnakeCaseLower.ConvertName(value!.Value.ToString()) == code);
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();

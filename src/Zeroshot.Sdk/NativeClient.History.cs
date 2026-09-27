@@ -22,23 +22,29 @@ public sealed class NativeHistoryClient
     internal const string Kind = "zeroshot.run-history/v1";
     private const int ProblemBytes = 64 * 1024;
     private static readonly Cursor InitialCursor = new("v2:0");
-    internal static readonly OperationDescriptor ListOperation = Operation("history.list", 4);
-    internal static readonly OperationDescriptor DetailOperation = Operation("history.detail", 8);
-    internal static readonly OperationDescriptor PageOperation = Operation("history.page", 8);
-    internal static readonly OperationDescriptor HeadListOperation = Operation("history.list.head", 4);
-    internal static readonly OperationDescriptor HeadDetailOperation = Operation("history.detail.head", 8);
-    internal static readonly OperationDescriptor HeadPageOperation = Operation("history.page.head", 8);
+    // Direct history is served by the target's UI router; hosted history is a host-owned HTTP API.
+    private static readonly HistoryOperation List = new("history.list", 4);
+    private static readonly HistoryOperation Detail = new("history.detail", 8);
+    private static readonly HistoryOperation Page = new("history.page", 8);
+    private static readonly HistoryOperation HeadList = new("history.list.head", 4);
+    private static readonly HistoryOperation HeadDetail = new("history.detail.head", 8);
+    private static readonly HistoryOperation HeadPage = new("history.page.head", 8);
     private static readonly HashSet<string> Operations =
-    [
-        ListOperation.Name, DetailOperation.Name, PageOperation.Name,
-        HeadListOperation.Name, HeadDetailOperation.Name, HeadPageOperation.Name
-    ];
+        [List.Name, Detail.Name, Page.Name, HeadList.Name, HeadDetail.Name, HeadPage.Name];
     private readonly NativeClient client;
 
     internal NativeHistoryClient(NativeClient client) => this.client = client;
 
-    private static OperationDescriptor Operation(string name, int responseMebibytes) => new(name, OperationTransport.Http,
-        responseBytes: responseMebibytes * 1024 * 1024, problemBytes: ProblemBytes, uiRouter: true);
+    private sealed class HistoryOperation(string name, int responseMebibytes)
+    {
+        public string Name => name;
+        private readonly OperationDescriptor direct = Create(name, responseMebibytes, uiRouter: true);
+        private readonly OperationDescriptor hosted = Create(name, responseMebibytes, uiRouter: false);
+        private static OperationDescriptor Create(string name, int responseMebibytes, bool uiRouter) => new(name, OperationTransport.Http,
+            responseBytes: responseMebibytes * 1024 * 1024, problemBytes: ProblemBytes, uiRouter: uiRouter);
+        public OperationDescriptor For(TargetDiscoveryDocument discovery)
+            => discovery.Authentication == TargetAuthentication.HostedOauth ? hosted : direct;
+    }
 
     internal static bool IsHistoryOperation(string operation) => Operations.Contains(operation);
 
@@ -47,7 +53,7 @@ public sealed class NativeHistoryClient
         TargetControlCredentials? credentials = null, CancellationToken cancellationToken = default)
     {
         var url = ListUrl(discovery, after, credentials);
-        return client.ExecuteJsonAsync<RunHistoryList>(ListOperation, url, null, credentials,
+        return client.ExecuteJsonAsync<RunHistoryList>(List.For(discovery), url, null, credentials,
             list => RunHistoryRules.List(list, after), cancellationToken, configure: Configure);
     }
 
@@ -56,7 +62,7 @@ public sealed class NativeHistoryClient
         TargetControlCredentials? credentials = null, CancellationToken cancellationToken = default)
     {
         var url = DetailUrl(discovery, runId, credentials);
-        return client.ExecuteJsonAsync<RunDefinition>(DetailOperation, url, null, credentials,
+        return client.ExecuteJsonAsync<RunDefinition>(Detail.For(discovery), url, null, credentials,
             definition => RunHistoryRules.Definition(definition, runId), cancellationToken, configure: Configure);
     }
 
@@ -66,22 +72,22 @@ public sealed class NativeHistoryClient
     {
         var requested = after ?? InitialCursor;
         var url = PageUrl(discovery, runId, requested, credentials);
-        return client.ExecuteJsonAsync<HistoryPage>(PageOperation, url, null, credentials,
+        return client.ExecuteJsonAsync<HistoryPage>(Page.For(discovery), url, null, credentials,
             page => RunHistoryRules.Page(page, requested), cancellationToken, configure: Configure);
     }
 
     /// <summary>HEAD for the list route. Native serves it only on the direct target UI mount.</summary>
     public Task<NativeHeadResult> HeadListAsync(TargetDiscoveryDocument discovery, RunId? after = null,
         TargetControlCredentials? credentials = null, CancellationToken cancellationToken = default)
-        => client.ExecuteHeadAsync(HeadListOperation, ListUrl(discovery, after, credentials), credentials, cancellationToken, Configure);
+        => client.ExecuteHeadAsync(HeadList.For(discovery), ListUrl(discovery, after, credentials), credentials, cancellationToken, Configure);
 
     public Task<NativeHeadResult> HeadDetailAsync(TargetDiscoveryDocument discovery, RunId runId,
         TargetControlCredentials? credentials = null, CancellationToken cancellationToken = default)
-        => client.ExecuteHeadAsync(HeadDetailOperation, DetailUrl(discovery, runId, credentials), credentials, cancellationToken, Configure);
+        => client.ExecuteHeadAsync(HeadDetail.For(discovery), DetailUrl(discovery, runId, credentials), credentials, cancellationToken, Configure);
 
     public Task<NativeHeadResult> HeadPageAsync(TargetDiscoveryDocument discovery, RunId runId, Cursor? after = null,
         TargetControlCredentials? credentials = null, CancellationToken cancellationToken = default)
-        => client.ExecuteHeadAsync(HeadPageOperation, PageUrl(discovery, runId, after ?? InitialCursor, credentials),
+        => client.ExecuteHeadAsync(HeadPage.For(discovery), PageUrl(discovery, runId, after ?? InitialCursor, credentials),
             credentials, cancellationToken, Configure);
 
     // Native TargetRunHistoryTransport sends exactly these headers.

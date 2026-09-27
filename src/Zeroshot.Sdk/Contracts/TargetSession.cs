@@ -25,6 +25,25 @@ public sealed record TargetOecpSession : TargetHttpContract
     public string? BearerToken { get; init; }
 }
 
+/// <summary>
+/// A refusal from a direct target's UI router (native profile_ui.rs ApiError): <c>{code,message}</c>.
+/// Its message is unconstrained native text, bounded only by the operation's problem-body limit, and can
+/// carry admission detail; inspect it explicitly.
+/// </summary>
+public sealed record UiProblem : TargetHttpContract
+{
+    [JsonPropertyName("code")]
+    public required string Code { get; init; }
+    [JsonPropertyName("message")]
+    public required string Message { get; init; }
+
+    internal void Validate()
+    {
+        if (string.IsNullOrEmpty(Code) || Code.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')))
+            throw new JsonException();
+    }
+}
+
 /// <summary>Bounded remote refusal facts. Explicit property inspection may reveal remote data.</summary>
 public sealed record TargetHttpProblem : TargetHttpContract
 {

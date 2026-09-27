@@ -160,9 +160,10 @@ public sealed class HistoryTests
             "GET /history/runs/" + Run + "/page?after=v2%3A0", "GET /history/runs/" + Run + "/page?after=v2%3A0",
             "HEAD /history/runs", "HEAD /history/runs/" + Run, "HEAD /history/runs/" + Run + "/page?after=v2%3A9"
         }));
-        Check(seen.All(r => r.Headers.ConnectionClose == true && r.Headers.CacheControl!.NoStore &&
-            r.Headers.Accept.Single().MediaType == "application/json" && r.Content is null));
-        Check(seen.Count(r => r.Headers.Authorization is { Scheme: "Bearer", Parameter: Bearer }) == 1);
+        Check(seen.All(r => r.Headers.CacheControl!.NoStore && r.Headers.Accept.Single().MediaType == "application/json" && r.Content is null));
+        // Only the direct UI mount owns the connection after a request; the hosted request carries the bearer.
+        Check(seen.Where(r => r.Headers.Authorization is null).All(r => r.Headers.ConnectionClose == true));
+        Check(seen.Single(r => r.Headers.Authorization is not null) is { Headers.Authorization: { Scheme: "Bearer", Parameter: Bearer }, Headers.ConnectionClose: not true });
     }
 
     public static IEnumerable<(string Case, Func<NativeClient, Task> Call)> InvalidUses()
@@ -279,7 +280,7 @@ public sealed class HistoryTests
         catch (NativeHttpException error) { Check(!valid && error.Kind == NativeHttpFailureKind.Protocol, name); }
     }
 
-    public static IEnumerable<(string Body, HttpStatusCode Status, RunHistoryProblemCode? Expected)> Problems()
+    public static IEnumerable<(bool Hosted, string Body, HttpStatusCode Status, RunHistoryProblemCode? Expected)> Problems()
     {
         var codes = new (string, HttpStatusCode, RunHistoryProblemCode)[]
         {
@@ -290,23 +291,34 @@ public sealed class HistoryTests
             ("history_pending", HttpStatusCode.ServiceUnavailable, RunHistoryProblemCode.HistoryPending), ("history_invalid", HttpStatusCode.BadGateway, RunHistoryProblemCode.HistoryInvalid),
             ("history_expired", HttpStatusCode.Gone, RunHistoryProblemCode.HistoryExpired), ("history_incompatible", HttpStatusCode.BadGateway, RunHistoryProblemCode.HistoryIncompatible)
         };
-        foreach (var (code, status, expected) in codes)
-            yield return ($$"""{"code":"{{code}}","message":"History refused."}""", status, expected);
+        // The direct UI mount sends ApiError {code,message}; hosted hosts send TargetHttpProblem.
+        foreach (var hosted in new[] { false, true })
+            foreach (var (code, status, expected) in codes)
+                yield return (hosted, $$"""{"code":"{{code}}","message":"History refused."}""", status, expected);
         // UI-router boundary problems share the shape but are not history categories.
-        yield return ("""{"code":"origin_rejected","message":"Open the UI using its configured public URL."}""", HttpStatusCode.Forbidden, null);
-        yield return ("not a problem", HttpStatusCode.ServiceUnavailable, null);
+        yield return (false, """{"code":"origin_rejected","message":"Open the UI using its configured public URL."}""", HttpStatusCode.Forbidden, null);
+        // UI-router messages are not bound by TargetHttpProblem's single-line 1 KiB rule.
+        yield return (false, $$"""{"code":"history_unavailable","message":"{{string.Concat(Enumerable.Repeat("line\\n", 400))}}"}""", HttpStatusCode.ServiceUnavailable, RunHistoryProblemCode.HistoryUnavailable);
+        yield return (false, "not a problem", HttpStatusCode.ServiceUnavailable, null);
+        yield return (true, "not a problem", HttpStatusCode.ServiceUnavailable, null);
     }
 
     [Test]
     [MethodDataSource(nameof(Problems))]
-    public async Task RefusalsKeepStatusAndClosedHistoryCategory(string body, HttpStatusCode status, RunHistoryProblemCode? expected)
+    public async Task RefusalsKeepStatusAndClosedHistoryCategory(bool hosted, string body, HttpStatusCode status, RunHistoryProblemCode? expected)
     {
         using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, body, status))));
-        try { await native.History.PageAsync(Discovery(), new RunId(Run)); }
+        try
+        {
+            await (hosted
+                ? native.History.PageAsync(Discovery(TargetAuthentication.HostedOauth), new RunId(Run), credentials: new(TargetAuthentication.HostedOauth, Bearer))
+                : native.History.PageAsync(Discovery(), new RunId(Run)));
+        }
         catch (NativeHttpException error)
         {
             Check(error.Kind == NativeHttpFailureKind.HttpStatus && error.StatusCode == status && error.HistoryProblem == expected);
-            Check(body.StartsWith('{') == error.Problem is not null);
+            Check(body.StartsWith('{') == (hosted ? error.Problem : (object?)error.UiProblem) is not null);
+            Check((hosted ? (object?)error.UiProblem : error.Problem) is null);
             return;
         }
         throw new InvalidOperationException("Expected refusal.");

@@ -310,7 +310,7 @@ exactly one whole `{run_id}` segment for detail/page and none for list, and a
 `after` is form-encoded as native does (`v2:5` → `v2%3A5`). Run IDs and the list
 position must be canonical UUIDv7; a page cursor must be canonical `v2:<sequence>`
 at most i64::MAX. Requests send `Accept: application/json`, `Cache-Control: no-store`
-and `Connection: close`. The last is required: a direct target hands every later
+and, for the direct UI mount, `Connection: close`. The last is required: a direct target hands every later
 request on a UI-routed connection to its UI router, so a pooled connection would
 answer the next session or submission request with 404.
 
@@ -330,11 +330,15 @@ records then pass native's host checks:
   records anchored to page events in order, and a runtime failure only on a finished
   page.
 
-Violations are `Protocol` failures. Refusals keep `StatusCode` and a valid `Problem`.
-UI-router problems (`origin_rejected`, history codes) share the `{code,message}`
-shape, so `Problem` holds both. For history operations `HistoryProblem` maps the
-closed native vocabulary (`run_not_found` … `history_incompatible`) to
-`RunHistoryProblemCode`. Unknown or malformed problems leave it null and keep the
+Violations are `Protocol` failures. Refusals keep `StatusCode`. The direct UI mount
+answers with native `ApiError` `{code,message}` bodies (history codes and boundary
+codes such as `origin_rejected`). Operations marked as UI-routed parse these as
+`UiProblem`, bounded only by the operation's problem-body limit: native messages can
+exceed `TargetHttpProblem`'s 1 KiB single-line rule. Hosted history is not UI-routed;
+native's reader parses its refusals as `TargetHttpProblem`, exposed as `Problem`.
+For history operations `HistoryProblem` maps the code from whichever problem was
+received onto the closed native vocabulary (`run_not_found` … `history_incompatible`)
+as `RunHistoryProblemCode`. Unknown or malformed problems leave it null and keep the
 observed status; the native browser sanitization to `history_unavailable` is not
 reproduced.
 

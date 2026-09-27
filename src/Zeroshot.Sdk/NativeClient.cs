@@ -163,6 +163,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         var responseGate = new object();
         HttpResponseMessage? ownedResponse = null;
         TargetHttpProblem? problem = null;
+        UiProblem? uiProblem = null;
         HttpStatusCode? receivedStatus = null;
         var cleanupStarted = false;
         try
@@ -207,7 +208,12 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
                     var bytes = await context.ReadResponseAsync(stream, Math.Min(limits.DiagnosticBytes,
                         operation.ProblemBytes ?? int.MaxValue)).ConfigureAwait(false);
-                    try { problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes); }
+                    // Native's UI router answers with its own {code,message} problems, not TargetHttpProblem.
+                    try
+                    {
+                        if (operation.UiRouter) uiProblem = NativeJson.DeserializeUtf8<UiProblem>(bytes);
+                        else problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes);
+                    }
                     catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
                 }
@@ -227,7 +233,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus); }
+        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem); }
     }
 
     /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
