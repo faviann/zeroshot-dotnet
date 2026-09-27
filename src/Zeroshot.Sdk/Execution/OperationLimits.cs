@@ -50,7 +50,7 @@ internal sealed record OperationLimits
 
 internal enum OperationTransport { Http, Oecp }
 internal enum OperationStage { Admission, Connect, Request, Response, Message, Diagnostic, Operation }
-internal enum OperationFailureKind { Capacity, Deadline, SizeLimit, Transport }
+internal enum OperationFailureKind { Capacity, Deadline, SizeLimit, Transport, Protocol, HttpStatus, Redirect }
 
 internal sealed class OperationDescriptor
 {

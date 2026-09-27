@@ -47,9 +47,9 @@ internal sealed class OperationContext(OperationDescriptor operation, Guid corre
 
     // Reads at most the ceiling plus one probe byte, regardless of Content-Length or frame headers.
     // The caller retains stream ownership and releases it through the operation cleanup callback.
-    public async Task<byte[]> ReadResponseAsync(Stream stream)
+    public async Task<byte[]> ReadResponseAsync(Stream stream, int? responseBytes = null)
     {
-        var ceiling = Math.Min(limits.ResponseBytes, operation.ResponseBytes ?? int.MaxValue);
+        var ceiling = Math.Min(Math.Min(limits.ResponseBytes, operation.ResponseBytes ?? int.MaxValue), responseBytes ?? int.MaxValue);
         using var output = new MemoryStream();
         var buffer = new byte[Math.Min(8192, ceiling)];
         while (true)
@@ -64,12 +64,13 @@ internal sealed class OperationContext(OperationDescriptor operation, Guid corre
         }
     }
 
-    public OperationFailure Failure(OperationFailureKind kind, OperationStage stage, ReadOnlySpan<byte> rawDiagnostic = default)
+    public OperationFailure Failure(OperationFailureKind kind, OperationStage stage, ReadOnlySpan<byte> rawDiagnostic = default,
+        System.Net.HttpStatusCode? statusCode = null)
     {
         if (rawDiagnostic.Length > limits.DiagnosticBytes)
             return new OperationFailure(operation, correlationId, OperationFailureKind.SizeLimit, OperationStage.Diagnostic);
         return new OperationFailure(operation, correlationId, kind, stage,
-            limits.CaptureRawDiagnostics && !rawDiagnostic.IsEmpty ? rawDiagnostic.ToArray() : null);
+            limits.CaptureRawDiagnostics && !rawDiagnostic.IsEmpty ? rawDiagnostic.ToArray() : null, statusCode);
     }
 
     private void CheckSize(long bytes, int ceiling, OperationStage stage)

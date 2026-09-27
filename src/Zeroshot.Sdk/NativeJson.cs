@@ -23,6 +23,7 @@ public static class NativeJson
         options.Converters.Add(new RunSizeConverter());
         options.Converters.Add(new NativeUnsignedConverter());
         options.Converters.Add(new NativeUnsigned32Converter());
+        options.Converters.Add(new TargetAuthenticationConverter());
         options.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
         return options;
     }

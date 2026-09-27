@@ -1,7 +1,8 @@
 # Internal operation execution
 
-`Zeroshot.Native.Execution` is the internal resource seam for the future HTTP and
-OECP bindings (#16 and #18). It adds no public transport or SDK workflow. One
+`Zeroshot.Native.Execution` is the internal resource seam for HTTP discovery (#16) and
+future OECP bindings (#18). The public HTTP client maps its failures into typed
+`NativeHttpException` metadata; this seam adds no SDK workflow. One
 `OperationExecutor` belongs to one native client; bindings share it rather than
 creating one per call. Operations execute once, with no retries or mutation
 outcome classification. Observation queues remain #20.
