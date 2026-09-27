@@ -123,7 +123,8 @@ public sealed class HttpDiscoveryTests
             using var http = new HttpClient(handler);
             using var native = NativeClient.ForHttp(Options(new() { MaxResponseBytes = 24 }), http);
             await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.SizeLimit);
-            Check(stream.BytesRead == 25);
+            // Received bytes are counted regardless of a smaller declared length; a larger one fails before reading.
+            Check(stream.BytesRead == (declaredLength > 24 ? 0 : 25));
         }
         using var errorHandler = new Handler((request, _) => Task.FromResult(Reply(request, "sensitive", HttpStatusCode.NotFound)));
         using var errorHttp = new HttpClient(errorHandler);

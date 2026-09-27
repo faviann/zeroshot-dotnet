@@ -37,7 +37,10 @@ public sealed record TargetRunRequest : TargetRunCredentials
         => Guid.TryParseExact(id, "D", out var guid) && guid.ToString("D") == id && id[14] == '7' && "89ab".IndexOf(id[19]) >= 0;
 }
 
-/// <summary>Run-scoped callback authority. Endpoint and key admission remain native responsibilities.</summary>
+/// <summary>
+/// Run-scoped callback authority. Submission sends it as wire data and native admission checks it;
+/// <see cref="Zeroshot.Native.ConnectionResolverClient"/> checks it before calling the callback.
+/// </summary>
 public sealed record TargetConnectionResolver : TargetHttpContract
 {
     [JsonPropertyName("endpoint")]

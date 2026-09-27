@@ -45,6 +45,8 @@ internal static class WireValidation
             if (result is DeviceAuthorization authorization) authorization.Validate();
             if (result is OAuthTokens tokens) tokens.Validate();
             if (result is TargetLoginSession session) session.Validate();
+            if (result is ConnectionResolveRequest resolve) resolve.Validate();
+            if (result is ConnectionResolveResult resolved) StaticConnectionValues.ValidateRun(resolved.Connections);
             if (result is TargetRunRequest request)
             {
                 TargetRunRequest.ValidateRunId(request.RunId);

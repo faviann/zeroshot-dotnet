@@ -136,7 +136,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             async (response, context) =>
             {
                 var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
-                var bytes = await context.ReadResponseAsync(stream).ConfigureAwait(false);
+                var bytes = await context.ReadResponseAsync(stream, declaredBytes: response.Content.Headers.ContentLength).ConfigureAwait(false);
                 try
                 {
                     var result = NativeJson.DeserializeUtf8<T>(bytes);

@@ -37,6 +37,9 @@ caller-delivered cursors remain available independently.
 and results. `NativeClient.Connections` binds list/set/delete on validated hosted
 discovery; see [hosted connection records](../http/README.md#hosted-connection-records).
 These bindings have controlled-authority evidence only.
+The same file holds the host resolver callback's request and result;
+`ConnectionResolverClient` calls that outbound callback independently of any target (see
+[host connection resolver callback](../http/README.md#host-connection-resolver-callback)).
 
 `Contracts/Profiles.cs` maps hosted run-profile requests, profiles, selectors and
 results. `NativeClient.Profiles` binds list/show/set/delete/default/run on

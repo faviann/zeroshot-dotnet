@@ -77,6 +77,27 @@ public sealed record ConnectionDeleteResult : TargetHttpContract
     public required bool Deleted { get; init; }
 }
 
+/// <summary>The fields requested from a host resolver callback for dynamic connection keys.</summary>
+public sealed record ConnectionResolveRequest : TargetHttpContract
+{
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+    [JsonPropertyName("connections")]
+    public required ImmutableDictionary<string, ImmutableArray<EnvironmentVariableName>> Connections { get; init; }
+
+    internal void Validate()
+    {
+        foreach (var key in Connections.Keys) _ = new ConnectionKey(key);
+    }
+}
+
+/// <summary>Values returned by a host resolver callback. Default formatting omits them.</summary>
+public sealed record ConnectionResolveResult : TargetHttpContract
+{
+    [JsonPropertyName("connections")]
+    public required ImmutableDictionary<string, ImmutableDictionary<string, string>> Connections { get; init; }
+}
+
 // Native StaticConnectionValues::new, shared by run credentials and stored connections.
 internal static class StaticConnectionValues
 {
