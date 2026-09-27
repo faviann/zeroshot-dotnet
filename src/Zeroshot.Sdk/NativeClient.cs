@@ -302,8 +302,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         var captured = Volatile.Read(ref response);
         var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
             : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
-            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus, Problem: { } problem } refused &&
-                isRefusal(refused.StatusCode, problem.Code)
+            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus } refused &&
+                (refused.Problem?.Code ?? refused.UiProblem?.Code) is { } code && isRefusal(refused.StatusCode, code)
                 ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
         return (correlationId, outcome, captured, captured is null ? failure : null);
     }

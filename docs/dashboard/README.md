@@ -27,6 +27,10 @@ var draft = await native.Dashboard.AuthorAsync(new DashboardAuthoringRequest
 | `POST /ui/api/validate` | `ValidateAsync` | `DashboardValidation` (`{"valid":true}`) |
 | `POST /ui/api/authoring` | `AuthorAsync` | `DashboardAuthoringDraft` |
 | `POST /ui/api/data` | `TransformDataAsync` | `DashboardDataDraft` |
+| `GET /ui/api/profiles` | `ListProfilesAsync` | `RunProfileListResult` (user scope) |
+| `GET /ui/api/profiles/{name}` | `GetProfileAsync(name)` | `DashboardProfile`: `RunProfile` and its revision |
+| `HEAD` of the two profile routes | `HeadProfilesAsync`, `HeadProfileAsync(name)` | `NativeHeadResult` |
+| `POST /ui/api/profiles` | `SaveProfileAsync(request, workspaceId)` | `NativeAttempt<DashboardProfile>` |
 | `GET /ui/api/runs{?after}` | `ListRunsAsync` | `RunHistoryList` |
 | `GET /ui/api/runs/{id}` | `GetRunAsync` | `RunDefinition` |
 | `GET /ui/api/runs/{id}/history{?after}` | `GetHistoryAsync` | `HistoryPage` |
@@ -59,6 +63,47 @@ lists, and field types reuse `PayloadType`. Native publishes no schema for these
 serde DTOs. The client models them as strict types and validates nested execution
 definitions against the pinned generated schema. No transformation admits, saves or
 runs anything.
+
+## Profiles
+
+The profile routes read and write the UI host's own user-scope store: the `--storage`
+directory of a direct target's UI mount, or the local profile store of `zeroshot ui`. They
+are not the hosted [run-profile](../http/README.md#hosted-run-profiles) routes and have no
+scope, default or delete operation. Results reuse the hosted `RunProfile` and
+`RunProfileListResult` types.
+
+```csharp
+var workspaceId = (await native.Dashboard.GetBootstrapAsync()).Workspace.Id;
+var current = await native.Dashboard.GetProfileAsync(new RunProfileName("review"));
+var saved = await native.Dashboard.SaveProfileAsync(new DashboardProfileSaveRequest
+{
+    Name = new("review"), Graph = graph, Runtime = runtime, ExpectedRevision = current.Revision
+}, workspaceId);
+if (saved.Failure is NativeHttpException { UiProblem.Code: "profile_conflict" }) { /* reload; nothing was written */ }
+```
+
+A save is a compare-and-swap. Native admits the graph and runtime, then under its store lock
+compares `expectedRevision` with the stored profile's current revision. An omitted
+revision only creates: an existing name conflicts. The revision is native's opaque string
+(a digest of the whole stored profile, including `isDefault`), sent and returned verbatim.
+`workspaceId` is sent verbatim as the single `X-Zeroshot-Workspace` header. Native answers
+`workspace_changed` when it does not equal the host's workspace ID or the store was
+replaced since the host started.
+
+Each save is sent once and returns attempt evidence with the operation `dashboard.saveProfile`,
+the origin and a correlation ID:
+
+| Native answer | Outcome |
+| --- | --- |
+| 200 `{profile,revision}` | `Acknowledged` |
+| 409 `workspace_changed` or `profile_conflict`, 422 `invalid_profile` | `Rejected`: answered before the write |
+| 403 `origin_rejected`, 415 `json_required`, 503 `server_stopping` | `Rejected`: the browser boundary answered |
+| 500 `profile_store_error`, any other status or code, lost or malformed reply, deadline | `Unknown`: the write may have happened |
+| Cancelled or refused before dispatch | `NotSent` |
+
+The native `{code,message}` stays on `Failure.UiProblem`. An `Unknown` save is never resent;
+read the profile to learn its current revision. There is no automatic conflict resolution.
+Native reports a missing profile on `GetProfileAsync` as 500 `profile_store_error`, not 404.
 
 ## Run history and events
 
@@ -132,10 +177,12 @@ default exception formatting. Native strips HEAD response bodies, so a HEAD refu
 with no `UiProblem`.
 
 `DashboardTests.cs` and `DashboardContractTests.cs` cover the request shapes, result
-mapping, refusals and contracts with controlled peers. `DashboardHistoryTests.cs` covers
+mapping, refusals and contracts with controlled peers. `DashboardProfileTests.cs` covers the
+profile wire shapes, save outcome classification and unretried lost replies. `DashboardHistoryTests.cs` covers
 the run routes and SSE framing, validation, bounds, slow consumers and closure. The
 [native witness](../../tools/native-witness/README.md) runs `examples/DashboardConsumer`
-against the stock UI mount of a direct target, and `examples/ObservationConsumer` streams
+against the stock UI mount of a direct target, including profile create, update, conflicts
+and a two-save race in its isolated store, and `examples/ObservationConsumer` streams
 an active run's pages through its terminal event. `history_error` events and keepalive
 comments are fixture-only: stock native emits them only when a later page read fails or
 observation ends incomplete, and after 15 idle seconds.

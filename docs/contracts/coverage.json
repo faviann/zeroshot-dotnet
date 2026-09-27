@@ -1010,66 +1010,81 @@
       "id": "http:GET /ui/api/profiles",
       "transport": "HTTP",
       "bindingOwnerIssue": 37,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "No body \u2192 `RunProfileListResult`, user scope only; Browser local profile store, not hosted management extension. [profile_ui.rs:L106-L114][http-164]",
+      "typeClosure": "No body \u2192 `RunProfileListResult`, user scope only; Browser local profile store, not hosted management extension. [profile_ui.rs:L106-L114][http-164]; .NET: reuses RunProfileListResult",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L261"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L261",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; empty after drafts, then the one saved profile; curl readback matches"
+      },
+      "binding": "NativeClient.Dashboard.ListProfilesAsync"
     },
     {
       "id": "http:HEAD /ui/api/profiles",
       "transport": "HTTP",
       "bindingOwnerIssue": 37,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "No body \u2192 `RunProfileListResult`, user scope only; Browser local profile store, not hosted management extension. [profile_ui.rs:L106-L114][http-164]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L261"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L261",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json"
+      },
+      "binding": "NativeClient.Dashboard.HeadProfilesAsync"
     },
     {
       "id": "http:GET /ui/api/profiles/{name}",
       "transport": "HTTP",
       "bindingOwnerIssue": 37,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]",
+      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]; .NET: DashboardProfile {profile: RunProfile, revision: opaque string}; missing profile is native 500 profile_store_error",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L262"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L262",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; create/update read back with the acknowledged revision; missing profile 500 profile_store_error"
+      },
+      "binding": "NativeClient.Dashboard.GetProfileAsync"
     },
     {
       "id": "http:HEAD /ui/api/profiles/{name}",
       "transport": "HTTP",
       "bindingOwnerIssue": 37,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]",
+      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]; .NET: NativeHeadResult; a missing profile is a status-only 500",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L262"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L262",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json for a stored profile; missing profile status-only 500"
+      },
+      "binding": "NativeClient.Dashboard.HeadProfileAsync"
     },
     {
       "id": "http:POST /ui/api/profiles",
       "transport": "HTTP",
       "bindingOwnerIssue": 37,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Strict `{name,graph,runtime,expectedRevision?}`, exact `X-Zeroshot-Workspace` header; \u2192 `{profile,revision}` after admission+CAS. 409 `workspace_changed` or `profile_conflict`; no set-default or remote scope field. [profile_ui.rs:L129-L142][http-167] [profile_ui.rs:L161-L200][http-168]",
+      "typeClosure": "Strict `{name,graph,runtime,expectedRevision?}`, exact `X-Zeroshot-Workspace` header; \u2192 `{profile,revision}` after admission+CAS. 409 `workspace_changed` or `profile_conflict`; no set-default or remote scope field. [profile_ui.rs:L129-L142][http-167] [profile_ui.rs:L161-L200][http-168]; .NET: DashboardProfileSaveRequest {name, graph, runtime, expectedRevision?} (null omitted, opaque string verbatim) with workspaceId sent verbatim as one X-Zeroshot-Workspace header -> DashboardProfile {profile: RunProfile, revision}; NativeAttempt<DashboardProfile>: Rejected only for 409 workspace_changed/profile_conflict, 422 invalid_profile, 403 origin_rejected, 415 json_required, 503 server_stopping; 500 profile_store_error and every other received failure or lost reply Unknown, never resent",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L263"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L263",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; create without revision, name-taken and stale-revision profile_conflict, revision update keeping the profile ID, two concurrent saves from one revision with exactly one winner, foreign workspace workspace_changed and unbound runtime 422 invalid_profile leaving the store unchanged"
+      },
+      "binding": "NativeClient.Dashboard.SaveProfileAsync"
     },
     {
       "id": "http:POST /ui/api/validate",
