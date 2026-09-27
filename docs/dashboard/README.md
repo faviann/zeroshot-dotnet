@@ -27,6 +27,11 @@ var draft = await native.Dashboard.AuthorAsync(new DashboardAuthoringRequest
 | `POST /ui/api/validate` | `ValidateAsync` | `DashboardValidation` (`{"valid":true}`) |
 | `POST /ui/api/authoring` | `AuthorAsync` | `DashboardAuthoringDraft` |
 | `POST /ui/api/data` | `TransformDataAsync` | `DashboardDataDraft` |
+| `GET /ui/api/runs{?after}` | `ListRunsAsync` | `RunHistoryList` |
+| `GET /ui/api/runs/{id}` | `GetRunAsync` | `RunDefinition` |
+| `GET /ui/api/runs/{id}/history{?after}` | `GetHistoryAsync` | `HistoryPage` |
+| `GET /ui/api/runs/{id}/events{?after}` | `OpenRunEventsAsync` | `DashboardRunEvents`: one SSE observation |
+| `HEAD` of the four run routes | `HeadRunsAsync`, `HeadRunAsync`, `HeadHistoryAsync`, `HeadRunEventsAsync` | `NativeHeadResult` |
 
 Redirects are results for the two redirect routes and are never followed. Any other
 route that answers with a redirect fails as `Redirect`. Static content must be 200
@@ -55,7 +60,62 @@ serde DTOs. The client models them as strict types and validates nested executio
 definitions against the pinned generated schema. No transformation admits, saves or
 runs anything.
 
-## Browser boundary
+## Run history and events
+
+Native serves the run routes with the same handlers as the discovered direct-target
+[run history](../http/README.md#run-history), so they reuse its records, 4 MiB list /
+8 MiB detail and page / 64 KiB problem bounds, host contract checks and `HistoryProblem`
+categories. Run IDs and the list position must be canonical UUIDv7 and cursors canonical
+`v2:<sequence>`, checked before dispatch. No discovery document is needed: the routes are
+fixed on the UI origin. An omitted page cursor is omitted on the wire and validated
+from `v2:0`.
+
+```csharp
+await using var events = await native.Dashboard.OpenRunEventsAsync(runId, lastEventId: retainedCursor);
+await foreach (var entry in events.ReadAllAsync(ct))
+{
+    if (entry is DashboardHistoryPageEvent { Page: var page }) { /* page.NextCursor was the SSE id */ }
+    else if (entry is DashboardHistoryErrorEvent error) { /* native {code,message}; native ends the stream */ }
+}
+var closed = await events.Completion; // ServerClosed is closure evidence, not run success
+```
+
+`OpenRunEventsAsync` sends `after` as the query and `lastEventId` as one `Last-Event-ID`
+header, each only when supplied; native resumes after `Last-Event-ID` in preference to
+`after`, and the binding validates the first page against the same choice. It returns once
+native answers 200 `text/event-stream`. A refusal before that is a `NativeHttpException`
+with `UiProblem`, as for the other routes (`run_not_found`, `invalid_cursor`,
+`origin_rejected`). The unary deadline and request slot cover only that exchange.
+
+Native emits `history` events whose id is the page's `nextCursor` and whose data is the
+whole page, `history_error` events with `{code,message}` data and no id, and a `:`
+keepalive comment every 15 s. Each `history` page must carry its own matching id and
+continue the previous page (or the resume cursor) under the run-history page rules; any
+other event, a mismatched or missing id, a gap or rewind, or malformed data ends the
+observation as a `Protocol` failure after already accepted events drain. `history_error`
+is delivered in order as `DashboardHistoryErrorEvent` and does not advance
+`LastDeliveredCursor`. The reader accepts LF, CR or CRLF line ends split anywhere, a
+leading BOM and multi-line data. One event's data may hold up to
+min(`TransportOptions.MaxOecpMessageBytes`, 8 MiB), matching native's page bound; its
+other bytes since the last dispatch (field names, id, event type, comments, line ends)
+share a fixed 1 KiB allowance. Exceeding either is a `SizeLimit` failure.
+
+Events go through the client's shared observation delivery: subscription admission
+happens before the request is sent, and the per-stream record/byte and aggregate budgets
+apply. A consumer too slow for those budgets gets an explicit record or byte-limit
+failure after the queued pages drain. `Completion` reports `ServerClosed` when native ends
+the stream on an event boundary, `UnexpectedDisconnect` for a read failure or a stream
+ending inside an event, `LocalFailure` for validation, size or overflow, and `Disposed` or
+`Cancelled` for local closure. Disposal, the opening token or client disposal close only
+this response. There is no automatic reopen: pass `LastDeliveredCursor` as `lastEventId`
+to open a new observation. An open stream holds one of the origin's HTTP connections for
+its lifetime, because UI-routed connections are never reused.
+
+This type is separate from `NativeSubscription<TEstablishment,TEvent>`: an SSE response
+has no establishment result, subscription ID, close notification or remote cancellation,
+so the HTTP response is the whole subscription. It reuses the same completion, origin and
+failure types.
+
 
 Every request uses the configured origin's exact Host and sends no Origin or
 Sec-Fetch-Site header, which native accepts. POSTs send `application/json` and are
@@ -72,6 +132,10 @@ default exception formatting. Native strips HEAD response bodies, so a HEAD refu
 with no `UiProblem`.
 
 `DashboardTests.cs` and `DashboardContractTests.cs` cover the request shapes, result
-mapping, refusals and contracts with controlled peers. The
+mapping, refusals and contracts with controlled peers. `DashboardHistoryTests.cs` covers
+the run routes and SSE framing, validation, bounds, slow consumers and closure. The
 [native witness](../../tools/native-witness/README.md) runs `examples/DashboardConsumer`
-against the stock UI mount of a direct target.
+against the stock UI mount of a direct target, and `examples/ObservationConsumer` streams
+an active run's pages through its terminal event. `history_error` events and keepalive
+comments are fixture-only: stock native emits them only when a later page read fails or
+observation ends incomplete, and after 15 idle seconds.

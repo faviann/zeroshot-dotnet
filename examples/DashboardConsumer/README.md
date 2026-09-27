@@ -8,7 +8,9 @@ asset it references with matching HEAD lengths, a bare 404 for a missing asset,
 and the complete bootstrap catalog and its HEAD. It validates the complete asset,
 provokes native's 422 for an unbound draft and a misplaced authoring edit, applies a
 failure-reason edit, and adds then removes a run input. It then discovers the target
-on the same client. A consumer-owned handler, which the library does not offer,
-injects a foreign Origin and a `text/plain` body to prove native's typed
-`origin_rejected` and `json_required` refusals. `tools/native-witness/run.sh` runs it
+on the same client, reads the run routes and their HEADs against the discovered
+run-history binding, streams a finished run's SSE events to native's close, and checks
+`Last-Event-ID` precedence and the `run_not_found`/`invalid_cursor` refusals. A consumer-owned handler, which the library does not offer,
+injects a foreign Origin or a cross-site `Sec-Fetch-Site` and a `text/plain` body to prove
+native's typed `origin_rejected` (including on the SSE route) and `json_required` refusals. `tools/native-witness/run.sh` runs it
 and checks that the UI profile store stays empty.

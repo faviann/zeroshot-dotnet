@@ -162,11 +162,12 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpMethod method, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Func<HttpResponseMessage, OperationContext, Task<T>> readSuccess,
         CancellationToken cancellationToken, Action<Guid>? onDispatch = null, Action<HttpRequestMessage>? configure = null,
-        bool redirectIsResult = false)
+        bool redirectIsResult = false, bool keepResponse = false)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
         HttpResponseMessage? ownedResponse = null;
+        HttpResponseMessage? handedOff = null;
         TargetHttpProblem? problem = null;
         UiProblem? uiProblem = null;
         DeviceTokenError? deviceTokenError = null;
@@ -230,7 +231,10 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 if ((operation == NativeTargetClient.DiscoveryOperation || operation == NativeTargetClient.SubmitOperation) &&
                     response.StatusCode != HttpStatusCode.OK)
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, statusCode: response.StatusCode);
-                return await readSuccess(response, context).ConfigureAwait(false);
+                var result = await readSuccess(response, context).ConfigureAwait(false);
+                // A streaming result owns the response beyond this operation's deadline and cleanup.
+                if (keepResponse) lock (responseGate) (handedOff, ownedResponse) = (ownedResponse, null);
+                return result;
             }, cleanup: _ => Task.Run(() =>
             {
                 HttpResponseMessage? response;
@@ -243,9 +247,15 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
-            // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
-            operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null, deviceTokenError); }
+        catch (Exception error)
+        {
+            // The operation can still fail after a streaming result was handed off; nothing else owns it then.
+            lock (responseGate) handedOff?.Dispose();
+            if (error is not OperationFailure failure) throw;
+            throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
+                // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
+                operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null, deviceTokenError);
+        }
     }
 
     /// <summary>

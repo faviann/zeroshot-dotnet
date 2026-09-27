@@ -6,7 +6,7 @@ definitions, local wire validation, immutable credential-free prepared submissio
 [bounded HTTP discovery, session acquisition, direct submission attempts and private target bootstrap](docs/http/README.md), and
 [WebSocket OECP inspection, bounded watch/log/attachment subscriptions, native force attempts, checkpoints and workspace recovery, shared cluster bindings and trusted run submit](docs/oecp/README.md) of existing targets,
 [the same OECP operations over borrowed NDJSON streams and existing Unix controller sockets](docs/oecp/README.md#ndjson-streams-and-unix-controllers), and
-[browser dashboard assets, bootstrap and draft transformations](docs/dashboard/README.md). An
+[browser dashboard assets, bootstrap, draft transformations, run history and SSE run events](docs/dashboard/README.md). An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).
@@ -30,12 +30,12 @@ explicit serialization/export remains the caller's responsibility.
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
 | `examples/DiscoveryConsumer` | Packed-library discovery/session, native OECP inspection and stock cluster/run-submit refusal witness. |
 | `examples/SubmissionConsumer` | Packed-library complete-asset admission, normalization and replay witness. |
-| `examples/ObservationConsumer` | Packed-library watch/log replay, live records and target-restart witness. |
+| `examples/ObservationConsumer` | Packed-library watch/log replay, live records, live dashboard SSE and target-restart witness. |
 | `examples/AttachmentConsumer` | Packed-library exact active execution, live output, settlement and refusal witness. |
 | `examples/ForceConsumer` | Packed-library active-run force acknowledgement, terminal history and refusal witness. |
 | `examples/RecoveryConsumer` | Packed-library checkpoint paging, successor resume, workspace discard and refusal witness. |
 | `examples/ControllerConsumer` | Packed-library Unix controller socket and borrowed NDJSON stream witness. |
-| `examples/DashboardConsumer` | Packed-library stock UI mount static routes, bootstrap, draft transformations and browser refusals witness. |
+| `examples/DashboardConsumer` | Packed-library stock UI mount static routes, bootstrap, draft transformations, run history/SSE and browser refusals witness. |
 | `examples/PrivateBootstrapConsumer` | Packed-library private-mode target bootstrap: invalid, accepted and closed witness. |
 | `tools/native-witness/run.sh` | Stock-native Linux x64 HTTP/OECP inspection, submission and observation witness. |
 

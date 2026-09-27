@@ -1123,105 +1123,130 @@
       "id": "http:GET /ui/api/runs",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Browser BFF; local or configured-target history. [runs.rs:L622-L635][http-176]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L267"
-      }
+        "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L267",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+      },
+      "binding": "NativeClient.Dashboard.ListRunsAsync"
     },
     {
       "id": "http:HEAD /ui/api/runs",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Browser BFF; local or configured-target history. [runs.rs:L622-L635][http-176]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L267"
-      }
+        "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L267",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+      },
+      "binding": "NativeClient.Dashboard.HeadRunsAsync"
     },
     {
       "id": "http:GET /ui/api/runs/{id}",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Browser BFF. [runs.rs:L637-L642][http-177]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L268"
-      }
+        "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L268",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+      },
+      "binding": "NativeClient.Dashboard.GetRunAsync"
     },
     {
       "id": "http:HEAD /ui/api/runs/{id}",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Browser BFF. [runs.rs:L637-L642][http-177]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L268"
-      }
+        "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L268",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+      },
+      "binding": "NativeClient.Dashboard.HeadRunAsync"
     },
     {
       "id": "http:GET /ui/api/runs/{id}/history",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Browser BFF. [runs.rs:L644-L652][http-178]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L269"
-      }
+        "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L269",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+      },
+      "binding": "NativeClient.Dashboard.GetHistoryAsync"
     },
     {
       "id": "http:HEAD /ui/api/runs/{id}/history",
       "transport": "HTTP",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Browser BFF. [runs.rs:L644-L652][http-178]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L269"
-      }
+        "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L269",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+      },
+      "binding": "NativeClient.Dashboard.HeadHistoryAsync"
     },
     {
       "id": "http:GET /ui/api/runs/{id}/events",
       "transport": "SSE",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after`, or one `Last-Event-ID` header taking precedence; SSE `history` events with id=`page.nextCursor` and whole page JSON; `history_error` with `{code,message}`; 15-second keepalive. [runs.rs:L654-L699][http-179]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L270"
-      }
+        "status": "one bounded SSE observation through shared ObservationDelivery; 8 MiB event-data ceiling plus 1 KiB framing allowance; #35 page rules chained across events; Last-Event-ID and after both sent",
+        "inventory": "native-inventory.md#L270",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount; finished run's retained pages then server close, Last-Event-ID precedence over after, run_not_found/invalid_cursor, 403 origin_rejected via consumer-owned handler; live pages of an active run through its terminal event with one sibling observation disposed alone",
+        "limitations": "history_error events, keepalive comments, malformed/oversized/gapped streams and slow-consumer overflow are fixture-only. No reopen, retention guarantee or run outcome from stream closure. An open stream holds one HTTP connection per origin for its lifetime."
+      },
+      "binding": "NativeClient.Dashboard.OpenRunEventsAsync"
     },
     {
       "id": "http:HEAD /ui/api/runs/{id}/events",
       "transport": "SSE",
       "bindingOwnerIssue": 38,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Optional `after`, or one `Last-Event-ID` header taking precedence; SSE `history` events with id=`page.nextCursor` and whole page JSON; `history_error` with `{code,message}`; 15-second keepalive. [runs.rs:L654-L699][http-179]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L270"
-      }
+        "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L270",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+      },
+      "binding": "NativeClient.Dashboard.HeadRunEventsAsync"
     },
     {
       "id": "http:GET /native-v2/run-history",
