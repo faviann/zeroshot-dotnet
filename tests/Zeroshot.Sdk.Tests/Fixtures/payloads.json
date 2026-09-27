@@ -1,0 +1,41 @@
+[
+  {
+    "kind": "null"
+  },
+  {
+    "kind": "boolean"
+  },
+  {
+    "kind": "integer"
+  },
+  {
+    "kind": "number"
+  },
+  {
+    "kind": "string"
+  },
+  {
+    "kind": "record",
+    "fields": {
+      "value": {
+        "type": {
+          "kind": "number"
+        },
+        "required": true
+      }
+    }
+  },
+  {
+    "kind": "array",
+    "items": {
+      "kind": "string"
+    }
+  },
+  {
+    "kind": "enum",
+    "values": [
+      "yes",
+      "no"
+    ]
+  }
+]

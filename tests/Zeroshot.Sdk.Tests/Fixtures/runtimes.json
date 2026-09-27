@@ -1,0 +1,245 @@
+[
+  {
+    "harness": "codex",
+    "provider": "openai",
+    "size": "tiny",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "codex",
+    "provider": "openrouter",
+    "size": "tiny",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "codex",
+    "provider": "gateway",
+    "size": "tiny",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "codex",
+    "provider": "bedrock",
+    "size": "tiny",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "claude",
+    "provider": "anthropic",
+    "size": "standard",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "claude",
+    "provider": "openrouter",
+    "size": "standard",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "claude",
+    "provider": "gateway",
+    "size": "standard",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "claude",
+    "provider": "bedrock",
+    "size": "standard",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  },
+  {
+    "harness": "copilot",
+    "provider": "github",
+    "size": "large",
+    "nodes": {
+      "work": {
+        "kind": "agent",
+        "model": "caller-model",
+        "effort": "max",
+        "sessionScope": "node_instance",
+        "connections": {
+          "a": [
+            "TOKEN"
+          ]
+        }
+      },
+      "deliver": {
+        "kind": "git_delivery",
+        "connections": {
+          "github": [
+            "GITHUB_TOKEN"
+          ]
+        },
+        "pullRequestFeedback": "ignore"
+      }
+    }
+  }
+]

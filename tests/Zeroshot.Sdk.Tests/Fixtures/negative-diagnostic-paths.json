@@ -1,0 +1,11 @@
+[
+  "input",
+  0,
+  { "kind": "unknown", "name": "input" },
+  { "kind": "field", "name": "invalid/name" },
+  { "kind": "node", "name": "" },
+  { "kind": "index", "index": -1 },
+  { "kind": "index", "index": 1.5 },
+  { "kind": "index", "index": 4294967296 },
+  { "kind": "index", "index": 0, "name": "extra" }
+]

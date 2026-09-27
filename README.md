@@ -1,42 +1,40 @@
 # Zeroshot .NET SDK
 
-The .NET home for a future Zeroshot SDK and a small CLI that uses it. This
-repository is a scaffold for upcoming protocol and API design work. It does not
-submit or inspect Zeroshot runs yet.
+`Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.9.0** at source
+`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
+definitions, local wire validation, and immutable credential-free prepared
+submissions. Transport bindings and SDK run workflows remain explicitly
+unimplemented in the [coverage manifest](docs/contracts/coverage.json).
 
-## Projects
+Public namespaces are `Zeroshot`, `Zeroshot.Native` and
+`Zeroshot.Native.Contracts`. The scaffold project path remains `src/Zeroshot.Sdk`;
+its package and assembly are `Zeroshot.Client`.
+
+Read the [contract guide](docs/contracts/README.md) and the
+[external package consumer](examples/ContractsConsumer) for preparation and exact
+UTF-8 import/export. Running these APIs requires no network, Python or native
+executable. Authored inputs, instructions and scripts may contain sensitive data;
+explicit serialization/export remains the caller's responsibility.
 
 | Project | Purpose |
 | --- | --- |
-| `src/Zeroshot.Sdk` | Reusable .NET 10 class library for the future Zeroshot SDK. Its public API is intentionally undecided. |
-| `src/Zeroshot.Cli` | .NET 10 command-line application with a direct project reference to `Zeroshot.Sdk`. Currently provides help only. |
-| `tests/Zeroshot.Sdk.Tests` | TUnit project directly referencing the SDK library; no SDK behavior tests exist yet. |
-| `tests/Zeroshot.Cli.Tests` | TUnit project directly referencing the CLI, including its bootstrap smoke tests. |
-
-The intended dependency direction is CLI → SDK → Zeroshot's external
-protocol. Consumers such as Broodling will reference the SDK independently;
-this repository contains no Broodling reference or Broodling-specific policy.
-
-## Build and test
+| `src/Zeroshot.Sdk` | `Zeroshot.Client` execution-contract library. |
+| `src/Zeroshot.Cli` | CLI scaffold; currently provides help only. |
+| `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
+| `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
+| `examples/ContractsConsumer` | External consumer referencing the packed library. |
 
 Install a .NET 10 SDK, then run:
 
 ```sh
 dotnet build Zeroshot.sln --configuration Release
 dotnet test --project tests/Zeroshot.Cli.Tests/Zeroshot.Cli.Tests.csproj --configuration Release --no-restore
-dotnet test --project tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --configuration Release --no-restore --ignore-exit-code 8
-dotnet run --project src/Zeroshot.Cli -- --help
+dotnet test --project tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --configuration Release --no-restore
 ```
 
-`global.json` selects the Microsoft Testing Platform runner used by TUnit.
-The SDK test project has no tests until SDK behavior is designed. Its test
-command ignores only the runner's exit code 8 (zero tests); the CLI test command
-remains strict. There is no running Zeroshot service requirement for the current
-tests.
-The repository is licensed under the [MIT License](LICENSE).
+`global.json` selects the Microsoft Testing Platform runner used by TUnit. Tests
+need no running Zeroshot service. Package-consumer instructions are in its
+[README](examples/ContractsConsumer/README.md).
 
-## Scope of the bootstrap
-
-The SDK library intentionally has no protocol types or transport code yet.
-The CLI help is a placeholder, so command names, SDK methods, HTTP/OECP behavior,
-packaging and release policy remain decisions for later design work.
+The repository is licensed under the [MIT License](LICENSE). Pinned native
+schemas include their [upstream MIT notice](src/Zeroshot.Sdk/Schemas/NATIVE-LICENSE).

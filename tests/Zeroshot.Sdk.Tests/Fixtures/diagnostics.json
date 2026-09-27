@@ -1,0 +1,13 @@
+[
+  {
+    "severity": "error",
+    "code": "schema_safety",
+    "message": "A diagnostic with all native path alternatives.",
+    "path": [
+      { "kind": "field", "name": "input" },
+      { "kind": "index", "index": 4294967295.0 },
+      { "kind": "node", "name": "work" }
+    ],
+    "relatedNodes": ["work"]
+  }
+]
