@@ -719,40 +719,52 @@
       "id": "discovered:GET run_history.list",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
       "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET optional `after` = canonical UUIDv7 RunId -> `RunHistoryList`; max 4 MiB / 50 entries",
+      "typeClosure": "GET optional `after` = canonical UUIDv7 RunId -> `RunHistoryList`; max 4 MiB / 50 entries; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem (direct UI mount) or TargetHttpProblem (hosted) with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L204"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L204",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.ListAsync"
     },
     {
       "id": "discovered:GET run_history.detail",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
       "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{run_id}` -> `RunDefinition`; max 8 MiB",
+      "typeClosure": "GET `{run_id}` -> `RunDefinition`; max 8 MiB; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem (direct UI mount) or TargetHttpProblem (hosted) with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L205"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L205",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.DetailAsync"
     },
     {
       "id": "discovered:GET run_history.page",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
       "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{run_id}`, `after` cursor -> `HistoryPage`; max 8 MiB",
+      "typeClosure": "GET `{run_id}`, `after` cursor -> `HistoryPage`; max 8 MiB; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem (direct UI mount) or TargetHttpProblem (hosted) with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L206"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L206",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.PageAsync"
     },
     {
       "id": "http:GET /",
@@ -1096,79 +1108,103 @@
       "id": "http:GET /native-v2/run-history",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L271"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L271",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.ListAsync"
     },
     {
       "id": "http:HEAD /native-v2/run-history",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L271"
-      }
+        "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L271",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.HeadListAsync"
     },
     {
       "id": "http:GET /native-v2/run-history/{id}",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L272"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L272",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.DetailAsync"
     },
     {
       "id": "http:HEAD /native-v2/run-history/{id}",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L272"
-      }
+        "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L272",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.HeadDetailAsync"
     },
     {
       "id": "http:GET /native-v2/run-history/{id}/page",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L273"
-      }
+        "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L273",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.PageAsync"
     },
     {
       "id": "http:HEAD /native-v2/run-history/{id}/page",
       "transport": "HTTP",
       "bindingOwnerIssue": 35,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
-      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]; .NET: RunHistoryList {runs: RunHistorySummary[], nextCursor}; RunDefinition with HistoryMetadata, HistoryObservation, RuntimeFailure and decode-only legacy snapshot; HistoryPage with HistoryEventRecord (nine HistoryEvent variants), ControlRecord and RuntimeFailure; UiProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L273"
-      }
+        "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
+        "inventory": "native-inventory.md#L273",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
+      },
+      "binding": "NativeClient.History.HeadPageAsync"
     },
     {
       "id": "discovered:GET oauth.metadata",

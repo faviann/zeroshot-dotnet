@@ -282,3 +282,98 @@ access, `NativeJson` serialization and opted-in raw diagnostics reveal them.
 authorities. Stock native 10.9.0 only consumes these routes and serves none, so
 the native witness cannot exercise them. Live hosted interoperability is
 unverified.
+
+## Run history
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var runs = await native.History.ListAsync(discovery);                 // optional `after` run ID
+var definition = await native.History.DetailAsync(discovery, runId);
+var page = await native.History.PageAsync(discovery, runId);           // after defaults to v2:0
+while (!page.Complete)
+    page = await native.History.PageAsync(discovery, runId, page.NextCursor);
+```
+
+`History` binds the discovered `run_history` capability (`zeroshot.run-history/v1`).
+Pass the discovery document explicitly; the binding never rediscovers. Direct targets
+advertise it only when their UI is mounted, at `/native-v2/run-history{?after}`,
+`/native-v2/run-history/{run_id}` and `/native-v2/run-history/{run_id}/page{?after}`
+under the public origin. Hosted history uses the matching `HostedOauth`
+`TargetControlCredentials` bearer. Direct history takes no credentials. Private
+authorities are refused because native defines no private history consumer.
+An absent or unknown capability, mismatched authority or malformed template throws
+`ArgumentException` before dispatch, as session acquisition does.
+
+Templates follow native `compile_route`: at most 2048 bytes, literal ASCII segments,
+exactly one whole `{run_id}` segment for detail/page and none for list, and a
+`{?after}` suffix only for list/page. Segments append to the capability base path.
+`after` is form-encoded as native does (`v2:5` → `v2%3A5`). Run IDs and the list
+position must be canonical UUIDv7; a page cursor must be canonical `v2:<sequence>`
+at most i64::MAX. Requests send `Accept: application/json`, `Cache-Control: no-store`
+and, for the direct UI mount, `Connection: close`. The last is required: a direct target hands every later
+request on a UI-routed connection to its UI router, so a pooled connection would
+answer the next session or submission request with 404.
+
+Responses obey the smaller of the configured limit and native's 4 MiB list,
+8 MiB detail/page and 64 KiB problem bounds. Any 2xx status is accepted. Decoded
+records then pass native's host checks:
+
+- list: at most 50 UUIDv7 runs, strictly descending, all below `after`, and a
+  `nextCursor` equal to the last run; each summary's cursor, availability, phase,
+  terminal and runtime failure must be coherent;
+- definition: version and projection version 1, the requested run, available
+  history, `initialCursor` `v2:0` and equal canonical cursors; a runtime failure must
+  be `runtime_failed`/`runtime_lost` at or before the head with a matching failed
+  terminal, finished phase and incomplete history;
+- page: requested ≤ next ≤ head, `complete` iff next is head, at most 256 events with
+  contiguous canonical cursors ending at next, no empty page before head, control
+  records anchored to page events in order, and a runtime failure only on a finished
+  page.
+
+Violations are `Protocol` failures. Refusals keep `StatusCode`. The direct UI mount
+answers with native `ApiError` `{code,message}` bodies (history codes and boundary
+codes such as `origin_rejected`). Operations marked as UI-routed parse these as
+`UiProblem`, bounded only by the operation's problem-body limit: native messages can
+exceed `TargetHttpProblem`'s 1 KiB single-line rule. Hosted history is not UI-routed;
+native's reader parses its refusals as `TargetHttpProblem`, exposed as `Problem`.
+For history operations `HistoryProblem` maps the code from whichever problem was
+received onto the closed native vocabulary (`run_not_found` … `history_incompatible`)
+as `RunHistoryProblemCode`. Unknown or malformed problems leave it null and keep the
+observed status; the native browser sanitization to `history_unavailable` is not
+reproduced.
+
+`HeadListAsync`, `HeadDetailAsync` and `HeadPageAsync` send HEAD to the same URLs.
+Stock native answers HEAD only on the direct UI mount (Axum `get` routes), with the
+GET status and headers and no body. A 2xx returns `NativeHeadResult` (status, content
+length, media type); a refusal is an `HttpStatus` failure without a problem body.
+The shared JSON/HEAD core and `Connection: close` for UI-routed operations are
+reusable by other UI-mounted bindings.
+
+The records keep native encodings. `nextCursor`, `createdAt`, summary `cursor`/
+`terminal`/`source`, definition `terminal`, token-usage cache counts and safe-log
+`execution` must be present and may be null; they are serialized as null.
+`runtimeFailure`, `control`, `controlError`, observation `code` and control
+`branch`/`detail` are omitted when absent. Control `output` distinguishes present
+null from absence. `RuntimeFailure`, `ControlRecord`, `DurableExecution` and unit
+events ignore unknown fields, as native serde does; other records are strict. The
+legacy definition `snapshot` is accepted and never serialized.
+
+Each page event is a `HistoryEventRecord {cursor, event}` whose `HistoryEvent` is one
+of nine variants: `prior_execution`, `run_started`, `node_started`, `node_completed`,
+`execution_voided`, `safe_log`, `token_usage_observed`, `force_stop_requested` and
+`terminal`. An unknown kind is a `Protocol` failure. The projection encodes reference
+`execution`/`nodeInstance` and safe-log/token-usage `execution` as canonical positive
+decimal strings (`HistoryIdentity`), while `prior_execution` keeps native's
+snake_case `DurableExecution` with numeric identities and an externally tagged
+`Active`/`Settled`/`Voided` state. Graph, runtime, source, terminal result and worker
+outcome values reuse the existing contracts and validate against the pinned schemas.
+Inputs, outputs and diagnostics are arbitrary caller JSON and are not redacted.
+
+Observation availability (`observation.state`) is independent of run phase and
+terminal status; `finished` alone does not end observation. A `runtimeFailure` is
+status-only evidence, distinct from a retained `terminal` event. The binding asserts
+no retention period, and native advertises no history SSE route.
+
+`HistoryTests.cs` covers the golden records, wire-shape and contract tables, routes,
+authority, problem categories and bounds. The [native witness](../../tools/native-witness/README.md)
+reads real retained runs through the direct UI mount.

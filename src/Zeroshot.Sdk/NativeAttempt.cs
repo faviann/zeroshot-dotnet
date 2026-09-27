@@ -1,6 +1,18 @@
+using System.Net;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Native;
+
+/// <summary>A successful HEAD response. Its absent body is never parsed or synthesized.</summary>
+public sealed class NativeHeadResult
+{
+    public HttpStatusCode StatusCode { get; }
+    /// <summary>The advertised length of the corresponding GET body, when the peer sent one.</summary>
+    public long? ContentLength { get; }
+    public string? MediaType { get; }
+    internal NativeHeadResult(HttpStatusCode statusCode, long? contentLength, string? mediaType)
+        => (StatusCode, ContentLength, MediaType) = (statusCode, contentLength, mediaType);
+}
 
 public enum NativeAttemptOutcome { Acknowledged, Rejected, NotSent, Unknown }
 

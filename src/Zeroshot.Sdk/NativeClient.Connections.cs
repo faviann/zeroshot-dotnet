@@ -12,7 +12,7 @@ public sealed partial class NativeClient
     {
         var (routes, body) = PrepareConnectionCall(discovery, request, credentials);
         return ExecuteJsonAsync<ConnectionListResult>(NativeConnectionsClient.ListOperation, routes.List, body, credentials,
-            _ => { }, cancellationToken, noStore: true);
+            _ => { }, cancellationToken, configure: NoStore);
     }
 
     internal async Task<NativeAttempt<T>> MutateConnectionAsync<T>(OperationDescriptor operation,
@@ -21,7 +21,7 @@ public sealed partial class NativeClient
     {
         var (routes, body) = PrepareConnectionCall(discovery, request, credentials);
         var (correlationId, outcome, response, failure) = await AttemptJsonAsync<T>(operation, route(routes), body, credentials,
-            IsConnectionRefusal, cancellationToken, noStore: true).ConfigureAwait(false);
+            IsConnectionRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
         return new NativeAttempt<T>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 

@@ -49,8 +49,10 @@ public static class NativeJson
             // JSON parsers need not reject malformed UTF-8 in every arbitrary string value.
             _ = new UTF8Encoding(false, true).GetCharCount(utf8);
             using var document = JsonDocument.Parse(utf8.ToArray(), new JsonDocumentOptions { MaxDepth = 128 });
-            WireValidation.Validate(document.RootElement, WireType(typeof(T)));
-            return JsonSerializer.Deserialize(utf8, WireType(typeof(T)), Options) is T result ? result : throw Invalid();
+            // Typed validation paths already decoded the value; schema-validated contracts decode here.
+            var decoded = WireValidation.Validate(document.RootElement, WireType(typeof(T)))
+                ?? JsonSerializer.Deserialize(utf8, WireType(typeof(T)), Options);
+            return decoded is T result ? result : throw Invalid();
         }
         catch (Exception e) when (IsContractError(e)) { throw Invalid(); }
     }
@@ -59,6 +61,8 @@ public static class NativeJson
     {
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         while (name is not null && type.Name != name && type.BaseType is { } parent && parent != typeof(NativeContract)) type = parent;
+        // Tagged alternatives without a schema name serialize through their discriminating base.
+        while (type.BaseType?.GetCustomAttribute<JsonPolymorphicAttribute>(inherit: false) is not null) type = type.BaseType;
         return type;
     }
 

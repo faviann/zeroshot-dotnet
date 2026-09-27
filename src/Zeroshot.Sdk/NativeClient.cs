@@ -110,8 +110,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         _ = NativeRoutes.SameOriginPath(Origin, discovery.RunPath);
         _ = NativeRoutes.SameOriginPath(Origin, discovery.OecpPath);
         var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.SessionPath);
-        if (request.RunId is { Value: var id } &&
-            (!Guid.TryParseExact(id, "D", out var guid) || guid.ToString("D") != id || id[14] != '7' || "89ab".IndexOf(id[19]) < 0))
+        if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
             throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
         var bytes = NativeJson.SerializeUtf8(request);
         return ExecuteJsonAsync(NativeTargetClient.SessionOperation, endpoint, bytes, credentials,
@@ -126,21 +125,52 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             }, cancellationToken);
     }
 
-    private async Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
+    internal Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
-        Action<Guid>? onDispatch = null, Action<T>? onResponse = null, bool noStore = false)
+        Action<Guid>? onDispatch = null, Action<T>? onResponse = null, Action<HttpRequestMessage>? configure = null)
+        => ExecuteHttpAsync(operation, body is null ? HttpMethod.Get : HttpMethod.Post, requestUri, body, credentials,
+            async (response, context) =>
+            {
+                var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
+                var bytes = await context.ReadResponseAsync(stream).ConfigureAwait(false);
+                try
+                {
+                    var result = NativeJson.DeserializeUtf8<T>(bytes);
+                    validate(result);
+                    onResponse?.Invoke(result);
+                    return result;
+                }
+                catch (Exception error) when (error is JsonException or ArgumentException)
+                { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
+            }, cancellationToken, onDispatch, configure);
+
+    /// <summary>A body-less HEAD binding; refusals keep their status like any other HTTP operation.</summary>
+    internal Task<NativeHeadResult> ExecuteHeadAsync(OperationDescriptor operation, Uri requestUri,
+        TargetControlCredentials? credentials, CancellationToken cancellationToken, Action<HttpRequestMessage>? configure = null)
+        => ExecuteHttpAsync(operation, HttpMethod.Head, requestUri, null, credentials,
+            (response, _) => Task.FromResult(new NativeHeadResult(response.StatusCode,
+                response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.MediaType)),
+            cancellationToken, configure: configure);
+
+    /// <summary>Per-request header hook for operations whose native caller sends Cache-Control: no-store.</summary>
+    internal static void NoStore(HttpRequestMessage request) => request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
+
+    private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpMethod method, Uri requestUri, byte[]? body,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, OperationContext, Task<T>> readSuccess,
+        CancellationToken cancellationToken, Action<Guid>? onDispatch = null, Action<HttpRequestMessage>? configure = null)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
         HttpResponseMessage? ownedResponse = null;
         TargetHttpProblem? problem = null;
+        UiProblem? uiProblem = null;
         HttpStatusCode? receivedStatus = null;
         var cleanupStarted = false;
         try
         {
             return await executor.ExecuteAsync(operation, body?.Length ?? 0, async context =>
             {
-                using var request = new HttpRequestMessage(body is null ? HttpMethod.Get : HttpMethod.Post, requestUri)
+                using var request = new HttpRequestMessage(method, requestUri)
                 {
                     Version = HttpVersion.Version11, VersionPolicy = HttpVersionPolicy.RequestVersionExact
                 };
@@ -150,7 +180,11 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 }
-                if (noStore) request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
+                // A direct target hands every later request on a UI-routed connection to its UI
+                // router (native transport.rs serve_connection), so pooled reuse would send control
+                // requests there. Close it after this exchange instead.
+                if (operation.UiRouter) request.Headers.ConnectionClose = true;
+                configure?.Invoke(request);
                 if (credentials is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.BearerToken);
                 request.Options.Set(ContextKey, context);
@@ -169,26 +203,24 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 receivedStatus = response.StatusCode;
                 if (response.RequestMessage?.RequestUri != requestUri || (int)response.StatusCode is >= 300 and < 400)
                     throw context.Failure(OperationFailureKind.Redirect, OperationStage.Response, statusCode: response.StatusCode);
-                var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
-                var bytes = await context.ReadResponseAsync(stream, response.IsSuccessStatusCode ? null : limits.DiagnosticBytes).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    try { problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes); }
+                    var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
+                    var bytes = await context.ReadResponseAsync(stream, Math.Min(limits.DiagnosticBytes,
+                        operation.ProblemBytes ?? int.MaxValue)).ConfigureAwait(false);
+                    // Native's UI router answers with its own {code,message} problems, not TargetHttpProblem.
+                    try
+                    {
+                        if (operation.UiRouter) uiProblem = NativeJson.DeserializeUtf8<UiProblem>(bytes);
+                        else problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes);
+                    }
                     catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
                 }
                 if ((operation == NativeTargetClient.DiscoveryOperation || operation == NativeTargetClient.SubmitOperation) &&
                     response.StatusCode != HttpStatusCode.OK)
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, statusCode: response.StatusCode);
-                try
-                {
-                    var result = NativeJson.DeserializeUtf8<T>(bytes);
-                    validate(result);
-                    onResponse?.Invoke(result);
-                    return result;
-                }
-                catch (Exception error) when (error is JsonException or ArgumentException)
-                { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
+                return await readSuccess(response, context).ConfigureAwait(false);
             }, cleanup: _ => Task.Run(() =>
             {
                 HttpResponseMessage? response;
@@ -201,13 +233,16 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus); }
+        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
+            // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
+            operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null); }
     }
 
     /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
     private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptJsonAsync<T>(
         OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
-        Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken, bool noStore = false) where T : class
+        Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken,
+        Action<HttpRequestMessage>? configure = null) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
@@ -217,7 +252,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         {
             await ExecuteJsonAsync<T>(operation, requestUri, body, credentials, _ => { }, cancellationToken,
                 onDispatch: id => { correlationId = id; Interlocked.Exchange(ref dispatched, 1); },
-                onResponse: value => Volatile.Write(ref response, value), noStore: noStore).ConfigureAwait(false);
+                onResponse: value => Volatile.Write(ref response, value), configure: configure).ConfigureAwait(false);
         }
         catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
         {

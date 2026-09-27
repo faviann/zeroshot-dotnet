@@ -36,10 +36,12 @@ public sealed record TargetRunRequest : TargetRunCredentials
 
     internal static void ValidateRunId(RunId runId)
     {
-        var id = runId.Value;
-        if (!Guid.TryParseExact(id, "D", out var guid) || guid.ToString("D") != id || id[14] != '7' || "89ab".IndexOf(id[19]) < 0)
-            throw new JsonException("Target submission requires a canonical UUIDv7 run ID.");
+        if (!IsCanonicalRunId(runId.Value)) throw new JsonException("Target submission requires a canonical UUIDv7 run ID.");
     }
+
+    // Native is_canonical_uuid_v7: lowercase hyphenated text, version 7 and an RFC variant.
+    internal static bool IsCanonicalRunId(string id)
+        => Guid.TryParseExact(id, "D", out var guid) && guid.ToString("D") == id && id[14] == '7' && "89ab".IndexOf(id[19]) >= 0;
 }
 
 /// <summary>Run-scoped callback authority. Endpoint and key admission remain native responsibilities.</summary>

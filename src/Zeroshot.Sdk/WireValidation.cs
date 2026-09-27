@@ -11,9 +11,11 @@ namespace Zeroshot.Native;
 internal static class WireValidation
 {
     private static readonly JsonObject Definitions = LoadDefinitions();
-    private static readonly ConcurrentDictionary<string, JsonSchema> Schemas = new();
+    // Lazy: compiling one schema clones every definition, so concurrent first use must not repeat it.
+    private static readonly ConcurrentDictionary<string, Lazy<JsonSchema>> Schemas = new();
 
-    internal static void Validate(JsonElement value, Type type)
+    /// <summary>Validates native wire data; returns the typed instance when validation already decoded it.</summary>
+    internal static object? Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
         if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
@@ -29,22 +31,30 @@ internal static class WireValidation
                 Validate(value.GetProperty("submission"), typeof(RunSubmission));
             }
             CheckDiscovery(value, type);
-            return;
+            return result;
+        }
+        if (typeof(HistoryContract).IsAssignableFrom(type))
+        {
+            // Typed decoding owns field names, presence and nullability; nested pinned-schema values still validate.
+            var history = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+            CheckHistory(value, history);
+            return history;
         }
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         if (name is null)
         {
-            if (typeof(NativeString).IsAssignableFrom(type)) return;
+            if (typeof(NativeString).IsAssignableFrom(type)) return null;
             throw new ArgumentException("Unsupported native contract type.");
         }
-        var schema = Schemas.GetOrAdd(name, key => JsonSchema.FromText(new JsonObject
+        var schema = Schemas.GetOrAdd(name, key => new Lazy<JsonSchema>(() => JsonSchema.FromText(new JsonObject
         {
             ["$schema"] = "https://json-schema.org/draft/2020-12/schema",
             ["$ref"] = "#/$defs/" + key,
             ["$defs"] = Definitions.DeepClone()
-        }.ToJsonString()));
+        }.ToJsonString()))).Value;
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
+        return null;
     }
 
     private static void CheckDiscovery(JsonElement value, Type type)
@@ -69,6 +79,41 @@ internal static class WireValidation
                 CheckDiscovery(item, typeof(string));
             }
     }
+
+    private static void CheckHistory(JsonElement value, object? instance)
+    {
+        switch (instance)
+        {
+            case null or JsonElement or NativeString or string: return; // Arbitrary JSON or already validated text.
+            case HistoryContract contract:
+                contract.CheckShape();
+                // Externally tagged durable state wraps its fields in one variant-named member.
+                if (contract is DurableExecutionState && value.ValueKind == JsonValueKind.Object)
+                    value = value.EnumerateObject().Single().Value;
+                if (value.ValueKind != JsonValueKind.Object) return;
+                var members = HistoryMembers.GetOrAdd(contract.GetType(), type => type
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Where(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>() is not null)
+                    .ToDictionary(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>()!.Name, StringComparer.Ordinal));
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var property in value.EnumerateObject())
+                {
+                    if (!members.TryGetValue(property.Name, out var member)) continue; // Open native records.
+                    if (!names.Add(property.Name)) throw new JsonException("Duplicate native object field.");
+                    CheckHistory(property.Value, member.GetValue(contract));
+                }
+                return;
+            case System.Collections.IEnumerable items:
+                using (var elements = value.EnumerateArray().GetEnumerator())
+                    foreach (var item in items) { elements.MoveNext(); CheckHistory(elements.Current, item); }
+                return;
+        }
+        var type = instance.GetType();
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>)) return; // Only Optional<JsonElement>.
+        if (type.GetCustomAttribute<WireContractAttribute>() is not null) Validate(value, type);
+    }
+
+    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> HistoryMembers = new();
 
     private static JsonObject LoadDefinitions()
     {

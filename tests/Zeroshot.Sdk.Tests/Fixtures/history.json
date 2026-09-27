@@ -1,0 +1,127 @@
+{
+  "list": {
+    "runs": [
+      {
+        "runId": "0195af77-1000-7000-8000-000000000010",
+        "title": "Status-only runtime failure",
+        "phase": "finished",
+        "cursor": "v2:2",
+        "terminal": { "status": "failed", "reason": "runtime_failed" },
+        "source": { "repository": "acme/project", "branch": "main", "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+        "createdAt": 1742405570560,
+        "historyAvailable": true,
+        "runtimeFailure": { "atCursor": "v2:1", "reason": "runtime_failed", "hostOnly": true }
+      },
+      {
+        "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+        "title": "Queued run",
+        "phase": "queued",
+        "cursor": null,
+        "terminal": null,
+        "source": null,
+        "createdAt": null,
+        "historyAvailable": false
+      }
+    ],
+    "nextCursor": "018f5e78-7f95-7c22-8d98-3f15af20c991"
+  },
+  "definition": {
+    "version": 1,
+    "projectionVersion": 1,
+    "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+    "title": "test",
+    "createdAt": 1715276906389,
+    "phase": "finished",
+    "cursor": "v2:9",
+    "terminal": { "status": "succeeded", "output": { "done": [1, null] } },
+    "historyAvailable": true,
+    "graph": {
+      "profile": "openengine.graph.full/v1",
+      "initialInput": { "kind": "null" },
+      "policy": { "policy": "policy.native-v2@1", "default": "deny" },
+      "root": { "kind": "succeed", "name": "done", "output": { "kind": "null" }, "bindings": [] }
+    },
+    "runtime": { "harness": "codex", "provider": "openai", "size": "small", "nodes": {} },
+    "initialInput": { "task": "authored", "nested": [null, 1.5] },
+    "source": { "repository": "acme/project", "branch": "main", "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "snapshot": { "executions": { "1": { "large": "legacy projection" } } },
+    "history": {
+      "initialCursor": "v2:0",
+      "cursor": "v2:9",
+      "complete": true,
+      "limitations": ["control_flow_projected_by_reducer", "retained_provider_output_only"]
+    },
+    "observation": { "state": "complete" }
+  },
+  "page": {
+    "events": [
+      {
+        "cursor": "v2:1",
+        "event": {
+          "kind": "prior_execution",
+          "execution": {
+            "dispatch_position": 4,
+            "node_instance": 2,
+            "execution": 18446744073709551615,
+            "occurrence": { "node": "work", "mapIndices": [0, 3] },
+            "attempt": 1,
+            "input": { "task": "earlier" },
+            "state": { "Settled": { "position": 5, "outcome": { "status": "error", "code": "refusal", "reason": "policy_denied" } } }
+          }
+        }
+      },
+      { "cursor": "v2:2", "event": { "kind": "run_started" } },
+      {
+        "cursor": "v2:3",
+        "event": {
+          "kind": "node_started",
+          "reference": { "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991", "node": "work", "nodeInstance": "3", "execution": "18446744073709551615" },
+          "occurrence": { "node": "work", "mapIndices": [] },
+          "attempt": 2,
+          "input": null
+        }
+      },
+      {
+        "cursor": "v2:4",
+        "event": { "kind": "safe_log", "execution": "18446744073709551615", "timestamp": 1790499121303, "stream": "output", "line": "multi\nline\toutput" }
+      },
+      {
+        "cursor": "v2:5",
+        "event": {
+          "kind": "token_usage_observed",
+          "execution": "18446744073709551615",
+          "usage": { "inputTokens": 10, "outputTokens": 2, "cacheReadInputTokens": null, "cacheCreationInputTokens": 0 }
+        }
+      },
+      {
+        "cursor": "v2:6",
+        "event": {
+          "kind": "node_completed",
+          "completion": {
+            "reference": { "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991", "node": "work", "nodeInstance": "3", "execution": "18446744073709551615" },
+            "outcome": { "status": "verifier", "output": null, "signals": { "ok": "yes" }, "diagnostic": { "unstructured": true }, "artifacts": [] }
+          }
+        }
+      },
+      {
+        "cursor": "v2:7",
+        "event": {
+          "kind": "execution_voided",
+          "reference": { "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991", "node": "other", "nodeInstance": "4", "execution": "7" },
+          "reason": "parallel_join"
+        }
+      },
+      { "cursor": "v2:8", "event": { "kind": "force_stop_requested" } },
+      { "cursor": "v2:9", "event": { "kind": "terminal", "result": { "status": "succeeded", "output": { "done": [1, null] } } } }
+    ],
+    "nextCursor": "v2:9",
+    "headCursor": "v2:9",
+    "complete": true,
+    "finished": true,
+    "observation": { "state": "complete" },
+    "control": [
+      { "cursor": "v2:3", "node": "work", "mapIndices": [], "visitId": "[\"work\",[],[]]", "state": "entered" },
+      { "cursor": "v2:6", "node": "work", "mapIndices": [], "visitId": "[\"work\",[],[]]", "state": "succeeded", "output": null, "hostOnly": 1 }
+    ]
+  }
+}

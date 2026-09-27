@@ -34,7 +34,7 @@ cleanup() {
   echo "Witness artifacts: $witness_dir"
 }
 trap cleanup EXIT
-mkdir -p "$witness_dir"/{bin,state,assets,consumer,submission-consumer,observation-consumer,feed,packages,config,profile-state}
+mkdir -p "$witness_dir"/{bin,state,assets,consumer,submission-consumer,history-consumer,observation-consumer,feed,packages,config,profile-state}
 # A caller may cache the unmodified release archive; its digest is always checked.
 if [[ -n ${ZEROSHOT_WITNESS_ARCHIVE:-} ]]; then
   cp -- "$ZEROSHOT_WITNESS_ARCHIVE" "$witness_dir/$archive"
@@ -126,6 +126,12 @@ dotnet restore "$witness_dir/submission-consumer/SubmissionConsumer.csproj" --pa
 dotnet run --project "$witness_dir/submission-consumer/SubmissionConsumer.csproj" -c Release --no-restore -- \
   "$origin" "$witness_dir/assets" "$witness_dir" > "$witness_dir/submission.json"
 sha256sum "$witness_dir/complete-retained.json" >> "$witness_dir/provenance.txt"
+# Public run history through the direct target UI mount, over the runs retained above.
+cp "$repo_dir/examples/HistoryConsumer/"*.cs* "$witness_dir/history-consumer/"
+dotnet restore "$witness_dir/history-consumer/HistoryConsumer.csproj" --packages "$witness_dir/packages" \
+  --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/history-restore.log"
+dotnet run --project "$witness_dir/history-consumer/HistoryConsumer.csproj" -c Release --no-restore -- \
+  "$origin" "$witness_dir" > "$witness_dir/history.json"
 
 # Keep the existing admission witnesses above in their original target. This separate
 # target needs native's root-owned preparation boundary but no provider or checkout.
@@ -185,5 +191,5 @@ dotnet run --project "$witness_dir/observation-consumer/ObservationConsumer.cspr
   "$origin" "$witness_dir" restarted > "$witness_dir/observation-after-restart.json"
 source "$repo_dir/tools/native-witness/attachment.sh"
 source "$repo_dir/tools/native-witness/force.sh"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart; exact active execution attachment working/live output/settled and cursorless close, inactive GONE and unknown NOT_FOUND; one acknowledged force of an active controlled run with its native phase recorded, durable stopping history before force_stopped terminal history/status, idempotent terminal force and unknown-run NOT_FOUND rejection\n' | tee "$witness_dir/result.txt"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; run history list/detail/page/HEAD on retained runs with closed problem categories and a control request after history on the same client; history while active, at completion and after restart; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart; exact active execution attachment working/live output/settled and cursorless close, inactive GONE and unknown NOT_FOUND; one acknowledged force of an active controlled run with its native phase recorded, durable stopping history before force_stopped terminal history/status, idempotent terminal force and unknown-run NOT_FOUND rejection\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"

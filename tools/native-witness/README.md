@@ -66,6 +66,14 @@ asset/retained hashes. These are admission/replay proofs, not provider or forge
 execution. The fake gateway points to a closed numeric loopback port; no external
 provider or forge authority is supplied.
 
+A history consumer then reads the discovered run-history capability through the
+direct target UI mount over the runs retained so far: list and resumed list, the
+inspection run's definition and pages, HEAD for all three routes, and the native
+`run_not_found` and `invalid_cursor` problem categories. It then acquires an OECP
+session on the same client. Without `Connection: close` on history requests, native
+would route that reused connection to its UI router and return 404. `history.json`
+retains the evidence.
+
 A third packed-package consumer exercises `Runs.WatchAsync` and `Runs.LogsAsync`
 against a separate target with fresh observation storage. The original target is
 stopped first. This target runs with root privileges and a scrubbed environment.
@@ -92,6 +100,13 @@ and terminal cursor, then repeats both history and exclusive-boundary checks. Th
 proves terminal observation survives an actual target restart; it does not claim
 automatic reconnect, uninterrupted execution, or provider success. Consumer phases
 have a 30-second budget. Cleanup releases any waiting hook and terminates the target.
+
+The observation consumer also reads run history before the gate is released, while
+the run is admitted and not terminal: an available definition without a terminal
+result and a complete but unfinished page. After completion it requires the retained
+`terminal` event at the watch cursor and saves `observation-history.json`; after the
+restart the same page events must be served. This is observed retention across one
+restart, not a retention guarantee.
 
 It retains provenance, request bytes and hash, receipt, native logs, raw discovery/
 session data, response headers, complete/readmitted asset bytes and hashes, exact

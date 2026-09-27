@@ -290,6 +290,34 @@ public sealed class HttpDiscoveryTests
         Check(failure.Stage == "Connect");
     }
 
+    [Test]
+    public async Task SharedCoreReportsHeadHeadersBoundsProblemsAndClosesUiRoutedConnections()
+    {
+        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.ui", Zeroshot.Native.Execution.OperationTransport.Http,
+            problemBytes: 8, uiRouter: true);
+        using var handler = new Handler((request, _) =>
+        {
+            Check(request.Headers.ConnectionClose == true && request.Content is null);
+            if (request.Method == HttpMethod.Head)
+            {
+                var head = new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new ByteArrayContent([]) };
+                head.Content.Headers.ContentType = new("application/json");
+                head.Content.Headers.ContentLength = 29;
+                return Task.FromResult(head);
+            }
+            return Task.FromResult(Reply(request, "{\"code\":\"x\",\"message\":\"y\"}", HttpStatusCode.NotFound));
+        });
+        using var http = new HttpClient(handler);
+        using var native = NativeClient.ForHttp(Options(), http);
+        var uri = new Uri("https://target.example/ui-routed");
+        var result = await native.ExecuteHeadAsync(operation, uri, null, default);
+        Check(result.StatusCode == HttpStatusCode.OK && result.ContentLength == 29 && result.MediaType == "application/json");
+        // The operation's refusal-body bound applies below the shared diagnostic ceiling.
+        var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, uri, null, null, _ => { }, default),
+            NativeHttpFailureKind.SizeLimit);
+        Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null && refused.UiProblem is null);
+    }
+
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         public int Calls { get; private set; }

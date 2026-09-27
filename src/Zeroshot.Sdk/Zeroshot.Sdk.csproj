@@ -8,7 +8,7 @@
     <PackageId>Zeroshot.Client</PackageId>
     <Version>0.1.0-preview.1</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>Native Zeroshot 10.9.0 execution contracts, exact prepared submissions, bounded HTTP operations, and correlated WebSocket OECP inspection and watch/log subscriptions.</Description>
+    <Description>Native Zeroshot 10.9.0 execution contracts, exact prepared submissions, bounded HTTP operations, and correlated WebSocket OECP inspection and watch/log subscriptions, and discovered run history.</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
