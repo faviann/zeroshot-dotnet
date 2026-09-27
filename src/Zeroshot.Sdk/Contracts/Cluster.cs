@@ -211,6 +211,7 @@ public sealed record DeleteParams : NativeContract
 {
     [JsonPropertyName("ifGeneration")]
     public required Generation IfGeneration { get; init; }
+    /// <summary>Compared exactly: omission requires that there is no current run; it does not skip the check.</summary>
     [JsonPropertyName("ifRunId"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RunId? IfRunId { get; init; }
     [JsonPropertyName("idempotencyKey")]

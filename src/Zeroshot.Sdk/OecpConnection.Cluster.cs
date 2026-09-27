@@ -25,7 +25,7 @@ public sealed class OecpClusterClient
     /// <summary>One apply attempt, committed or dry run. There is no retry.</summary>
     public Task<NativeAttempt<ApplyResult>> ApplyAsync(ApplyParams parameters, OecpRequest? request = null, CancellationToken cancellationToken = default)
         => Attempt<ApplyResult>("apply", parameters, null, error => Refused(error, "GRAPH_INVALID", "GENERATION_CONFLICT",
-            "RUN_CONFLICT", "IDEMPOTENCY_REUSE", "INVALID_PHASE", "CANCELLED"), request, cancellationToken);
+            "IDEMPOTENCY_REUSE", "INVALID_PHASE", "CANCELLED"), request, cancellationToken);
 
     public Task<NativeAttempt<UpdateResult>> UpdateAsync(UpdateParams parameters, OecpRequest? request = null, CancellationToken cancellationToken = default)
         => Attempt<UpdateResult>("update", parameters, null, error => Refused(error, "GENERATION_CONFLICT",
