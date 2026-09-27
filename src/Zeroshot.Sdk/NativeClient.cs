@@ -23,6 +23,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     public NativeTargetClient Target { get; }
     public NativeConnectionsClient Connections { get; }
     public NativeProfilesClient Profiles { get; }
+    public NativeMergePlansClient MergePlans { get; }
     public NativeOAuthClient OAuth { get; }
 
     private NativeClient(NativeClientOptions options, HttpClient? supplied, bool ownsHttpClient)
@@ -49,6 +50,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         Target = new NativeTargetClient(this);
         Connections = new NativeConnectionsClient(this);
         Profiles = new NativeProfilesClient(this);
+        MergePlans = new NativeMergePlansClient(this);
         OAuth = new NativeOAuthClient(this);
     }
 

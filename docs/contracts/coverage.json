@@ -783,40 +783,46 @@
       "id": "discovered:POST merge_plans.create",
       "transport": "HTTP",
       "bindingOwnerIssue": 33,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `MergePlanSubmitRequest` -> `MergePlan`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.merge-plans/v1` capability: same-origin baseUrl; bounded route templates of literal segments, create with no variable and status/force with exactly one whole `{plan_id}` segment and no query, all three compiled before any operation. The opaque plan ID is one path segment percent-encoded as native's url crate does; IDs native would drop or rewrite (`.`, `..`, tab/CR/LF) are refused; an empty ID is sent as an empty segment. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/hosted_runs/merge_plans.rs:L74-L120][http-77] [merge_plans_http.rs:L20-L41][http-84]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
+      "typeClosure": "POST `MergePlanSubmitRequest {submissionKey, title, expiresAt, source: MergePlanSource {repository, branch}, profile: RunProfileSelector {scope, name}, runs: MergePlanRunRequest {name, needs?, initialInput}[] (1-64, needs verbatim, omitted when null), environment?: RuntimeEnvironment (omitted permits the host default, `{}` selects base), connections?: static run connection values, githubToken?}` -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; `NativeAttempt<MergePlan>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures, malformed and oversized results are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L201"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L201",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
+      },
+      "binding": "NativeClient.MergePlans.CreateAsync"
     },
     {
       "id": "discovered:GET merge_plans.status",
       "transport": "HTTP",
       "bindingOwnerIssue": 33,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{plan_id}` -> `MergePlan`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.merge-plans/v1` capability: same-origin baseUrl; bounded route templates of literal segments, create with no variable and status/force with exactly one whole `{plan_id}` segment and no query, all three compiled before any operation. The opaque plan ID is one path segment percent-encoded as native's url crate does; IDs native would drop or rewrite (`.`, `..`, tab/CR/LF) are refused; an empty ID is sent as an empty segment. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/hosted_runs/merge_plans.rs:L74-L120][http-77] [merge_plans_http.rs:L20-L41][http-84]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
+      "typeClosure": "GET at `{plan_id}` (`Accept: application/json`) -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; the reply's planId must equal the requested ID; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L202"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L202",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
+      },
+      "binding": "NativeClient.MergePlans.StatusAsync"
     },
     {
       "id": "discovered:POST merge_plans.force",
       "transport": "HTTP",
       "bindingOwnerIssue": 33,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `{}` at `{plan_id}` -> `MergePlan`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.merge-plans/v1` capability: same-origin baseUrl; bounded route templates of literal segments, create with no variable and status/force with exactly one whole `{plan_id}` segment and no query, all three compiled before any operation. The opaque plan ID is one path segment percent-encoded as native's url crate does; IDs native would drop or rewrite (`.`, `..`, tab/CR/LF) are refused; an empty ID is sent as an empty segment. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/hosted_runs/merge_plans.rs:L74-L120][http-77] [merge_plans_http.rs:L20-L41][http-84]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
+      "typeClosure": "POST `{}` at `{plan_id}` -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; the reply's planId must equal the requested ID and need not be terminal; `NativeAttempt<MergePlan>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures, malformed and oversized results are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L203"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L203",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
+      },
+      "binding": "NativeClient.MergePlans.ForceAsync"
     },
     {
       "id": "discovered:GET run_history.list",
