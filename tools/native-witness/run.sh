@@ -18,7 +18,7 @@ cleanup() {
   echo "Witness artifacts: $witness_dir"
 }
 trap cleanup EXIT
-mkdir -p "$witness_dir"/{bin,state,assets,consumer,feed,packages}
+mkdir -p "$witness_dir"/{bin,state,assets,consumer,submission-consumer,feed,packages,config,profile-state}
 # A caller may cache the unmodified release archive; its digest is always checked.
 if [[ -n ${ZEROSHOT_WITNESS_ARCHIVE:-} ]]; then
   cp -- "$ZEROSHOT_WITNESS_ARCHIVE" "$witness_dir/$archive"
@@ -38,7 +38,36 @@ printf '%s  %s\n' "$executable_sha256" "$witness_dir/bin/zeroshot" | sha256sum -
   sha256sum "$witness_dir/bin/zeroshot"
   "$witness_dir/bin/zeroshot" --version
   printf 'assets=test-owned no-worker succeed graph with explicit source identity; native terminal inspection, no provider processes\n'
+  printf 'submissionAsset=complete stock software-change PR graph/runtime; Codex gateway, gpt-5.6-sol, medium effort, small, execution sessions\n'
 } > "$witness_dir/provenance.txt"
+# Generate and readmit a complete native asset in isolated local profile storage.
+# These commands prepare test data; the client library has no process/asset compiler.
+cat > "$witness_dir/assets/uniform.json" <<'JSON'
+{"harness":"codex","provider":"gateway","model":"gpt-5.6-sol","effort":"medium","size":"small","sessionScope":"execution","connections":{"gateway":["GATEWAY_API_KEY","GATEWAY_BASE_URL"]}}
+JSON
+native_profile() {
+  env -i PATH=/usr/bin:/bin ZEROSHOT_CONFIG_DIR="$witness_dir/config" XDG_STATE_HOME="$witness_dir/profile-state" \
+    "$witness_dir/bin/zeroshot" profile "$@"
+}
+native_profile set generated --template software-change --pr --uniform-runtime-config "$witness_dir/assets/uniform.json" > "$witness_dir/profile-set.json"
+native_profile show generated > "$witness_dir/assets/profile.json"
+python3 - "$witness_dir/assets" <<'PY'
+import json, pathlib, sys
+assets = pathlib.Path(sys.argv[1])
+profile = json.loads((assets / 'profile.json').read_text())
+for field in ('graph', 'runtime'):
+    (assets / (field + '.json')).write_text(json.dumps(profile[field], ensure_ascii=False, separators=(',', ':')) + '\n')
+PY
+native_profile set admitted --graph "$witness_dir/assets/graph.json" --runtime-config "$witness_dir/assets/runtime.json" > "$witness_dir/profile-readmit.json"
+native_profile show admitted > "$witness_dir/assets/admitted.json"
+python3 - "$witness_dir/assets" <<'PY'
+import json, pathlib, sys
+assets = pathlib.Path(sys.argv[1])
+admitted = json.loads((assets / 'admitted.json').read_text())
+for field in ('graph', 'runtime'):
+    assert (json.dumps(admitted[field], ensure_ascii=False, separators=(',', ':')) + '\n').encode() == (assets / (field + '.json')).read_bytes()
+PY
+sha256sum "$witness_dir/assets/graph.json" "$witness_dir/assets/runtime.json" >> "$witness_dir/provenance.txt"
 # A random unprivileged loopback port keeps concurrent witnesses independent. A caller
 # can select a known free port; any bind failure is reported instead of using another target.
 port=${ZEROSHOT_WITNESS_PORT:-$(shuf -i 20000-60000 -n 1)}
@@ -65,7 +94,7 @@ head_status=$(curl --silent --show-error --head --dump-header "$witness_dir/head
 curl --fail --silent --show-error --header 'Content-Type: application/json' --data '{}' \
   --dump-header "$witness_dir/session.headers" "$origin/native-v2/oecp-session" > "$witness_dir/session.json"
 rg --quiet --ignore-case '^Cache-Control: no-store' "$witness_dir/session.headers"
-# Submission here belongs to this test harness; the production HTTP submission binding is a later slice.
+# Keep one no-worker run for the existing terminal inspection witness.
 cp "$repo_dir/tools/native-witness/inspection-request.json" "$witness_dir/request.json"
 curl --fail --silent --show-error --header 'Content-Type: application/json' --data-binary "@$witness_dir/request.json" \
   "$origin/native-v2/run" > "$witness_dir/receipt.json"
@@ -75,5 +104,11 @@ cp "$repo_dir/examples/DiscoveryConsumer/"*.cs* "$witness_dir/consumer/"
 dotnet restore "$witness_dir/consumer/DiscoveryConsumer.csproj" --packages "$witness_dir/packages" \
   --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/consumer-restore.log"
 dotnet run --project "$witness_dir/consumer/DiscoveryConsumer.csproj" -c Release --no-restore -- "$origin" > "$witness_dir/consumer.json"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumer: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get\n' | tee "$witness_dir/result.txt"
+cp "$repo_dir/examples/SubmissionConsumer/"*.cs* "$witness_dir/submission-consumer/"
+dotnet restore "$witness_dir/submission-consumer/SubmissionConsumer.csproj" --packages "$witness_dir/packages" \
+  --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/submission-restore.log"
+dotnet run --project "$witness_dir/submission-consumer/SubmissionConsumer.csproj" -c Release --no-restore -- \
+  "$origin" "$witness_dir/assets" "$witness_dir" > "$witness_dir/submission.json"
+sha256sum "$witness_dir/complete-retained.json" >> "$witness_dir/provenance.txt"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"

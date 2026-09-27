@@ -17,3 +17,12 @@ The generated `compiled-ir.schema.json` is exposed as local data by `NativeSchem
 Golden fixtures derive from pinned protocol source/tests, expanded across all graph node, payload, guard/join, provider and runtime alternatives, plus tagged diagnostic paths and their u32 index boundaries. They establish wire-shape/retention behavior, not graph execution. The external package consumer at `examples/ContractsConsumer` creates, exports and reimports a request without network I/O, Python or a native executable.
 
 The standalone `examples/DiscoveryConsumer` reads an existing target using only the packed package. The independently runnable `tools/native-witness/run.sh` verifies pinned stock-native discovery and fixed-route HEAD refusal with isolated state; it records source provenance and the actual executable checksum. It also proves session acquisition, WebSocket initialization, populated inventory, exact run/source status, unsupported protocol rejection and native empty cluster get. The terminal runtime failure proves inspection, not successful provider execution.
+
+`Contracts/TargetSubmission.cs` adds the source-backed target HTTP request, receipt,
+static connection values and resolver closure absent from the generated OECP schema.
+`Target.SubmitAttemptAsync` uses the same bounded HTTP operation for typed and retained
+requests; see [attempt evidence and classification](../http/README.md#direct-submission-attempts).
+`examples/SubmissionConsumer` extends the real-native packed-package witness with
+complete asset admission, contained-provider normalization, normalized deduplication,
+exact retained replay and proposed versus acknowledged identity. Native admission
+and conflict errors are also checked. No SDK identity hash is introduced.

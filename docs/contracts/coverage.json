@@ -331,14 +331,16 @@
       "id": "http:POST /native-v2/run",
       "transport": "HTTP",
       "bindingOwnerIssue": 19,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Direct identity, hosted control bearer, or private capability bearer. Malformed request/ID gives 400 `request.invalid`; admission invalid gives 400 `run.rejected`. [transport.rs:L308-L323][http-22] [transport.rs:L433-L456][http-23] [transport_http.rs:L257-L261][http-24]",
-      "typeClosure": "`TargetRunRequest`; canonical UUIDv7 `runId` -> 200 `TargetRunReceipt`; `Cache-Control: no-store`",
+      "typeClosure": "TargetRunRequest {runId, submission: RunSubmission, connections, connectionResolver?: TargetConnectionResolver, githubToken?}; canonical UUIDv7 runId -> HTTP 200 TargetRunReceipt {runId}; TargetHttpProblem; NativeAttempt<TargetRunReceipt> / TargetSubmissionAttempt preserve request, origin, correlation and both identities",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L120"
-      }
+        "status": "Typed and exact retained HTTP binding; deterministic one-send, known-refusal/not-sent/unknown classification, identity mismatch, malformed/oversized/dropped/late replies and cancellation/cleanup races; stock native 10.9.0 complete asset admission, contained-provider normalization, normalized deduplication, exact replay and proposed/acknowledged identity through fresh packed-package consumer. Live hosted/private submission interoperability unverified.",
+        "inventory": "native-inventory.md#L120",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpSubmissionTests.cs; examples/SubmissionConsumer; tools/native-witness/run.sh"
+      },
+      "binding": "NativeClient.Target.SubmitAttemptAsync (TargetRunRequest / PreparedSubmission + TargetRunCredentials)"
     },
     {
       "id": "http:POST /native-v2/oecp-session",
