@@ -110,8 +110,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         _ = NativeRoutes.SameOriginPath(Origin, discovery.RunPath);
         _ = NativeRoutes.SameOriginPath(Origin, discovery.OecpPath);
         var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.SessionPath);
-        if (request.RunId is { Value: var id } &&
-            (!Guid.TryParseExact(id, "D", out var guid) || guid.ToString("D") != id || id[14] != '7' || "89ab".IndexOf(id[19]) < 0))
+        if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
             throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
         var bytes = NativeJson.SerializeUtf8(request);
         return ExecuteJsonAsync(NativeTargetClient.SessionOperation, endpoint, bytes, credentials,
@@ -126,7 +125,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             }, cancellationToken);
     }
 
-    private Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
+    internal Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
         Action<Guid>? onDispatch = null, Action<T>? onResponse = null, Action<HttpRequestMessage>? configure = null)
         => ExecuteHttpAsync(operation, body is null ? HttpMethod.Get : HttpMethod.Post, requestUri, body, credentials,

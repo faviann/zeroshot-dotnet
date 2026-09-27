@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Zeroshot.Native;
 
 // Pinned controller_authority/contract.rs foundation. Capability bindings add their
@@ -36,6 +38,31 @@ internal static class NativeRoutes
             throw Invalid();
         var prefix = baseUrl.AbsoluteUri.EndsWith('/') ? baseUrl.AbsoluteUri[..^1] : baseUrl.AbsoluteUri;
         return SameOriginUrl(baseUrl, prefix + template);
+    }
+
+    // Native contract/history.rs compile_route: literal segments, at most one whole {run_id}
+    // segment and an optional {?after} suffix, appended to the capability base path.
+    internal static Uri RunHistoryRoute(Uri baseUrl, string template, string? runId, string? after, bool allowsAfter)
+    {
+        if (string.IsNullOrEmpty(template) || template.Length > 2048 || !template.StartsWith('/') ||
+            template.StartsWith("//", StringComparison.Ordinal) || template.IndexOfAny(['\\', '#']) >= 0 ||
+            template.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
+            throw Invalid();
+        var path = template.EndsWith("{?after}", StringComparison.Ordinal) ? template[..^"{?after}".Length] : template;
+        var segments = path.Split('/').Skip(1).ToArray();
+        if ((path != template) != allowsAfter || path.Contains('?') ||
+            segments.Count(segment => segment == "{run_id}") != (runId is null ? 0 : 1) ||
+            !segments.All(segment => segment == "{run_id}" || IsLiteralSegment(segment)))
+            throw Invalid();
+        var prefix = baseUrl.AbsoluteUri.EndsWith('/') ? baseUrl.AbsoluteUri[..^1] : baseUrl.AbsoluteUri;
+        var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", runId, StringComparison.Ordinal)));
+        if (after is null) return url;
+        // Native appends the pair with application/x-www-form-urlencoded byte serialization.
+        var query = new StringBuilder("?after=");
+        foreach (var b in Encoding.UTF8.GetBytes(after))
+            query.Append(char.IsAsciiLetterOrDigit((char)b) || b is (byte)'*' or (byte)'-' or (byte)'.' or (byte)'_'
+                ? ((char)b).ToString() : b == (byte)' ' ? "+" : $"%{b:X2}");
+        return new Uri(url.OriginalString + query, new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
     }
 
     internal static Uri SessionEndpoint(Uri origin, string endpoint)

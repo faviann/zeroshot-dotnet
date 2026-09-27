@@ -23,6 +23,9 @@ internal static class ValueRules
             nameof(ConnectionKey) or nameof(ExecutionRef) or nameof(BoundedLogTarget) => NonControl(value, 128, bytes: true),
             nameof(BoundedLogMessage) or nameof(BoundedAssistantOutput) => !value.Any(char.IsControl) && Encoding.UTF8.GetByteCount(value) <= 16_384,
             nameof(NodeInstructions) => !string.IsNullOrWhiteSpace(value) && !value.Contains('\0') && Encoding.UTF8.GetByteCount(value) <= 16_384,
+            nameof(HistoryIdentity) => value.Length > 0 && value[0] != '0' && value.All(char.IsAsciiDigit) &&
+                ulong.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _),
+            nameof(SafeLogLine) => !value.Contains('\0') && Encoding.UTF8.GetByteCount(value) <= 16_384,
             nameof(FailReason) => Identifier(value, 128) && value is not ("unhandled" or "runtime_failed" or "runtime_lost" or "environment_setup_failed" or "environment_startup_failed" or "environment_preparation_timeout"),
             nameof(ModelId) => NonControl(value, 2048),
             nameof(SourceRepositoryId) => value.Split('/') is [var owner, var repo] && RepositoryPart(owner) && RepositoryPart(repo),

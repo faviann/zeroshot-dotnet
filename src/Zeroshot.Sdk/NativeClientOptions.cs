@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Zeroshot.Native.Execution;
 using Zeroshot.Native.Contracts;
 
@@ -69,6 +70,9 @@ public sealed class NativeHttpException : Exception
     public HttpStatusCode? StatusCode { get; }
     /// <summary>Validated remote facts, if received. Never included in default exception formatting.</summary>
     public TargetHttpProblem? Problem { get; }
+    /// <summary>The closed native history category of <see cref="Problem"/>, for history operations only.
+    /// An unknown or malformed history problem leaves it null and keeps the observed status.</summary>
+    public RunHistoryProblemCode? HistoryProblem { get; }
     internal NativeHttpException(OperationFailure failure, TargetHttpProblem? problem = null,
         HttpStatusCode? receivedStatus = null) : base(failure.Message)
     {
@@ -78,6 +82,9 @@ public sealed class NativeHttpException : Exception
         Kind = Enum.Parse<NativeHttpFailureKind>(failure.Kind.ToString());
         StatusCode = failure.StatusCode ?? receivedStatus;
         Problem = problem;
+        if (problem is not null && NativeHistoryClient.IsHistoryOperation(Operation))
+            HistoryProblem = Enum.GetValues<RunHistoryProblemCode>().Cast<RunHistoryProblemCode?>()
+                .FirstOrDefault(code => JsonNamingPolicy.SnakeCaseLower.ConvertName(code!.Value.ToString()) == problem.Code);
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();

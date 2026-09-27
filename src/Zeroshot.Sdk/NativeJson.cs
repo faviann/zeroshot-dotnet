@@ -59,6 +59,8 @@ public static class NativeJson
     {
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         while (name is not null && type.Name != name && type.BaseType is { } parent && parent != typeof(NativeContract)) type = parent;
+        // Tagged alternatives without a schema name serialize through their discriminating base.
+        while (type.BaseType?.GetCustomAttribute<JsonPolymorphicAttribute>(inherit: false) is not null) type = type.BaseType;
         return type;
     }
 
