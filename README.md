@@ -3,8 +3,9 @@
 `Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.9.0** at source
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
 definitions, local wire validation, and immutable credential-free prepared
-submissions. Transport bindings and SDK run workflows remain explicitly
-unimplemented in the [coverage manifest](docs/contracts/coverage.json).
+submissions. An [internal operation seam](docs/execution/README.md) supplies bounded deadlines,
+resource admission and safe failures for future bindings. Transport bindings and
+SDK run workflows remain explicitly unimplemented in the [coverage manifest](docs/contracts/coverage.json).
 
 Public namespaces are `Zeroshot`, `Zeroshot.Native` and
 `Zeroshot.Native.Contracts`. The scaffold project path remains `src/Zeroshot.Sdk`;
