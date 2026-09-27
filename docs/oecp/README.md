@@ -485,3 +485,48 @@ checks initialize, empty get, the one-run list and status, foreign-run refusals,
 live `INVALID_PHASE` refusals of resume and discard,
 reuse of a borrowed socket stream after its first connection is disposed, and watch
 and log delivery through terminal state.
+
+## Windows controller pipes
+
+```csharp
+// A caller-known controller pipe; the connection validates, owns and closes it.
+await using var controller = await OecpConnection.ConnectNamedPipeAsync(@"\\.\pipe\zeroshot-<digest>", cancellationToken: ct);
+```
+
+`ConnectNamedPipeAsync` is Windows-only and returns the same NDJSON `OecpConnection`
+as `ConnectUnixAsync`, with the same framing, cancellation, disconnect, request-ID and
+budget behavior. It takes the exact local `\\.\pipe\<name>` path. A remote
+`\\server\pipe\` path, or a name Windows would canonicalize into a different pipe
+(for example one containing `/` or dot segments), is an `ArgumentException`. Nothing
+derives the name from a state path: native hashes its OS-encoded storage path, and the
+running controller records the result as `socket` in its `controller.ready.json`.
+.NET waits for a missing or busy instance until `ConnectTimeout` (`Deadline`); native's
+client fails immediately.
+
+Before anything is sent the connection applies native's client check to the pipe's
+raw security descriptor: the owner is the user of this process's token (never a
+thread's impersonation token), the DACL is present and non-null, and every ACE is an
+access-allowed ACE for that user or SYSTEM. A pipe that fails the check, or denies
+this user access, is closed and `UnauthorizedAccessException` is thrown; it is never
+reported as a `Transport` failure. There is no option to skip the check. The pipe is
+opened with identification-only impersonation, as native's client opens it, so the
+controller cannot impersonate the caller. Native creates its pipes rejecting remote
+clients. `NativeAttempt.Origin` is `file:///` followed by the escaped pipe path, so
+`Uri.UnescapeDataString(origin.AbsolutePath)` returns `/` followed by the path.
+
+A pipe the caller opens itself can be passed to `FromStreamsAsync`, which borrows it
+and performs no security check; validating that pipe is then the caller's
+responsibility.
+
+`NamedPipeConnectionTests` runs only on Windows, in CI on Windows Server 2025 x64 and
+Windows 11 arm64. It uses controlled local pipes created with explicit descriptors.
+One test covers a private pipe carrying OECP until it disconnects. Refused cases,
+one per native rule, each close the pipe before any request: a foreign owner, a
+null DACL, an allowed foreign trustee, a non-allowed ACE, and a pipe that denies the
+user. Other tests cover owned closure, borrowed-pipe reuse, remote and non-canonical
+path refusal, and connect cancellation and deadline. These are simulated endpoints.
+Native conformance is recorded separately by
+`tools/native-witness/windows-controller.ps1` on Windows x64, the only Windows
+architecture native 10.9.0 ships. The packed `ControllerConsumer` runs against a stock
+local-run controller's pipe and checks the same support and refusal matrix as the
+Unix witness.

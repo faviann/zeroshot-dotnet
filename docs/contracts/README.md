@@ -33,8 +33,9 @@ a target restart. A native setup hook supplies safe logs and a controlled termin
 setup failure without provider credentials. Both server-close cursors and last
 caller-delivered cursors remain available independently.
 
-`oecpStreamBindings` in `coverage.json` records the NDJSON stream and Unix controller
-bindings; see [stream and Unix controller connections](../oecp/README.md#ndjson-streams-and-unix-controllers).
+`oecpStreamBindings` in `coverage.json` records the NDJSON stream, Unix controller and
+Windows controller-pipe bindings; see [stream and Unix controller connections](../oecp/README.md#ndjson-streams-and-unix-controllers)
+and [Windows controller pipes](../oecp/README.md#windows-controller-pipes).
 `examples/ControllerConsumer` exercises them against a stock local-run controller.
 
 `Contracts/Connections.cs` maps hosted connection-management requests, summaries
