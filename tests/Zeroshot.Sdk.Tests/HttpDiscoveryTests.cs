@@ -205,6 +205,18 @@ public sealed class HttpDiscoveryTests
     }
 
     [Test]
+    public async Task ResponseCleanupFailureDoesNotEraseValidatedDiscovery()
+    {
+        using var handler = new Handler((request, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request, Content = new StreamContent(new FailingDisposeStream(Encoding.UTF8.GetBytes(Direct)))
+        }));
+        using var http = new HttpClient(handler);
+        using var native = NativeClient.ForHttp(Options(), http);
+        Check((await native.Target.DiscoverAsync()).Authentication == TargetAuthentication.None);
+    }
+
+    [Test]
     public async Task ChangedResponseUrlIsRejectedEvenForOpaqueHandlers()
     {
         using var handler = new Handler((request, _) =>
@@ -296,5 +308,13 @@ public sealed class HttpDiscoveryTests
     {
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         { await Task.Delay(Timeout.Infinite, cancellationToken); return 0; }
+    }
+    private sealed class FailingDisposeStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            throw new IOException("Untrusted cleanup detail.");
+        }
     }
 }

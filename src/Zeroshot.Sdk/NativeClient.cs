@@ -60,9 +60,10 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
     {
         var operation = NativeTargetClient.DiscoveryOperation;
         var lease = executor.RegisterHttpConnection(operation, Origin);
-        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        Socket? socket = null;
         try
         {
+            socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
             // HttpClient owns pooling/TLS; this lease follows the physical socket, including idle pooling.
             if (connection.InitialRequestMessage.Options.TryGetValue(ContextKey, out var context))
                 await context.ConnectAsync(async ct =>
@@ -73,12 +74,15 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
             else await socket.ConnectAsync(connection.DnsEndPoint, token).ConfigureAwait(false);
             return new LeasedNetworkStream(socket, lease);
         }
-        catch { socket.Dispose(); lease.Dispose(); throw; }
+        catch { socket?.Dispose(); lease.Dispose(); throw; }
     }
 
     internal async Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        var responseGate = new object();
+        HttpResponseMessage? ownedResponse = null;
+        var cleanupStarted = false;
         try
         {
             return await executor.ExecuteAsync(NativeTargetClient.DiscoveryOperation, 0, async context =>
@@ -89,10 +93,19 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
                     Version = HttpVersion.Version11, VersionPolicy = HttpVersionPolicy.RequestVersionExact
                 };
                 request.Options.Set(ContextKey, context);
-                using var response = await SendAsync(request, context).ConfigureAwait(false);
+                var response = await SendAsync(request, context).ConfigureAwait(false);
+                bool retained;
+                lock (responseGate)
+                {
+                    retained = !cleanupStarted;
+                    if (retained) ownedResponse = response;
+                }
+                // A supplied handler can allocate after cancellation and cleanup. Close that late result too.
+                if (!retained) response.Dispose();
+                context.ThrowIfCancelled();
                 if (response.RequestMessage?.RequestUri != requestUri || (int)response.StatusCode is >= 300 and < 400)
                     throw context.Failure(OperationFailureKind.Redirect, OperationStage.Response, statusCode: response.StatusCode);
-                await using var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
+                var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
                 var bytes = await context.ReadResponseAsync(stream, response.IsSuccessStatusCode ? null : limits.DiagnosticBytes).ConfigureAwait(false);
                 if (response.StatusCode != HttpStatusCode.OK)
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
@@ -102,7 +115,17 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
                 if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller")
                     throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response);
                 return discovery;
-            }, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }, cleanup: _ => Task.Run(() =>
+            {
+                HttpResponseMessage? response;
+                lock (responseGate)
+                {
+                    cleanupStarted = true;
+                    response = ownedResponse;
+                    ownedResponse = null;
+                }
+                response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
+            }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (OperationFailure failure) { throw new NativeHttpException(failure); }
     }
