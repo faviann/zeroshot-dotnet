@@ -1,4 +1,4 @@
-# Direct HTTP discovery
+# Target HTTP discovery and session authority
 
 `NativeClient.ForHttp(new NativeClientOptions { Origin = origin })` creates a native
 client for an existing target. `await client.Target.DiscoverAsync(ct)` returns
@@ -31,7 +31,8 @@ or assert that any capability is supported by the target.
 requests with four reserved control slots, eight HTTP connections per origin,
 4 MiB request / 8 MiB response / 64 KiB error-body bounds. All settings are positive
 and finite; reserved slots must leave ordinary capacity. Discovery consumes ordinary
-request capacity. It has no body, so its encoded request-body size is zero. Size
+request capacity; session acquisition can use the reserved control slots. Discovery
+has no body, so its encoded request-body size is zero. Size
 checks count received bytes independently of Content-Length, including a one-byte
 overflow probe; they do not truncate a discovery document. Error bodies use the
 smaller response/error ceiling. The default transport uses HTTP/1.1 and registers
@@ -77,7 +78,7 @@ as long as `RequestTimeout`; a shorter setting is rejected before contact.
 
 An arbitrary HttpClient conceals its handler. Supplying one explicitly asserts
 that its entire handler chain preserves certificate/hostname validation, never
-follows redirects or downgrades, bounds actual connections per origin and connection
+follows redirects or downgrades, never injects authentication, bounds actual connections per origin and connection
 setup at the configured ceilings, honors cancellation, and accurately reports the
 requested response URL. Custom handlers must enforce the same physical connection
 lifetime accounting as the supported bounded pool. The SDK cannot inspect or repair
@@ -88,4 +89,63 @@ into an incompatible configuration after construction.
 
 Unit/integration coverage is in `HttpDiscoveryTests.cs`. The separate
 [`stock native witness`](../../tools/native-witness/README.md) exercises real native
-GET discovery and its fixed-route HEAD 404 refusal, then runs a fresh package consumer.
+GET discovery, its fixed-route HEAD 404 refusal and direct session acquisition, then
+runs a fresh packed-package discovery/session consumer.
+
+## Session acquisition
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var session = await native.Target.CreateOecpSessionAsync(discovery,
+    new TargetOecpSessionRequest { RunId = new RunId("0195af77-1000-7000-8000-000000000001") },
+    credentials: new TargetControlCredentials(TargetAuthentication.HostedOauth, currentControlBearer));
+// session.Endpoint and session.BearerToken are the returned OECP authority.
+```
+
+Pass the discovery document explicitly. The binding makes one JSON POST to its
+validated `sessionPath`, with no implicit rediscovery, retry, credential store or
+refresh. Omit the request or its run selector to send `{}`; a supplied selector must
+be a canonical UUIDv7. Hosted authorities require the selector for routing and may
+return a refusal when it is absent; the binding preserves that refusal. Direct
+acquisition works without a selector for target-wide operations.
+
+Direct discovery requires no control credentials and a response with no bearer.
+Hosted and private discovery require matching `TargetControlCredentials`; the
+current bearer is sent only in that request's `Authorization: Bearer` header. A
+hosted result carries its separately issued OECP-purpose bearer. A private result
+carries its capability. Both require a valid bearer of 1..16384 ASCII graphic bytes,
+matching the fixed native transport. No returned session bearer becomes a control
+credential. Default HTTP Authorization headers are rejected, and supplied handlers
+must not inject credentials. `TargetOecpSession` remains exact wire data; acquiring
+one does not open a WebSocket. The WebSocket binding must revalidate its authority
+at dial time.
+
+Before sending credentials, the binding validates discovery kind/audience/auth mode
+and canonical same-origin run/session/OECP paths. Paths reject userinfo, variables,
+queries, fragments, whitespace, backslashes, invalid escapes and URL normalization
+that would change their spelling. Internal canonical-URL and literal-template
+compilation helpers preserve capability base paths, require nonempty ASCII literal
+segments and enforce the native 2048-byte template bound. Capability tickets add
+exact variable sets and descriptor requirements; unrelated advertised capability
+strings remain wire data until their binding consumes them. OAuth flows and host
+callback rules are separate bindings.
+
+Received endpoints must use the target's corresponding `wss`/`ws` scheme, host and
+effective port, without userinfo, query, fragment or malformed URL text. The path
+is host-owned; no fixed `/native-v2/oecp` path is imposed on hosted authorities.
+Invalid endpoint or bearer data becomes a `Protocol` failure and is never dialed.
+Any 2xx session response must contain valid strict `TargetOecpSession` JSON; the
+response ceiling is the smaller of 64 KiB and the configured limit. Requests obey
+the smaller of 4 MiB and the configured limit. Error bodies obey the response and
+diagnostic ceilings. Redirects and changed response URLs fail without a resend.
+
+`NativeHttpException.StatusCode` retains a received status, including when the body
+exceeds a bound. `Problem` retains a valid `TargetHttpProblem` with exact code,
+message and optional object details. Its native limits are 128 ASCII code bytes,
+1024 non-control UTF-8 message bytes and 60 KiB serialized details. Malformed problem
+bodies keep the HTTP status without inventing native facts. Remote text, endpoint
+and tokens never appear in default exception, contract or credential formatting;
+explicit `Problem` property inspection and optional raw export can expose them.
+`HttpSessionTests.cs` covers controlled direct/hosted/private behavior, trusted HTTPS,
+WSS authority rules, refusal facts and credential canaries. Live hosted/private
+interoperability is unverified.

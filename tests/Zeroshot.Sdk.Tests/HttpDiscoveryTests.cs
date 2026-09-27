@@ -141,7 +141,7 @@ public sealed class HttpDiscoveryTests
     {
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request)));
         using var http = new HttpClient(handler);
-        foreach (var uri in new[] { "http://example.com", "http://localhost", "http://127.0.0.2", "http://127.1", "http://2130706433", "ftp://target.example", "https://u:p@target.example", "https://target.example/path", "https://target.example/../", "https://target.example/?", "https://target.example/#", "https://target.example/\\path", "/relative" })
+        foreach (var uri in new[] { "http://example.com", "http://localhost", "http://127.0.0.2", "http://127.1", "http://2130706433", "ftp://target.example", "https://u:p@target.example", "https://@target.example", "https://target.example/path", "https://target.example/../", "https://target.example/?", "https://target.example/#", "https://target.example/\\path", "/relative" })
             Invalid(() => NativeClient.ForHttp(Options() with { Origin = new Uri(uri, UriKind.RelativeOrAbsolute) }, http));
         Invalid(() => NativeClient.ForHttp(Options(new() { MaxResponseBytes = 0 }), http));
         Invalid(() => NativeClient.ForHttp(Options(new() { RequestTimeout = TimeSpan.Zero }), http));

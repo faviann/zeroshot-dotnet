@@ -328,14 +328,16 @@
       "id": "http:POST /native-v2/oecp-session",
       "transport": "HTTP",
       "bindingOwnerIssue": 17,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Same control auth. Direct result omits bearer; private result carries capability; hosted authority issues an OECP-purpose bearer. [transport.rs:L325-L379][http-25]",
       "typeClosure": "`TargetOecpSessionRequest` (`{}` or optional canonical UUIDv7 `runId`) -> 200 `TargetOecpSession`; no-store",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L121"
-      }
+        "status": "typed HTTP session binding; deterministic direct/hosted/private authority, trusted HTTPS and WSS endpoint validation, credential-canary, bounds and refusal tests; stock native 10.9.0 direct session acquisition; fresh packed-package consumer. Live hosted/private interoperability unverified.",
+        "inventory": "native-inventory.md#L121",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpSessionTests.cs; examples/DiscoveryConsumer; tools/native-witness/run.sh"
+      },
+      "binding": "NativeClient.Target.CreateOecpSessionAsync"
     },
     {
       "id": "http:GET /native-v2/oecp",

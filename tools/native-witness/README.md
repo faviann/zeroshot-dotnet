@@ -5,7 +5,7 @@ Bash, curl, tar, sha256sum, shuf and ripgrep. It downloads the pinned official s
 release, verifies the archive and extracted executable, and launches a loopback
 native target with a fresh state directory, empty asset working directory and
 scrubbed environment. No user assets, credentials, provider tools or submitted runs
-are used. The library consumer only performs discovery; process management belongs
+are used. The library consumer performs discovery and session acquisition; process management belongs
 to this developer witness.
 
 The harness writes every artifact to a fresh `/tmp/zeroshot-native-witness.*`
@@ -27,12 +27,18 @@ These are release provenance and local execution evidence, not remote executable
 attestation or a reproducible-build claim. Discovery itself publishes no product
 version or checksum.
 
-The harness currently proves GET discovery from the real executable, HEAD 404 on
-the fixed discovery route, and typed direct discovery from a freshly copied external
-consumer using a locally packed `Zeroshot.Client` package and isolated package cache.
-It retains provenance, native logs, raw discovery, HEAD headers, package/restore logs
-and consumer output. Later native binding issues should extend this same harness;
-this witness claims no run submission, OECP, hosted OAuth, or other binding evidence.
+The harness proves GET discovery from the real executable, HEAD 404 on the fixed
+route, and direct POST session acquisition with `Cache-Control: no-store`. A freshly
+copied external consumer uses a locally packed `Zeroshot.Client` package and isolated
+package cache to discover and acquire two sessions: `{}` and an explicit canonical
+UUIDv7 run selector. It checks the returned same-authority `ws` endpoint and absence
+of a bearer. Direct session acquisition does not require the selected run to exist.
+It retains provenance, native logs, raw discovery/session data, response headers,
+package/restore logs and consumer output. Later binding issues extend this harness;
+this witness claims no WebSocket/OECP dispatch, run submission, or live hosted/private
+authority evidence. Hosted/private contracts currently use source-backed controlled
+HTTP peers; HTTPS acquisition uses a temporary trusted certificate in deterministic
+tests, and WSS scheme/authority/port rules are tested without dialing WebSockets.
 
 The wire and dispatch authorities are
 [`native_v2_target.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/crates/openengine-cluster-protocol/src/native_v2_target.rs),

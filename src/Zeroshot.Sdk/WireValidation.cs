@@ -16,10 +16,11 @@ internal static class WireValidation
     internal static void Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
-        if (typeof(DiscoveryContract).IsAssignableFrom(type))
+        if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
         {
             // Required fields, nullability, exact field names and per-type extension strictness.
-            _ = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+            var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+            if (result is TargetHttpProblem problem) problem.Validate();
             CheckDiscovery(value, type);
             return;
         }

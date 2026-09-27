@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
@@ -22,6 +23,8 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         Origin = ValidateOrigin(options.Origin);
+        if (supplied?.DefaultRequestHeaders.Authorization is not null)
+            throw new ArgumentException("Supply credentials per operation, not as HTTP default headers.", nameof(supplied));
         ArgumentNullException.ThrowIfNull(options.Transport);
         limits = options.Transport.Limits();
         if (supplied is not null && supplied.Timeout != Timeout.InfiniteTimeSpan && supplied.Timeout < limits.UnaryTimeout)
@@ -58,14 +61,15 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
 
     private async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext connection, CancellationToken token)
     {
-        var operation = NativeTargetClient.DiscoveryOperation;
+        connection.InitialRequestMessage.Options.TryGetValue(ContextKey, out var context);
+        var operation = context?.Operation ?? NativeTargetClient.DiscoveryOperation;
         var lease = executor.RegisterHttpConnection(operation, Origin);
         Socket? socket = null;
         try
         {
             socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
             // HttpClient owns pooling/TLS; this lease follows the physical socket, including idle pooling.
-            if (connection.InitialRequestMessage.Options.TryGetValue(ContextKey, out var context))
+            if (context is not null)
                 await context.ConnectAsync(async ct =>
                 {
                     using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, token);
@@ -77,21 +81,69 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
         catch { socket?.Dispose(); lease.Dispose(); throw; }
     }
 
-    internal async Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken)
+    internal Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken)
+        => ExecuteJsonAsync<TargetDiscoveryDocument>(NativeTargetClient.DiscoveryOperation, new Uri(Origin, NativeTargetClient.DiscoveryPath),
+            null, null, discovery =>
+            {
+                if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller")
+                    throw new JsonException();
+            }, cancellationToken);
+
+    internal Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
+        TargetOecpSessionRequest request, TargetControlCredentials? credentials, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        ArgumentNullException.ThrowIfNull(discovery);
+        ArgumentNullException.ThrowIfNull(request);
+        // No remote descriptor may influence credential-bearing dispatch until validated.
+        _ = NativeJson.SerializeUtf8(discovery);
+        if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
+            (credentials?.Authentication ?? TargetAuthentication.None) != discovery.Authentication)
+            throw new ArgumentException("Discovery and supplied control authority are incompatible.");
+        _ = NativeRoutes.SameOriginPath(Origin, discovery.RunPath);
+        _ = NativeRoutes.SameOriginPath(Origin, discovery.OecpPath);
+        var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.SessionPath);
+        if (request.RunId is { Value: var id } &&
+            (!Guid.TryParseExact(id, "D", out var guid) || guid.ToString("D") != id || id[14] != '7' || "89ab".IndexOf(id[19]) < 0))
+            throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
+        var bytes = NativeJson.SerializeUtf8(request);
+        return ExecuteJsonAsync(NativeTargetClient.SessionOperation, endpoint, bytes, credentials,
+            (TargetOecpSession session) =>
+            {
+                _ = NativeRoutes.SessionEndpoint(Origin, session.Endpoint);
+                if (discovery.Authentication == TargetAuthentication.None)
+                {
+                    if (session.BearerToken is not null) throw new JsonException();
+                }
+                else TargetControlCredentials.ValidateBearer(session.BearerToken!);
+            }, cancellationToken);
+    }
+
+    private async Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
+        TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
         HttpResponseMessage? ownedResponse = null;
+        TargetHttpProblem? problem = null;
+        HttpStatusCode? receivedStatus = null;
         var cleanupStarted = false;
         try
         {
-            return await executor.ExecuteAsync(NativeTargetClient.DiscoveryOperation, 0, async context =>
+            return await executor.ExecuteAsync(operation, body?.Length ?? 0, async context =>
             {
-                var requestUri = new Uri(Origin, NativeTargetClient.DiscoveryPath);
-                using var request = new HttpRequestMessage(HttpMethod.Get, requestUri)
+                using var request = new HttpRequestMessage(body is null ? HttpMethod.Get : HttpMethod.Post, requestUri)
                 {
                     Version = HttpVersion.Version11, VersionPolicy = HttpVersionPolicy.RequestVersionExact
                 };
+                if (body is not null)
+                {
+                    request.Content = new ByteArrayContent(body);
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                }
+                if (credentials is not null)
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.BearerToken);
                 request.Options.Set(ContextKey, context);
                 var response = await SendAsync(request, context).ConfigureAwait(false);
                 bool retained;
@@ -103,18 +155,27 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
                 // A supplied handler can allocate after cancellation and cleanup. Close that late result too.
                 if (!retained) response.Dispose();
                 context.ThrowIfCancelled();
+                receivedStatus = response.StatusCode;
                 if (response.RequestMessage?.RequestUri != requestUri || (int)response.StatusCode is >= 300 and < 400)
                     throw context.Failure(OperationFailureKind.Redirect, OperationStage.Response, statusCode: response.StatusCode);
                 var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
                 var bytes = await context.ReadResponseAsync(stream, response.IsSuccessStatusCode ? null : limits.DiagnosticBytes).ConfigureAwait(false);
-                if (response.StatusCode != HttpStatusCode.OK)
+                if (!response.IsSuccessStatusCode)
+                {
+                    try { problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes); }
+                    catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
-                TargetDiscoveryDocument discovery;
-                try { discovery = NativeJson.DeserializeUtf8<TargetDiscoveryDocument>(bytes); }
-                catch (JsonException) { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response); }
-                if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller")
-                    throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response);
-                return discovery;
+                }
+                if (operation == NativeTargetClient.DiscoveryOperation && response.StatusCode != HttpStatusCode.OK)
+                    throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, statusCode: response.StatusCode);
+                try
+                {
+                    var result = NativeJson.DeserializeUtf8<T>(bytes);
+                    validate(result);
+                    return result;
+                }
+                catch (Exception error) when (error is JsonException or ArgumentException)
+                { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
             }, cleanup: _ => Task.Run(() =>
             {
                 HttpResponseMessage? response;
@@ -127,11 +188,13 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
                 response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationFailure failure) { throw new NativeHttpException(failure); }
+        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus); }
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, OperationContext context)
     {
+        if (http.DefaultRequestHeaders.Authorization is not null)
+            throw new ArgumentException("Supply credentials per operation, not as HTTP default headers.");
         try
         {
             return await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead,
@@ -156,7 +219,7 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
         var raw = origin.OriginalString;
         // Inspect original text too: System.Uri normalizes dot segments, backslashes and short IP forms.
         if (!origin.IsAbsoluteUri || raw.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)) || raw.Contains('\\') ||
-            !string.IsNullOrEmpty(origin.UserInfo) || raw.Contains('?') || raw.Contains('#') || origin.AbsolutePath != "/" ||
+            string.IsNullOrEmpty(origin.Host) || raw.Contains('@') || !string.IsNullOrEmpty(origin.UserInfo) || raw.Contains('?') || raw.Contains('#') || origin.AbsolutePath != "/" ||
             (origin.Scheme != "https" && !(origin.Scheme == "http" && origin.Host is "127.0.0.1" or "[::1]")))
             throw new ArgumentException("An HTTPS origin or numeric loopback HTTP origin without credentials, path, query or fragment is required.", nameof(origin));
         var authorityEnd = raw.IndexOf('/', raw.IndexOf("://", StringComparison.Ordinal) + 3);
@@ -194,8 +257,16 @@ public sealed class NativeTargetClient
 {
     internal const string DiscoveryPath = "/.well-known/zeroshot-native-v2";
     internal static readonly OperationDescriptor DiscoveryOperation = new("target.discover", OperationTransport.Http);
+    internal static readonly OperationDescriptor SessionOperation = new("target.createOecpSession", OperationTransport.Http, isControl: true,
+        requestBytes: 4 * 1024 * 1024, responseBytes: 64 * 1024);
     private readonly NativeClient client;
     internal NativeTargetClient(NativeClient client) => this.client = client;
     public Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken = default)
         => client.DiscoverAsync(cancellationToken);
+
+    /// <summary>Obtains one session with explicitly supplied discovery and current control authority; never refreshes credentials.</summary>
+    public Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
+        TargetOecpSessionRequest? request = null, TargetControlCredentials? credentials = null,
+        CancellationToken cancellationToken = default)
+        => client.CreateOecpSessionAsync(discovery, request ?? new(), credentials, cancellationToken);
 }

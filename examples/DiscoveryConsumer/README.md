@@ -1,6 +1,9 @@
 This standalone .NET 10 consumer references the packed `Zeroshot.Client` NuGet
-package, with no project reference or SDK build assertion. It only reads discovery
-from an existing target. The consuming process needs neither Python nor a native
+package, with no project reference or SDK build assertion. It reads discovery and
+acquires direct OECP sessions, both without a run selector and with a canonical
+UUIDv7 selector, from an existing target. It verifies the same-authority `ws`/`wss`
+endpoint and absence of session bearers. Acquiring a direct session does not submit
+or create the selected run. The consuming process needs neither Python nor a native
 executable. `tools/native-witness/run.sh` packs the library, copies this project to
 a fresh directory, restores from an isolated package cache, and runs it against
 an independently launched stock native target.

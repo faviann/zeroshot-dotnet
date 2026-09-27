@@ -4,6 +4,7 @@ internal sealed class OperationContext(OperationDescriptor operation, Guid corre
     OperationDeadline deadline, TimeProvider time)
 {
     private readonly List<Task> connections = [];
+    internal OperationDescriptor Operation => operation;
     public CancellationToken CancellationToken => deadline.Token;
     public Guid CorrelationId => correlationId;
     public TimeSpan Remaining => deadline.Remaining;
