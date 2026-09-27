@@ -228,9 +228,12 @@ Outcomes follow the shared attempt model:
 | Outcome | Evidence |
 | --- | --- |
 | `Acknowledged` | A validated response. It wins if caller cancellation lands after validation. |
-| `NotSent` | Sending never started: admission, cancellation, request size or a closed connection. |
+| `NotSent` | Sending never started: admission, cancellation, request size, or the connection closing between request creation and send. |
 | `Rejected` | Native refused before any force effect: `-32601`, `-32602`/`SCHEMA_VIOLATION`, `-32600`/`DUPLICATE_REQUEST_ID`, `-32000`/`SERVER_BUSY` or `-32000`/`NOT_FOUND`. |
 | `Unknown` | Anything else after sending started: lost reply, deadline, cancellation, disconnect, malformed, foreign or oversized reply, internal error, `SOURCE_UNAVAILABLE` or another code. |
+
+A connection whose `Completion` has already finished throws `ObjectDisposedException`
+from `ForceAsync`, like every other call on it, instead of returning an attempt.
 
 `Failure` retains the `NativeOecpException` or `OecpOperationCanceledException`
 with its dispatch facts, RPC codes and correlation ID. A lost reply or dropped

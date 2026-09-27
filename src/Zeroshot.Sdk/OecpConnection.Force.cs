@@ -14,7 +14,8 @@ public sealed partial class OecpRunsClient
         return ForceAsync(runId, request, null, cancellationToken);
     }
 
-    // afterCapture lets tests place cancellation between capture and operation completion.
+    // afterCapture lets tests place cancellation between capture and operation completion. That placement is
+    // deterministic only because the cancelled WaitAsync continuation runs inline during Cancel().
     internal async Task<NativeAttempt<RunForceResult>> ForceAsync(RunId runId, OecpRequest? request,
         Action? afterCapture, CancellationToken cancellationToken)
     {
