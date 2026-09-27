@@ -131,8 +131,8 @@ retained submission bytes, package/restore logs and all consumer outputs. Observ
 evidence includes `observation-request.json`, original `observation-logs.json` and
 `observation-watch.json` records, `observation-live.json` establishment and delivery
 evidence, `observation-before-restart.json`, `observation-after-restart.json`, and
-native logs/PIDs for both target starts. Live hosted/private authorities, provider success
-and populated workspace recovery remain unverified. Hosted/private contracts currently use source-backed controlled
+native logs/PIDs for both target starts. Live hosted/private authorities and provider success
+remain unverified. Hosted/private contracts currently use source-backed controlled
 HTTP peers; HTTPS acquisition uses a temporary trusted certificate in deterministic
 tests, and WSS scheme/authority/port rules are tested without dialing WebSockets.
 
@@ -192,6 +192,25 @@ is a rejected `NOT_FOUND` attempt. `force.json` retains the active status, the
 acknowledgement, every history record, terminal status and both follow-up attempts.
 This proves native force against a controlled execution, not physical-cessation
 guarantees, provider service behavior or hosted force routes.
+
+`recovery.sh` then reuses the same target and sets a gate that makes the
+controlled provider fail each worker after checkout. The sixth packed consumer
+admits a derived request under its own run ID and submission key. Native records
+`worker_failed` and retains a recoverable workspace, so `RecoveryConsumer` can
+exercise the following on real native storage:
+
+- A first checkpoint page with limit 1 matching the default page.
+- A latest-workspace resume and a checkpoint resume. Each admits a successor with
+  fresh connection values, and the source and successor statuses link them.
+- A repeated resume of the source, which is `Unknown` and admits nothing.
+- Discard and repeated discard.
+- The refusals reachable on a direct target.
+
+A force-stopped workspace is disposed by native and is not resumable.
+`recovery.json` retains every status, checkpoint page, attempt and RPC error.
+This does not claim that provider execution succeeds, and it does not cover
+hosted recovery routes or live `INVALID_PHASE`, which needs a target without
+recovery support.
 
 `private.sh` then stops that target and starts a separate private-mode target on the
 same port with fresh storage. Native selects private mode only when
