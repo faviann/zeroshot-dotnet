@@ -31,6 +31,7 @@ internal static class WireValidation
             if (result is TargetHttpProblem problem) problem.Validate();
             if (result is TargetRunCredentials credentials) credentials.Validate();
             if (result is ConnectionSetRequest connection) StaticConnectionValues.Validate(connection.Values);
+            if (result is TargetPrivateBootstrapRequest bootstrap) bootstrap.Validate();
             if (result is TargetRunRequest request)
             {
                 TargetRunRequest.ValidateRunId(request.RunId);

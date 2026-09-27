@@ -26,6 +26,27 @@ public sealed record TargetOecpSession : TargetHttpContract
 }
 
 /// <summary>
+/// A caller-prepared AES-256-GCM envelope for a private target (native private_access.rs): a 12-byte
+/// nonce and the 64-byte token plus 16-byte tag, each lowercase hex. The client never encrypts it.
+/// </summary>
+public sealed record TargetPrivateBootstrapRequest : TargetHttpContract
+{
+    [JsonPropertyName("nonce")]
+    public required string Nonce { get; init; }
+    [JsonPropertyName("ciphertext")]
+    public required string Ciphertext { get; init; }
+
+    // Native rejects any other envelope before decryption; it is never sent.
+    internal void Validate()
+    {
+        if (!IsLowerHex(Nonce, 12) || !IsLowerHex(Ciphertext, 64 + 16)) throw new JsonException();
+    }
+
+    private static bool IsLowerHex(string value, int bytes) =>
+        value.Length == bytes * 2 && value.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f');
+}
+
+/// <summary>
 /// A refusal from a direct target's UI router (native profile_ui.rs ApiError): <c>{code,message}</c>.
 /// Its message is unconstrained native text, bounded only by the operation's problem-body limit, and can
 /// carry admission detail; inspect it explicitly.
