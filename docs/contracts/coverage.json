@@ -284,14 +284,18 @@
       "id": "oecp:run/force",
       "transport": "OECP",
       "bindingOwnerIssue": 23,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Records force intent; idempotent per run. Same projection shape as status, potentially `stopping`, so response is not necessarily terminal or proof of cleanup completion. [Observation types][observation], [controller force][cloud-force]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
-      "typeClosure": "`RunForceParams {runId}` \u2192 `RunForceResult`",
+      "typeClosure": "`RunForceParams {runId}` \u2192 `RunForceResult {runId, title, source, size, atCursor, status, workspaceRecovery?}` (same projection as status; `stopping` or `finished`)",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L63"
-      }
+        "status": "complete one-send control binding returning NativeAttempt<RunForceResult> with pre-effect refusal classification and unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L63",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ForceTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh, force.sh and examples/ForceConsumer: stock 10.9.0 controlled active execution, acknowledged force with recorded phase, durable stopping history before force_stopped terminal history/status, acknowledged repeated force and unknown-run NOT_FOUND rejection",
+        "limitations": "No retry, waiting composition or physical-cessation guarantee. Stock native normally acknowledges after cleanup with a terminal status; a stopping acknowledgement is covered by deterministic fixtures. Hosted HTTP force and live hosted/private authorities remain unverified."
+      },
+      "binding": "OecpConnection.Runs.ForceAsync"
     },
     {
       "id": "oecp:run/checkpoints",

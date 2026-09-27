@@ -1,4 +1,4 @@
-# WebSocket OECP inspection and subscriptions
+# WebSocket OECP inspection, subscriptions and force
 
 The lower client connects to an existing acquired session and makes individual,
 bounded calls. It does not start native processes or retry failed operations.
@@ -203,3 +203,54 @@ interruption and distinct refusals. The stock Linux witness's packed
 `AttachmentConsumer` uses a controlled provider execution and real Git checkout
 inside a private mount namespace. It proves native working/output/settled delivery,
 cursorless close and the actual inactive/unknown refusals.
+
+## One native force request
+
+```csharp
+var attempt = await oecp.Runs.ForceAsync(runId, cancellationToken: cancellationToken);
+if (attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Response: var acknowledged })
+    Inspect(acknowledged!.Status); // StoppingRunStatus or FinishedRunStatus
+```
+
+`ForceAsync` sends exactly one native `run/force` for the exact run and returns a
+`NativeAttempt<RunForceResult>`. It never retries, waits for termination or reads
+status. The acknowledged `RunForceResult` is the complete native projection: run
+identity, title, source, size, cursor, status and optional workspace recovery. It
+must name the requested run. A `stopping` acknowledgement is not terminal, and
+neither form proves that all physical activity has ceased. Stock native usually
+awaits runtime cleanup before replying, so its acknowledgement can already contain
+the `force_stopped` terminal result; durable watch history still records the
+intermediate `stopping` projection. Forcing a terminal run is acknowledged with its
+existing status.
+
+Outcomes follow the shared attempt model:
+
+| Outcome | Evidence |
+| --- | --- |
+| `Acknowledged` | A validated response. It wins if caller cancellation lands after validation. |
+| `NotSent` | Sending never started: admission, cancellation, request size, or the connection closing between request creation and send. |
+| `Rejected` | Native refused before any force effect: `-32601`, `-32602`/`SCHEMA_VIOLATION`, `-32600`/`DUPLICATE_REQUEST_ID`, `-32000`/`SERVER_BUSY` or `-32000`/`NOT_FOUND`. |
+| `Unknown` | Anything else after sending started: lost reply, deadline, cancellation, disconnect, malformed, foreign or oversized reply, internal error, `SOURCE_UNAVAILABLE` or another code. |
+
+A connection whose `Completion` has already finished throws `ObjectDisposedException`
+from `ForceAsync`, like every other call on it, instead of returning an attempt.
+
+`Failure` retains the `NativeOecpException` or `OecpOperationCanceledException`
+with its dispatch facts, RPC codes and correlation ID. A lost reply or dropped
+waiter can follow a real stop: native completes force after its waiter is dropped.
+Cancellation after sending uses the same cooperative `$/cancelRequest` cleanup as
+other unary calls; that notification is not a force request and rolls nothing back.
+
+Force is a control operation. It uses the client's reserved control request
+capacity, so ordinary calls filling their share cannot block it. It can share a
+connection with active subscriptions, whose observation budgets do not consume
+request capacity. Native's per-connection task limit still applies and returns
+`SERVER_BUSY`.
+
+`ForceTests` covers the exact request, complete stopping/terminal acknowledgements,
+the refusal table, one-send unknown outcomes for each fault, pre-send cancellation,
+acknowledgement capture across cancellation and control admission. The stock Linux
+witness's packed `ForceConsumer` forces an active controlled execution, records the
+acknowledged phase, then verifies durable `stopping` history, the `force_stopped`
+terminal record and status, an acknowledged repeated force and unknown-run
+`NOT_FOUND`.

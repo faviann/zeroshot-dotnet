@@ -427,6 +427,64 @@
       ],
       "type": "object"
     },
+    "RunForceParams": {
+      "additionalProperties": false,
+      "description": "Requests the MVP's only stop mode: force. Repeated requests are idempotent at the run ledger.",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunForceResult": {
+      "additionalProperties": false,
+      "description": "The durable run status after recording the force request.",
+      "properties": {
+        "atCursor": {
+          "description": "Durable cursor after the force request was recorded.",
+          "type": "string"
+        },
+        "runId": {
+          "description": "Public identity of the run whose force request was recorded.",
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/RunSize",
+          "description": "Immutable execution size selected for the run."
+        },
+        "source": {
+          "$ref": "#/$defs/ResolvedSource",
+          "description": "Immutable repository snapshot captured when the run was admitted."
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus",
+          "description": "Public phase projected after the force request was recorded."
+        },
+        "title": {
+          "description": "Immutable title captured when the run was admitted.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "workspaceRecovery": {
+          "$ref": "#/$defs/WorkspaceRecovery"
+        }
+      },
+      "required": [
+        "runId",
+        "title",
+        "source",
+        "size",
+        "atCursor",
+        "status"
+      ],
+      "type": "object"
+    },
     "RunListParams": {
       "additionalProperties": false,
       "description": "The MVP inventory has no filters or pagination controls.",

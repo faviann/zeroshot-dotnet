@@ -192,6 +192,34 @@ public sealed record RunStatusResult : NativeContract
     public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
 }
 
+[WireContract("RunForceParams")]
+public sealed record RunForceParams : NativeContract
+{
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+}
+
+/// <summary>The status projected after native recorded force. Stopping is not terminal.</summary>
+[WireContract("RunForceResult")]
+public sealed record RunForceResult : NativeContract
+{
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+    [JsonPropertyName("title")]
+    public required RunTitle Title { get; init; }
+    [JsonPropertyName("source")]
+    public required ResolvedSource Source { get; init; }
+    [JsonPropertyName("size")]
+    public required RunSize Size { get; init; }
+    [JsonPropertyName("atCursor")]
+    public required Cursor AtCursor { get; init; }
+    [JsonPropertyName("status")]
+    public required RunStatus Status { get; init; }
+    [JsonPropertyName("workspaceRecovery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
+}
+
 /// <summary>Native run status. Finished status contains exactly one terminal result.</summary>
 [WireContract("RunStatus")]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "phase")]

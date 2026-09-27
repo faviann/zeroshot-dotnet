@@ -7,7 +7,7 @@ using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
-/// <summary>One owned WebSocket, multiplexing bounded OECP calls and subscriptions. No retries, recovery or native stop.</summary>
+/// <summary>One owned WebSocket, multiplexing bounded OECP calls and subscriptions. No retries, recovery or implicit native stop.</summary>
 public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
 {
     public const string ProtocolVersion = "openengine.cluster/v1";
@@ -32,9 +32,12 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>Completes with a safe failure on interruption, or null on explicit disposal.</summary>
     public Task<OecpConnectionFailure?> Completion => completion.Task;
 
-    internal OecpConnection(ClientWebSocket socket, HttpMessageInvoker invoker, IDisposable lease,
+    internal Uri Origin { get; }
+
+    internal OecpConnection(Uri origin, ClientWebSocket socket, HttpMessageInvoker invoker, IDisposable lease,
         OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released)
     {
+        Origin = origin;
         this.socket = socket; this.invoker = invoker; this.lease = lease; this.executor = executor;
         this.limits = limits; this.released = released;
         this.observations = observations;
@@ -76,7 +79,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     }
 
     internal async Task<T> CallAsync<T>(string method, byte[] parameters, Action<T>? validate, CancellationToken cancellationToken, OecpRequest? request = null,
-        Action<T>? register = null)
+        Action<T>? register = null, bool control = false, Action<Guid, T>? onResponse = null)
     {
         request ??= CreateRequest();
         var id = request.Claim(this);
@@ -94,7 +97,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         JsonRpcError? rpcError = null;
         try
         {
-            return await executor.ExecuteAsync(new(method, OperationTransport.Oecp), bytes.Length, async context =>
+            return await executor.ExecuteAsync(new(method, OperationTransport.Oecp, control), bytes.Length, async context =>
             {
                 lock (gate)
                 {
@@ -117,6 +120,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                         }
                         var result = NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(response.GetProperty("result").GetRawText()));
                         validate?.Invoke(result);
+                        onResponse?.Invoke(context.CorrelationId, result);
                         return result;
                     }
                     catch (Exception error) when (error is JsonException or ArgumentException)
