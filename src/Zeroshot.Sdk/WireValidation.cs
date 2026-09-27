@@ -16,6 +16,13 @@ internal static class WireValidation
     internal static void Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
+        if (typeof(DiscoveryContract).IsAssignableFrom(type))
+        {
+            // Required fields, nullability, exact field names and per-type extension strictness.
+            _ = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+            CheckDiscovery(value, type);
+            return;
+        }
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         if (name is null)
         {
@@ -30,6 +37,29 @@ internal static class WireValidation
         }.ToJsonString()));
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
+    }
+
+    private static void CheckDiscovery(JsonElement value, Type type)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in value.EnumerateObject())
+            {
+                var member = type.GetProperties().FirstOrDefault(p =>
+                    p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>()?.Name == property.Name);
+                // In the extension container, unknown names and all their content are ignored by native.
+                if (member is null) continue;
+                if (!names.Add(property.Name)) throw new JsonException();
+                CheckDiscovery(property.Value, member.PropertyType);
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+            foreach (var item in value.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Null) throw new JsonException();
+                CheckDiscovery(item, typeof(string));
+            }
     }
 
     private static JsonObject LoadDefinitions()

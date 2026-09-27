@@ -301,13 +301,14 @@
       "id": "http:GET /.well-known/zeroshot-native-v2",
       "transport": "HTTP",
       "bindingOwnerIssue": 16,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "No auth required; nonempty body falls through to 404. [transport.rs:L260-L275][http-21]",
       "typeClosure": "Empty body -> 200 `TargetDiscoveryDocument`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L119"
+        "status": "typed HTTP binding; local bounds/ownership/security tests; stock native 10.9.0 discovery and fixed-route HEAD refusal; fresh packed-package consumer",
+        "inventory": "native-inventory.md#L119",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpDiscoveryTests.cs; examples/DiscoveryConsumer; tools/native-witness/run.sh"
       }
     },
     {

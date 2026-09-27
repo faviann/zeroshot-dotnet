@@ -1,0 +1,27 @@
+{
+  "kind": "zeroshot.native-v2-target/v2",
+  "authentication": "hosted_oauth",
+  "runPath": "/native-v2/run", "sessionPath": "/native-v2/oecp-session",
+  "oecpPath": "/native-v2/oecp", "audience": "controller",
+  "privateBootstrapPath": "/native-v2/private-bootstrap",
+  "oauth": {
+    "metadataUrl": "https://target.example/.well-known/oauth-authorization-server",
+    "deviceAuthorizationEndpoint": "https://target.example/oauth/device",
+    "tokenEndpoint": "https://target.example/oauth/token",
+    "revocationEndpoint": "https://target.example/oauth/revoke",
+    "clientId": "zeroshot", "deviceGrantType": "urn:ietf:params:oauth:grant-type:device_code",
+    "deviceExchangeFields": ["device_token", "device_label"]
+  },
+  "loginSession": {"routeTemplate":"/login{?device_token,device_label}", "method":"GET", "cachePolicy":"no-store"},
+  "extensions": {
+    "hosted_runs": {"kind":"zeroshot.hosted-runs/v1", "base_url":"https://target.example/api", "route_templates":{"list":"/runs", "status":"/runs/{run_id}", "watch":"/runs/{run_id}/watch{?from_cursor}", "logs":"/runs/{run_id}/logs{?from_cursor,execution}", "force":"/runs/{run_id}/force"}},
+    "hosted_workspace_recovery": {"kind":"openengine.hosted-workspace-recovery/v1", "route_templates":{"resume":"/runs/{run_id}/resume", "checkpoints":"/runs/{run_id}/checkpoints", "discard_workspace":"/runs/{run_id}/discard"}},
+    "run_history": {"kind":"zeroshot.run-history/v1", "baseUrl":"https://target.example/history", "routeTemplates":{"list":"/runs{?after}", "detail":"/runs/{run_id}", "page":"/runs/{run_id}/page{?after}"}},
+    "connections": {"kind":"zeroshot.connections/v1", "baseUrl":"https://target.example/connections", "routeTemplates":{"list":"/list", "set":"/set", "delete":"/delete", "resolve":"/resolve"}, "dynamicKinds":["custom-provider"]},
+    "run_profiles": {"kind":"zeroshot.run-profiles/v1", "baseUrl":"https://target.example/profiles", "routeTemplates":{"list":"/list", "show":"/show", "set":"/set", "delete":"/delete", "default":"/default", "run":"/run"}},
+    "merge_plans": {"kind":"zeroshot.merge-plans/v1", "baseUrl":"https://target.example/plans", "routeTemplates":{"create":"/create", "status":"/plans/{plan_id}", "force":"/plans/{plan_id}/force"}},
+    "workspace_recovery": {"kind":"openengine.workspace-recovery/v1"},
+    "workspace_checkpoints": {"kind":"openengine.workspace-checkpoints/v1"},
+    "future_extension": {"arbitrary":[null,42,{"value":true}]}
+  }
+}

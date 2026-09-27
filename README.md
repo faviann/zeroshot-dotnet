@@ -2,10 +2,11 @@
 
 `Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.9.0** at source
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
-definitions, local wire validation, and immutable credential-free prepared
-submissions. An [internal operation seam](docs/execution/README.md) supplies bounded deadlines,
-resource admission and safe failures for future bindings. Transport bindings and
-SDK run workflows remain explicitly unimplemented in the [coverage manifest](docs/contracts/coverage.json).
+definitions, local wire validation, immutable credential-free prepared submissions,
+and [bounded HTTP discovery](docs/http/README.md) of existing targets. An
+[internal operation seam](docs/execution/README.md) supplies deadlines, resource
+admission and safe failures. Remaining transport bindings and SDK run workflows
+are tracked in the [coverage manifest](docs/contracts/coverage.json).
 
 Public namespaces are `Zeroshot`, `Zeroshot.Native` and
 `Zeroshot.Native.Contracts`. The scaffold project path remains `src/Zeroshot.Sdk`;
@@ -24,6 +25,8 @@ explicit serialization/export remains the caller's responsibility.
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
 | `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
+| `examples/DiscoveryConsumer` | Direct discovery using the packed library, without an SDK build assertion. |
+| `tools/native-witness/run.sh` | Independently runnable stock-native Linux x64 discovery witness. |
 
 Install a .NET 10 SDK, then run:
 
