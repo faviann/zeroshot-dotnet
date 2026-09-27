@@ -117,5 +117,5 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.datase
 el('reset').onclick=()=>{step=0;state=fresh();draw();};
 draw();
 </script></main></body></html>`;
-fs.writeFileSync(path.join(directory, 'index.html'), html);
-console.log('Wrote self-contained index.html (' + Buffer.byteLength(html) + ' bytes).');
+fs.writeFileSync(path.join(directory, 'reference.html'), html);
+console.log('Wrote self-contained reference.html (' + Buffer.byteLength(html) + ' bytes).');

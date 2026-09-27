@@ -1,5 +1,7 @@
 # .NET usage prototype — draft for discussion
 
+Start with [one ordinary run](index.html). This document is the background reference; its sections can be reviewed separately.
+
 Naming review: the user proposed `Zeroshot.Client`, root namespace `Zeroshot`, `ZeroshotClient` and `Zeroshot.Native.NativeClient`. After discussing coexistence with native tooling, the user selected `zeroshot-dotnet` for the CLI. The rest of this draft remains open for feedback.
 
 **Disposable design sketch.** These C# APIs and CLI commands are proposed, not implemented. No request is sent by this artifact. The browser walkthrough simulates the already selected lifecycle so that the calls, results and evidence can be reviewed together. It is not a conformance witness.

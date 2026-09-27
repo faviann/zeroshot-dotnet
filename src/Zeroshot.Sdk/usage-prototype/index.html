@@ -1,375 +1,87 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Zeroshot .NET — usage prototype</title>
-<style>
-:root{color-scheme:light;--ink:#18312b;--muted:#5d6f68;--accent:#17694f;--line:#d6dfd7;--paper:#fafbf7;--soft:#eaf1e9}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,sans-serif}main{max-width:1360px;margin:auto;padding:38px 26px}h1{font-size:clamp(27px,4vw,43px);line-height:1.1;margin:12px 0 20px;letter-spacing:-1px}h2{font-size:22px}h3{font-size:18px}p{max-width:100ch}a{color:var(--accent)}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:700}.intro{max-width:980px;color:var(--muted)}.badges{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 28px}.badge{background:var(--soft);border:1px solid var(--line);padding:6px 10px;border-radius:5px;font-size:13px}.layout{display:grid;grid-template-columns:325px 1fr;gap:28px;align-items:start}.panel{background:white;border:1px solid var(--line);border-radius:8px;padding:20px;min-width:0}.state{position:sticky;top:16px}.state h2{margin-top:0}dl{margin:0}dt{font-size:12px;color:var(--muted);margin-top:14px}dd{margin:2px 0;word-break:break-word;font-weight:600;font-size:14px}.notice{border-left:3px solid var(--accent);padding:10px 14px;background:var(--soft);margin:18px 0;min-height:54px}.tabs,.buttons{display:flex;gap:7px;flex-wrap:wrap}button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink);padding:8px 11px;font-size:13px}button:hover{border-color:var(--accent)}button:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #e1a42b;outline-offset:3px}button[aria-selected=true],button.primary{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}.steps{padding-left:22px}.steps li{margin:10px 0}.steps button{display:block;margin-top:5px}pre{overflow:auto;background:#142b25;color:#e8f1e7;border-radius:5px;padding:17px;font:12px/1.7 ui-monospace,monospace;tab-size:4}code{font:13px ui-monospace,monospace}p code,td code{background:var(--soft);padding:1px 4px;border-radius:3px}pre code{font:inherit}.code-tabs{margin-top:25px}.secondary{font-size:13px;color:var(--muted)}details{border-top:1px solid var(--line);margin-top:20px;padding-top:14px}summary{cursor:pointer;font-weight:650}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--line);text-align:left;vertical-align:top;padding:9px}th{background:var(--soft)}.table-scroll{overflow:auto;margin:18px 0}.guide{margin-top:30px}.guide h2{margin-top:0}.guide pre{max-height:620px}.free{margin-top:24px}.free p{font-size:13px;color:var(--muted)}footer{margin-top:32px;color:var(--muted);font-size:13px}@media(max-width:800px){main{padding:25px 15px}.layout{grid-template-columns:1fr}.state{position:static}.state dl{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}h1{font-size:30px}}
-</style></head><body><main>
-<div class="eyebrow">Disposable prototype · design review · no network calls</div>
-<h1>One run. Two ways to use it.</h1>
-<p class="intro">What should callers write, and what should they learn when a reply is lost or observation stops? Explore the selected lifecycle with proposed C# calls and CLI commands. This simulator explains the interface; it does not implement Zeroshot or establish conformance.</p>
-<div class="badges"><span class="badge">Package: Zeroshot.Client</span><span class="badge">Ordinary: Zeroshot.ZeroshotClient</span><span class="badge">Direct: Zeroshot.Native.NativeClient</span><span class="badge">Command: zeroshot-dotnet</span><a class="badge" href="#guide">Full calling sketch, coverage, defaults & installation ↓</a></div>
-<div class="layout"><aside class="panel state"><h2>What is known</h2><dl id="state"></dl><button id="reset" style="margin-top:20px">Reset this scenario</button><p class="secondary">Native state is shown because this is a simulation. A real caller cannot infer acceptance from a lost reply.</p></aside>
-<section class="panel"><h2 style="margin-top:0">Walk through a case</h2><div class="tabs" id="scenarios" role="tablist" aria-label="Scenarios"></div><h3 id="scenario-title"></h3><p id="description"></p><ol id="steps" class="steps"></ol><div id="notice" class="notice" aria-live="polite"></div><div class="code-tabs tabs" role="tablist" aria-label="Calling examples"><button data-view="csharp" aria-selected="true">C# calls</button><button data-view="cli" aria-selected="false">CLI calls</button><button data-view="evidence" aria-selected="false">Attempt & observation evidence</button></div><pre id="code"></pre>
-<div class="free"><h3>Try another order</h3><p>These actions stay available. An action with missing prerequisites explains what is needed without changing the run.</p><div class="buttons" id="actions"></div></div></section></div>
-<section class="panel guide" id="guide"><h2>Full usage sketch</h2><p class="secondary">The command name was selected during live review. Other interface details remain proposals until the review is complete. Expand a section to inspect the actual calls, contracts and tradeoffs.</p><h2>.NET usage prototype — draft for discussion</h2><p>Naming review: the user proposed <code>Zeroshot.Client</code>, root namespace <code>Zeroshot</code>, <code>ZeroshotClient</code> and <code>Zeroshot.Native.NativeClient</code>. After discussing coexistence with native tooling, the user selected <code>zeroshot-dotnet</code> for the CLI. The rest of this draft remains open for feedback.</p><p><strong>Disposable design sketch.</strong> These C# APIs and CLI commands are proposed, not implemented. No request is sent by this artifact. The browser walkthrough simulates the already selected lifecycle so that the calls, results and evidence can be reviewed together. It is not a conformance witness.</p><p>Question: what concrete C# interface and small command-line interface make the exhaustive native client, ordinary SDK workflows and durable-consumer path clear?</p><p>The settled inputs are <a href="https://github.com/faviann/zeroshot-dotnet-sdk/issues/6#issuecomment-5851998854">Define the .NET run lifecycle and failure contract</a>, <a href="https://github.com/faviann/zeroshot-dotnet-sdk/blob/3c64d3ba39ddd8599b748e5938cba35bc1026e11/docs/research/complete-native-http-oecp-interface.md">the complete native interface inventory</a>, <a href="https://github.com/faviann/zeroshot-dotnet-sdk/issues/5#issuecomment-5851567384">Choose .NET platform support and distribution</a>, and the pinned <a href="https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/client.py">Python Client and Run</a>. The names, options and defaults below are proposals awaiting human feedback. The linked decisions continue to govern behavior.</p>
-<details><summary>1. Names and object model</summary><div class="table-scroll"><table><tr><th>Item</th><th>Proposal</th></tr><tr><td>Published package / assembly</td><td><code>Zeroshot.Client</code> / <code>Zeroshot.Client.dll</code>; only one library package</td></tr><tr><td>Ordinary interface</td><td><code>Zeroshot.ZeroshotClient</code>, <code>Run</code>, <code>RunRequest</code>, <code>RunResult</code></td></tr><tr><td>Direct native interface</td><td><code>Zeroshot.Native.NativeClient</code>, <code>OecpConnection</code>, <code>NativeSubscription&lt;TEstablishment,TEvent&gt;</code></td></tr><tr><td>Native wire models</td><td><code>Zeroshot.Native.Contracts</code>; typed named DTOs and tagged variants</td></tr><tr><td>CLI command</td><td><code>zeroshot-dotnet</code></td></tr><tr><td>Locally built tool package</td><td><code>Zeroshot.Cli</code>; version matches the library</td></tr><tr><td>First preview example</td><td><code>0.1.0-preview.1</code></td></tr></table></div><p><code>ZeroshotClient</code> owns convenience workflows and internally uses <code>NativeClient</code>. A consumer can construct <code>NativeClient</code> alone without a native build assertion. The two namespaces are public in the same assembly. There is no separate client package. A <code>Run</code> is a reference to known identity, not an owned native process. SDK-created clients own their transports; wrapping a supplied native client requires explicit ownership.</p><pre><code>using Zeroshot;
-using Zeroshot.Native;
-using Zeroshot.Native.Contracts;
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Zeroshot .NET — one ordinary run</title>
+  <style>
+    :root { color-scheme:light; --ink:#1e332c; --green:#216649; --line:#d9e1d8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#fafbf7; color:var(--ink); font:17px/1.65 system-ui,sans-serif; }
+    main { max-width:820px; margin:0 auto; padding:64px 24px; }
+    h1 { font-size:clamp(30px,5vw,44px); line-height:1.16; letter-spacing:-1px; margin:12px 0 22px; }
+    .label { color:var(--green); font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; }
+    .intro { color:#52665b; max-width:64ch; }
+    pre { margin:30px 0; padding:25px; background:#19362c; color:#edf5e9; border-radius:8px; overflow:auto; font:14px/1.95 ui-monospace,monospace; }
+    code { font-family:ui-monospace,monospace; font-size:.87em; }
+    pre code { font:inherit; }
+    .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:30px; }
+    button { text-align:left; padding:15px; border:1px solid var(--line); border-radius:6px; color:var(--ink); background:white; cursor:pointer; font:inherit; }
+    button small { display:block; color:#5a6d61; font-size:12px; margin-bottom:5px; }
+    button[aria-pressed="true"] { border-color:var(--green); background:#e9f1e5; }
+    button:focus-visible,a:focus-visible { outline:3px solid #e1a42b; outline-offset:4px; }
+    .explanation { background:white; border:1px solid var(--line); border-radius:6px; padding:20px; margin-top:12px; min-height:130px; }
+    .explanation p { margin:0 0 9px; }
+    #state { margin:0; color:#5a6d61; font-size:13px; }
+    .question { margin-top:32px; font-size:19px; }
+    details { border-top:1px solid var(--line); margin-top:34px; padding-top:20px; font-size:14px; }
+    summary { cursor:pointer; color:#52665b; }
+    a { color:var(--green); }
+    footer { border-top:1px solid var(--line); margin-top:35px; padding-top:15px; color:#647367; font-size:12px; }
+    @media(max-width:600px) { main { padding:35px 18px; } .steps { grid-template-columns:1fr; } pre { padding:17px; font-size:12px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="label">Disposable API sketch · one example</div>
+  <h1>Submit a run.<br>Get its result.</h1>
+  <p class="intro">Assume you already have the target configuration and a request containing your prepared graph, runtime and source. This is the ordinary code we’re reviewing.</p>
+  <pre><code>using Zeroshot;
 
-var binding = NativeBinding.CallerSupplied(
-    release: &quot;10.9.0&quot;,
-    sourceRevision: &quot;75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa&quot;);
+await using var zeroshot = new ZeroshotClient(options);
 
-await using var sdk = new ZeroshotClient(new ZeroshotClientOptions
-{
-    Target = new Uri(&quot;https://target.example/&quot;),
-    NativeBinding = binding,
-    // Optional target authentication is obtained per operation.
-    // Connection/provider credentials are separately supplied at submission.
-    TargetCredentials = targetCredentials,
-});
+var run = await zeroshot.SubmitAsync(request);
+var result = await run.WaitAsync();</code></pre>
 
-// Alternative: reuse a direct client; disposing the SDK leaves this client alive.
-await using var native = NativeClient.ForHttp(new NativeClientOptions
-{
-    Origin = new Uri(&quot;https://target.example/&quot;),
-    TargetCredentials = targetCredentials,
-});
-await using var sdkOverNative = new ZeroshotClient(native, binding, ownsClient: false);</code></pre><p>Construction performs no network I/O. Discovery and protocol diagnostics are explicit lower-client calls and remain available when the SDK binding is missing or mismatched. Run-operation dispatch through the SDK validates the binding. An asserted build is recorded as caller supplied, never reported as remote attestation. The selected release/source is fixed by the earlier decision; it is not a new prototype choice.</p></details>
-<details><summary>2. Ordinary submission and completion</summary><pre><code>var request = new RunRequest
-{
-    Title = &quot;Fix the failing build&quot;,
-    Graph = GraphSpec.Parse(await File.ReadAllTextAsync(&quot;graph.json&quot;, ct)),
-    Runtime = RuntimePlan.Parse(await File.ReadAllTextAsync(&quot;runtime.json&quot;, ct)),
-    InitialInput = JsonSerializer.SerializeToElement(new { task = &quot;Fix the build&quot; }),
-    Source = new ResolvedSource(
-        repository: &quot;example/project&quot;,
-        branch: &quot;main&quot;,
-        revision: &quot;0123456789abcdef0123456789abcdef01234567&quot;),
-};
+  <div class="steps" aria-label="Explore the example">
+    <button type="button" data-stage="0" aria-pressed="true"><small>1 · Configure</small>Create the client</button>
+    <button type="button" data-stage="1" aria-pressed="false"><small>2 · Submit</small>Get a run handle</button>
+    <button type="button" data-stage="2" aria-pressed="false"><small>3 · Observe</small>Get the result</button>
+  </div>
+  <div class="explanation" aria-live="polite">
+    <p id="explanation">The client holds the connection options. Creating it does not start a run.</p>
+    <p id="state">Simulated state: client configured · no submission · no result</p>
+  </div>
 
-Run run = await sdk.SubmitAsync(request, credentials: runCredentials,
-    cancellationToken: ct);
-Console.WriteLine(run.Id); // The acknowledged ID; not necessarily the proposed ID.
-RunResult result = await run.WaitAsync(cancellationToken: ct); // No wait deadline.
+  <p class="question">Does <code>SubmitAsync</code> → <code>Run</code> → <code>WaitAsync</code> feel natural to use?</p>
+  <p class="intro">My recommendation is to keep these names. The returned run gives you something to inspect now or return to later.</p>
 
-if (result.IsSuccess)
-    UseOutput(result.Output); // Generic JSON. Application acceptance is still yours.
-else
-    ShowRunFailure(result.FailureReason); // An executed graph failure is result data.
-
-// The same convenience in one call; wait budget starts after acknowledgement.
-RunResult combined = await sdk.RunAsync(request,
-    credentials: runCredentials,
-    waitTimeout: TimeSpan.FromMinutes(20), cancellationToken: ct);
-
-// Optional Python-style raise-on-failure helper.
-combined.EnsureSuccess(); // Throws RunFailedException with this terminal result.</code></pre><p><code>RunRequest</code> requires title, graph, runtime, initial input and exact source. Optional environment preserves omitted versus explicitly empty. Omitted proposed run ID becomes a canonical UUIDv7; omitted submission key becomes <code>dotnet-</code> plus a UUIDv4 in lowercase hexadecimal. Those values are generated once per preparation. Optional caller-supplied IDs are validated at the relevant boundary. This does not add task-string, preset, worktree inference or runtime expansion helpers.</p><p><code>RunResult</code> contains <code>RunId</code>, <code>IsSuccess</code>, <code>Output</code> or <code>FailureReason</code>, native metadata (including token usage when available), and <code>Evidence</code>. Evidence distinguishes <code>StatusReport</code> from <code>RetainedTerminalEvent</code> and preserves the observed cursor/source. Neither means consumer-retained completion or physical cessation. <code>Run.Submission</code> holds submission evidence when this handle came from submission; it is absent on a reopened handle.</p><pre><code>try
-{
-    RunResult result = await run.WaitAsync(
-        timeout: TimeSpan.FromMinutes(5), cancellationToken: ct);
-}
-catch (RunWaitTimeoutException error)
-{
-    // error.Run, error.LatestStatus, error.LastDeliveredCursor, error.Evidence.
-    // The native run may still be running. No force request was sent.
-}
-catch (OperationCanceledException) when (ct.IsCancellationRequested)
-{
-    // Observation detached. The native run continues under its own lifecycle.
-}</code></pre><p>Waiting reads status, then watches from that status cursor. An already terminal status returns immediately with status-report evidence. A retained terminal event supplies stronger evidence. Normal subscription completion triggers a final status read; a still nonterminal result is an incomplete-observation error. All setup, reads, reconnect delays and reconnections share the remaining optional wait budget.</p></details>
-<details><summary>3. Retain before send; inspect an uncertain attempt</summary><pre><code>PreparedSubmission prepared = sdk.Prepare(request); // Local; fixes IDs and content.
-await store.SaveRequestAsync(prepared.ExportUtf8(), ct); // Consumer transaction.
-
-// Target/binding and approval are separate consumer-owned records.
-await store.SaveBindingAsync(sdk.Target, binding, approvalReference, ct);
-
-SubmissionAttempt attempt = await sdk.SubmitAttemptAsync(
-    prepared, credentials: runCredentials, cancellationToken: ct);
-
-switch (attempt.Outcome)
-{
-    case MutationOutcome.Acknowledged:
-        // ProposedRunId, AcknowledgedRunId and RunIdMatches are explicit.
-        await store.SaveAttemptAsync(attempt, ct);
-        if (!attempt.RunIdMatches)
-            await ApplyApplicationIdentityPolicyAsync(attempt, ct);
-        else
-            await ObserveAsync(sdk.GetRun(attempt.AcknowledgedRunId), ct);
-        break;
-    case MutationOutcome.NotSent:
-    case MutationOutcome.Rejected:
-    case MutationOutcome.Unknown:
-        await store.SaveAttemptAsync(attempt, ct);
-        // Caller decides what to do next. No automatic mutation resend.
-        break;
-}
-
-// Later process, after the caller authorizes replay:
-PreparedSubmission retained = PreparedSubmission.ImportUtf8(
-    await store.ReadRequestAsync(ct));
-SubmissionAttempt replay = await sdk.SubmitAttemptAsync(
-    retained, credentials: freshRunCredentials, cancellationToken: ct);</code></pre><p>The proposed retained representation is UTF-8 JSON containing only the native <code>{runId, submission}</code> fields. Export returns a defensive copy. Import validates UTF-8 and wire shape but retains the exact bytes, including whitespace and property order; it never serializes them afresh. Authentication, provider secrets, connection resolver and GitHub token are supplied separately for each send. Arbitrary authored input/assets may themselves be sensitive, so credential-free does not mean safe to log.</p><p><code>PreparedSubmission</code> lives with the lower client's submission types. Direct consumers can create one from <code>(RunId, RunSubmission)</code> without constructing an SDK <code>ZeroshotClient</code>; SDK <code>Prepare</code> adapts the convenient <code>RunRequest</code> to that helper. The native HTTP operation also accepts a typed <code>TargetRunRequest</code> when byte retention is unnecessary.</p><p>The explicit attempt API returns operational failures/cancellation as evidence; invalid arguments and disposed resources still throw normal .NET exceptions. Ordinary <code>SubmitAsync</code> calls this same operation, returns an acknowledged <code>Run</code>, or throws <code>SubmissionException</code>. Cancellation uses <code>SubmissionCanceledException : OperationCanceledException</code> with the same <code>Attempt</code> and the caller's token. <code>run.Submission</code> and exceptions preserve both run IDs, outcome, target, caller binding where present, retained request, safe correlation data and bounded native error facts. A valid acknowledgement wins over a racing cancellation or cleanup failure.</p><p>The explicit outcome is operation-specific. Known admission rejection can mean rejected for this attempt; <code>503/target.unavailable</code>, a malformed acknowledgement or transport loss after possible dispatch means unknown. Neither rejection nor not-found proves no earlier attempt succeeded. An acknowledged different ID is valid native data, not proof of deduplication. Broodling may reject that ID under its stricter application rule.</p></details>
-<details><summary>4. Reopen, stream, checkpoint and attach</summary><pre><code>Run run = sdk.GetRun(retainedRunId); // No I/O; uses this client's exact target/binding.
-RunStatusResult status = await run.StatusAsync(cancellationToken: ct);
-
-// Optional versioned convenience reference: target, run ID and caller binding only.
-RunReference reference = run.Reference;
-await File.WriteAllTextAsync(&quot;run.json&quot;, reference.ToJson(), ct);
-Run reopened = sdk.GetRun(RunReference.Parse(await File.ReadAllTextAsync(&quot;run.json&quot;, ct)));
-// A reference for a different target/binding is rejected; no silent retargeting.
-
-await foreach (RunWatchRecord record in run.WatchAsync(
-    after: checkpoint?.Cursor, cancellationToken: ct))
-{
-    await ProcessAsync(record, ct);
-    await store.CommitCheckpointAsync(record.Checkpoint, ct);
-}
-
-await foreach (RunLogRecord record in run.LogsAsync(
-    after: logCheckpoint?.Cursor,
-    execution: executionId,
-    recovery: StreamRecovery.None, cancellationToken: ct))
-{
-    await ProcessLogAsync(record, ct);
-    await store.CommitCheckpointAsync(record.Checkpoint, ct);
-}
-
-// Explicit subscription object when inspection/control beyond await foreach is useful.
-await using RunObservation&lt;RunLogRecord&gt; logs = await run.OpenLogsAsync(
-    new LogOptions { Execution = executionId, After = logCheckpoint?.Cursor }, ct);
-await foreach (RunLogRecord record in logs.ReadAllAsync(ct))
-    await ProcessLogAsync(record, ct);
-ObservationEnd end = await logs.Completion; // Close origin/reason and delivered cursor.
-
-await foreach (RunAttachmentEvent output in run.AttachAsync(executionId, ct))
-    Show(output); // working / output / settled; no cursor and no input channel.</code></pre><p>The simpler <code>WatchAsync</code> / <code>LogsAsync</code> enumerable owns and disposes its subscription when enumeration ends or is abandoned. The explicit <code>OpenWatchAsync</code> / <code>OpenLogsAsync</code> / <code>OpenAttachmentAsync</code> methods expose an asynchronously disposable, single-reader observation; enumeration failure and <code>Completion</code> preserve the same final context. Merely constructing an enumerable does not open a connection. Re-enumeration opens a new observation from its original requested cursor.</p><p><code>HistoryCheckpoint</code> binds the opaque cursor to target, run, watch/log kind and execution filter; <code>record.Checkpoint</code> supplies that context. Passing a bare cursor is allowed for native-like usage; choosing and persisting the matching checkpoint is the caller's responsibility. A convenience <code>WatchAsync(checkpoint, ...)</code> / <code>LogsAsync(checkpoint, ...)</code> overload validates scope before dispatch. <code>LastDeliveredCursor</code> advances only as records are handed to the caller, not when received or buffered. Retaining a checkpoint after processing remains a consumer action; automatic recovery does not commit it.</p><p>Default SDK recovery reopens an established watch/log after disconnection, unexpected EOF or remote <code>SLOW_CONSUMER</code>, from the last delivered cursor. It never replays a mutation. An initial or reopened establishment failure surfaces. Local overflow/size failure, malformed or foreign data, permanent refusal and <code>SOURCE_UNAVAILABLE</code> surface with context. <code>done</code> ends an observation without proving a successful run. Execution-filtered logs exclude run-wide records without an execution. Attachment interruption cannot recover lost output; starting another attachment is a new live view. Durable logs are a separate option.</p></details>
-<details><summary>5. Explicit stop and independent control</summary><pre><code>RunResult result = await run.ForceStopAsync(
-    waitTimeout: TimeSpan.FromMinutes(2), cancellationToken: ct);
-// One native force attempt, then common waiting if its status was not terminal.
-
-ForceAttempt attempt = await run.ForceAttemptAsync(cancellationToken: ct);
-await store.SaveForceAttemptAsync(attempt, ct);
-if (attempt.Outcome == MutationOutcome.Acknowledged)
-    await run.WaitAsync(timeout: TimeSpan.FromMinutes(2), cancellationToken: ct);</code></pre><p><code>ForceStopException</code> and <code>ForceStopCanceledException : OperationCanceledException</code> preserve attempt evidence for the ordinary helper. A timeout or failure during its subsequent wait also retains <code>ForceAcknowledgement</code>; the separate wait above does not magically inherit an earlier independent call. An acknowledged <code>stopping</code> status means the request was acknowledged, not that the run is terminal. Lost replies can leave the effect unknown. Timeouts, Ctrl+C, disposing a <code>RunObservation</code>, disposing a <code>ZeroshotClient</code>, or losing a connection do not send force.</p></details>
-<details><summary>6. Independently usable native client</summary><pre><code>await using var native = NativeClient.ForHttp(new NativeClientOptions
-{
-    Origin = new Uri(&quot;https://target.example/&quot;),
-    TargetCredentials = targetCredentials,
-}); // No SDK native build assertion required.
-
-TargetDiscoveryDocument discovery = await native.Target.DiscoverAsync(ct);
-SubmissionAttempt attempt = await native.Target.SubmitAttemptAsync(
-    prepared, runCredentials, ct); // POST /native-v2/run, one attempt.
-TargetOecpSession session = await native.Target.CreateOecpSessionAsync(
-    new TargetOecpSessionRequest { RunId = knownRunId }, ct);
-await using OecpConnection oecp = await native.ConnectOecpAsync(session, ct);
-InitializeResult initialized = await oecp.InitializeAsync(
-    new InitializeParams(&quot;openengine.cluster/v1&quot;), ct);
-RunStatusResult status = await oecp.Runs.StatusAsync(new(knownRunId), ct);
-
-await using NativeSubscription&lt;RunWatchResult, RunWatchEventNotification&gt; watch =
-    await oecp.Runs.WatchAsync(new(knownRunId, fromCursor: savedCursor), ct);
-await foreach (var record in watch.ReadAllAsync(ct))
-    Consume(record);
-NativeSubscriptionEnd close = await watch.Completion;
-// One subscription. No automatic reopening, terminal wait or force composition.
-
-NativeAttempt&lt;RunForceResult&gt; force = await oecp.Runs.ForceAsync(new(knownRunId), ct);
-// Its returned status can still be stopping. No hidden wait.
-
-try
-{
-    // This method exists in the shared protocol, but the DirectTarget adapter refuses it.
-    PlanResult plan = await oecp.Cluster.PlanAsync(new(graph), ct);
-}
-catch (NativeRpcException error) when (error.NativeCode == &quot;INVALID_PHASE&quot;)
-{
-    // Preserve native numeric RPC code, string domain code and bounded details.
-}</code></pre><p>The lower read API returns typed results and throws typed transport/protocol exceptions. Lower mutation methods return <code>NativeAttempt&lt;T&gt;</code>; the selected HTTP submission overload enriches it as <code>SubmissionAttempt</code>. Valid responses, known refusals, no dispatch and uncertain effects stay distinct. Mutation cancellation is returned on the explicit outcome path. Refusal classification is per operation; a shared result wrapper does not invent stronger rejection evidence for other native mutations. The upper SDK converts those same facts into its ordinary exceptions and convenience results.</p><p>HTTP <code>Target.SubmitAttemptAsync(TargetRunRequest, ct)</code> and retained-request overloads share one operation implementation. A generic raw send escape hatch is optional and contributes nothing to the typed coverage claim.</p><pre><code>// Wider HTTP surfaces are independent named bindings, not new SDK workflows.
-DashboardBootstrap boot = await native.Dashboard.GetBootstrapAsync(ct);
-DashboardProfile profile = await native.Dashboard.GetProfileAsync(&quot;review&quot;, ct);
-NativeAttempt&lt;DashboardProfile&gt; saved = await native.Dashboard.SaveProfileAsync(
-    new DashboardProfileSaveRequest(&quot;review&quot;, graph, runtime, expectedRevision),
-    workspaceId: boot.Workspace.Id, cancellationToken: ct);
-
-await using var pages = await native.Dashboard.OpenRunEventsAsync(
-    new DashboardRunEventsRequest(knownRunId, after: historyCursor,
-        lastEventId: null), ct); // SSE history/history_error, native precedence.
-
-TargetOperatorDiagnostics diagnostics =
-    await native.Private.GetOperatorDiagnosticsAsync(knownRunId, ct);
-RunDefinition definition = await native.Private.GetHistoryDefinitionAsync(new(knownRunId), ct);
-NativeAttempt&lt;EmptyResponse&gt; bootstrap = await native.Private.BootstrapAsync(
-    new TargetPrivateBootstrapRequest(nonce, ciphertext), ct);
-
-ConnectionListResult connections = await native.Connections.ListAsync(
-    new ConnectionListRequest(ConnectionScope.User), ct);
-NativeAttempt&lt;ConnectionMutationResult&gt; changed = await native.Connections.SetAsync(
-    new ConnectionSetRequest(key, ConnectionScope.User, secretValues), ct);
-// Secret-bearing fields are real API fields; default formatting redacts their values.
-
-await using NativeBodyResponse asset = await native.Dashboard.GetAssetAsync(&quot;app.js&quot;, ct);
-await asset.CopyBodyToAsync(destination, ct); // MIME/status preserved; bounded body.
-NativeRedirectResponse redirect = await native.Dashboard.GetRootAsync(ct);
-// Expose Location; do not automatically follow a credential-bearing redirect.</code></pre><p>Capabilities discovered at one origin bind only validated routes at that origin. A missing hosted descriptor fails locally with <code>NativeCapabilityException</code>; a present descriptor is not a guarantee that the server accepts the operation. Dashboard and private calls keep their endpoint/workspace/private-authority prerequisites. Ordinary run credentials do not confer operator authority. Calls on the wrong kind of target preserve the received native refusal, including 404. OAuth exposes individual metadata/device/token/refresh/session operations; it does not install a login store, poll for the caller, or resend a mutation after refreshing credentials. Advertised revocation remains metadata without an invented operation.</p><pre><code>// Existing endpoints and explicitly borrowed streams; no subprocess creation.
-await using OecpConnection unix = await OecpConnection.ConnectUnixAsync(
-    &quot;/caller/known/controller.sock&quot;, ct);
-await using OecpConnection pipe = await OecpConnection.ConnectNamedPipeAsync(
-    callerKnownPipeName, validateNativeSecurity: true, cancellationToken: ct);
-await using OecpConnection stream = await OecpConnection.FromStreamsAsync(
-    input, output, leaveOpen: true, cancellationToken: ct);
-// Explicit initialize remains visible for a direct consumer.</code></pre><p>The existing-endpoint factories do not derive a pipe name from a guessed UTF-8 hash or start a controller. NDJSON has no HTTP bearer handshake, no unary <code>$/cancelRequest</code> interception and no invented heartbeat; cancellation detaches local waiting, preserving uncertain mutation effect when applicable. Subscription cancellation is supported on both native bindings. <code>leaveOpen: true</code> is the default for supplied streams. <code>NativeClient.ForHttp(options, httpClient, ownsHttpClient: false)</code> borrows an HTTP client explicitly; a supplied transport must satisfy redirect/TLS requirements, which cannot be inferred from an arbitrary existing handler. The safe default factory creates its own compliant handler. Reject incompatible supplied options before dispatch and document the caller contract for opaque handlers.</p><p>Native <code>RunStatusResult</code>, watch notifications, hosted status and history records remain separate types. A watch event has no <code>workspaceRecovery</code>; hosted status can be <code>queued</code>; Python's narrower projection does not justify dropping native fields. Use <code>JsonElement</code> only where the native type deliberately accepts arbitrary JSON. Model omitted/present-null values with <code>Optional&lt;T&gt;</code> where required, tagged variants with typed alternatives, open native error strings as strings, and contract-specific strictness per DTO. Do not add one global serializer casing/null/unknown-field policy.</p></details>
-<details><summary>7. Coverage map for named lower-client bindings</summary><p>This table is a proposed public grouping of the existing inventory, not proof of implementation. Each listed operation gets its named typed request/result/error mapping; generated models must also preserve the shared graph/runtime/worker/artifact/recovery/history type closure documented by the inventory.</p><div class="table-scroll"><table><tr><th>Surface</th><th>Proposed members</th><th>Native contract</th></tr><tr><td>OECP connection</td><td><code>InitializeAsync</code></td><td><code>initialize</code></td></tr><tr><td>OECP <code>Cluster</code></td><td><code>PlanAsync</code>, <code>ApplyAsync</code>, <code>UpdateAsync</code>, <code>StopAsync</code>, <code>RetryAsync</code>, <code>ResubmitAsync</code>, <code>DeleteAsync</code>, <code>GetAsync</code>, <code>WatchAsync</code>, <code>LogsAsync</code>, <code>AttachAgentAsync</code></td><td><code>plan</code>, <code>apply</code>, <code>update</code>, <code>stop</code>, <code>retry</code>, <code>resubmit</code>, <code>delete</code>, <code>get</code>, <code>watch</code>, <code>logs</code>, <code>agent/attach</code></td></tr><tr><td>OECP <code>Runs</code></td><td><code>SubmitAsync</code>, <code>ListAsync</code>, <code>StatusAsync</code>, <code>WatchAsync</code>, <code>LogsAsync</code>, <code>AttachAsync</code>, <code>ForceAsync</code>, <code>CheckpointsAsync</code>, <code>ResumeAsync</code>, <code>DiscardWorkspaceAsync</code></td><td>All ten <code>run/*</code> methods; shared <code>run/submit</code> remains different from target HTTP submission</td></tr><tr><td>Subscription</td><td>typed <code>Establishment</code>, <code>ReadAllAsync</code>, <code>Completion</code>, <code>DisposeAsync</code></td><td>Six distinct establishment/event pairs; <code>event</code>, <code>subscription/closed</code>, <code>subscription/cancel</code>; WebSocket-only unary <code>$/cancelRequest</code></td></tr><tr><td>HTTP <code>Target</code></td><td><code>DiscoverAsync</code>, <code>SubmitAttemptAsync</code>, <code>CreateOecpSessionAsync</code>; <code>ConnectOecpAsync</code></td><td>Fixed discovery, run, session and WebSocket-upgrade contracts</td></tr><tr><td>HTTP <code>Private</code></td><td><code>BootstrapAsync</code>, <code>GetOperatorDiagnosticsAsync</code>, <code>GetHistoryDefinitionAsync</code>, <code>GetHistoryPageAsync</code></td><td>Four private operations; bootstrap is empty 204</td></tr><tr><td>HTTP <code>HostedRuns</code></td><td><code>ListAsync</code>, <code>StatusAsync</code>, <code>WatchAsync</code>, <code>LogsAsync</code>, <code>ForceAsync</code></td><td>Discovered GET/POST routes; watch/logs are NDJSON frames</td></tr><tr><td>HTTP <code>HostedRecovery</code></td><td><code>ResumeAsync</code>, <code>CheckpointsAsync</code>, <code>DiscardWorkspaceAsync</code></td><td>Discovered POST routes with typed run DTOs</td></tr><tr><td>HTTP <code>Connections</code></td><td><code>ListAsync</code>, <code>SetAsync</code>, <code>DeleteAsync</code></td><td>Discovered secret-management POST routes</td></tr><tr><td>HTTP <code>Profiles</code></td><td><code>ListAsync</code>, <code>ShowAsync</code>, <code>SetAsync</code>, <code>DeleteAsync</code>, <code>DefaultAsync</code>, <code>RunAsync</code></td><td>Six discovered POST routes; no local template compiler</td></tr><tr><td>HTTP <code>MergePlans</code></td><td><code>CreateAsync</code>, <code>StatusAsync</code>, <code>ForceAsync</code></td><td>Three discovered routes; no invented watch endpoint</td></tr><tr><td>HTTP <code>History</code></td><td><code>ListAsync</code>, <code>DetailAsync</code>, <code>PageAsync</code></td><td>Three discovered history GET routes, including the native direct-target mount</td></tr><tr><td>HTTP <code>OAuth</code></td><td><code>MetadataAsync</code>, <code>BeginDeviceAuthorizationAsync</code>, <code>ExchangeDeviceTokenAsync</code>, <code>RefreshAsync</code>, <code>VerifySessionAsync</code></td><td>Four URL/method operations; token POST has two grants. Revocation is advertised metadata only</td></tr><tr><td>Host integration</td><td><code>ConnectionResolverClient.ResolveAsync</code></td><td>Explicit caller/host-owned HTTPS callback, with its own endpoint and bearer scope</td></tr><tr><td>HTTP <code>Dashboard</code> assets</td><td><code>GetRootAsync</code>, <code>GetUiRedirectAsync</code>, <code>GetIndexAsync</code>, <code>GetAssetAsync</code></td><td>GET <code>/</code>, <code>/ui</code>, <code>/ui/</code>, <code>/ui/{*asset}</code>; typed redirect or bounded body, not JSON</td></tr><tr><td>HTTP <code>Dashboard</code> authoring</td><td><code>GetBootstrapAsync</code>, <code>ValidateAsync</code>, <code>AuthoringAsync</code>, <code>DataAsync</code></td><td>GET bootstrap; three POST operations with separate typed tagged actions</td></tr><tr><td>HTTP <code>Dashboard</code> profiles</td><td><code>ListProfilesAsync</code>, <code>GetProfileAsync</code>, <code>SaveProfileAsync</code></td><td>Two GET operations plus workspace/revision-protected POST</td></tr><tr><td>HTTP <code>Dashboard</code> history</td><td><code>ListRunsAsync</code>, <code>GetRunAsync</code>, <code>GetHistoryAsync</code>, <code>OpenRunEventsAsync</code></td><td>Three GET JSON operations and one GET SSE operation</td></tr><tr><td>HTTP HEAD</td><td>Named <code>Head...Async</code> counterparts for the 11 dashboard GETs and three direct history GETs</td><td>Metadata-only Axum bindings; no invented HEAD for the hand-written fixed target router</td></tr></table></div><p><code>NativeSubscription&lt;TEstablishment,TEvent&gt;</code> exposes the actual establishment result, its subscription ID, optional initial cursor, events and close evidence. It retains the server's close cursor separately from the client's last delivered cursor. Normal <code>done</code> completes reading; other close/failure categories throw with structured context and remain inspectable through <code>Completion</code>. Hosted NDJSON and dashboard SSE keep their own typed frame/close shapes rather than pretending to be OECP notifications.</p><p><code>History</code> binds discovered paths. Named direct-history HEAD calls are available only where that route exists; a custom hosted route does not inherit an assumed HEAD contract. Header-only responses expose status, content type, length and redirect location where supplied, with a filtered diagnostic view. Dashboard calls keep native Host/Origin/fetch-site validation; no default spoofed browser origin or disabled checks. Private capability, hosted control token, hosted OECP token and callback bearer are distinct credential purposes. Redirects and transport downgrades are rejected for credential-bearing operations.</p><p>Absent native contracts remain absent: no guessed revocation body, interactive attachment input, native process manager, remote template compiler, general run deletion, submission-key lookup, or automatic hosting/provisioning. Broader client bindings do not expand the initial SDK/CLI workflows.</p></details>
-<details><summary>8. Proposed finite resource defaults</summary><p>These are configurable .NET defaults, not claims about native limits. Smaller operation-specific native limits remain enforced; raising a client limit cannot raise a server limit. Byte units are binary: 1 KiB = 1,024 bytes, 1 MiB = 1,048,576 bytes.</p><div class="table-scroll"><table><tr><th>Option</th><th>Proposed default</th><th>Control / meaning</th></tr><tr><td><code>ConnectTimeout</code></td><td>10 seconds</td><td>DNS/connect/TLS phase; bounded by the enclosing request/setup deadline</td></tr><tr><td><code>RequestTimeout</code></td><td>30 seconds</td><td>Complete unary HTTP/OECP operation, including dispatch admission and reading the response</td></tr><tr><td><code>SubscriptionOpenTimeout</code></td><td>30 seconds</td><td>Session acquisition, connect/initialize and subscription establishment as one budget</td></tr><tr><td><code>CleanupTimeout</code></td><td>5 seconds</td><td>Bounded detach/owned-resource cleanup; no force request</td></tr><tr><td><code>WaitTimeout</code></td><td><code>null</code> (indefinite)</td><td>Optional per-workflow <code>TimeSpan</code>; finite wait includes every observation/recovery phase</td></tr><tr><td><code>StreamRecovery</code></td><td><code>EstablishedInterruptions</code></td><td>SDK durable watch/log only; lower client and attachment never auto-resume</td></tr><tr><td><code>RecoveryDelay</code></td><td>250 milliseconds</td><td>Cancellable delay before one eligible reopen; repeated established interruptions may recover while observation remains active</td></tr><tr><td><code>ReadRetries</code></td><td>0</td><td>No separate automatic unary-read retry in this preview</td></tr><tr><td>Mutation retries</td><td>0, fixed</td><td>Not configurable into hidden mutation replay</td></tr><tr><td>WebSocket keepalive</td><td>Ping every 30 seconds; pong deadline 15 seconds</td><td>Transport liveness only; no native run idle deadline. Disable only with an explicit transport option</td></tr><tr><td>NDJSON / stream idle deadline</td><td>None</td><td>No invented ping protocol or quiet-run failure; cancellation/disposal still works</td></tr><tr><td><code>MaxResponseBytes</code></td><td>8 MiB</td><td>Bounded aggregate unary response; public history list remains at most 4 MiB, detail/page at most 8 MiB</td></tr><tr><td><code>MaxMessageBytes</code></td><td>8 MiB</td><td>Inbound OECP message/SSE event body ceiling; hosted NDJSON retains its stricter 64 KiB frame bound</td></tr><tr><td><code>MaxRequestBytes</code></td><td>4 MiB HTTP, 1 MiB OECP</td><td>Fixed target inbound limits; smaller operation-specific bounds win (private history request 4 KiB). Known larger future contracts would need their own profile</td></tr><tr><td><code>MaxBufferedRecordsPerStream</code></td><td>256</td><td>Both count and byte ceiling apply</td></tr><tr><td><code>MaxBufferedBytesPerStream</code></td><td>8 MiB</td><td>Includes complete retained encoded records in this queue</td></tr><tr><td><code>MaxBufferedBytesTotal</code></td><td>32 MiB per native client</td><td>Shared ceiling for queued observation records; not a claim about total CLR heap usage</td></tr><tr><td><code>MaxConcurrentSubscriptions</code></td><td>16 per native client</td><td>Additional opens fail before dispatch with a resource-limit error</td></tr><tr><td><code>MaxConcurrentRequests</code></td><td>32 per native client, including 4 reserved control slots</td><td>Overflow fails locally; status/stop/session/initialize do not wait behind an unlimited ordinary-operation queue</td></tr><tr><td><code>MaxOecpConnections</code></td><td>18 per native client</td><td>Ceiling across owned or registered connections; SDK reserves a control connection separate from observations</td></tr><tr><td><code>MaxHttpConnectionsPerOrigin</code></td><td>8</td><td>Handler limit; request budget includes any handler wait</td></tr><tr><td><code>MaxErrorBodyBytes</code></td><td>64 KiB</td><td>Diagnostic payload cap; overrun is explicit. Raw payload inspection is opt-in and never default exception text</td></tr></table></div><p>The SDK uses a separate control connection from observation connections; opening a subscription never consumes the reserved control connection. The shared queue limit and nonblocking receive dispatch ensure one slow observer ends its affected stream instead of blocking reply correlation. Direct consumers may multiplex manually on one connection, so transport-wide failure can still affect all its operations; status/stop can use a separately created control connection. This is isolation from client backpressure, not a guarantee about server/network response time.</p><p>Finite connection/request/setup/cleanup timeouts must be positive. A zero wait timeout performs no new observation I/O and returns timeout with any evidence already available. <code>null</code> is the only infinite wait spelling. Limits must be positive and internally coherent; an incoming record larger than either applicable queue byte cap fails explicitly. Queue overflow drains only already validated queued records before reporting failure with the final caller-delivered cursor. No records, terminal JSON or native field values are silently truncated. Transient parsing/object overhead exists outside the encoded queue budget and is bounded by message/response/concurrency ceilings, without an exact heap promise.</p><pre><code>await using var sdk = new ZeroshotClient(new ZeroshotClientOptions
-{
-    Target = origin,
-    NativeBinding = binding,
-    Transport = new TransportOptions
-    {
-        RequestTimeout = TimeSpan.FromSeconds(45),
-        MaxResponseBytes = 8 * 1024 * 1024,
-        MaxConcurrentSubscriptions = 4,
-    },
-    Observation = new ObservationOptions
-    {
-        Recovery = StreamRecovery.EstablishedInterruptions,
-        RecoveryDelay = TimeSpan.FromMilliseconds(250),
-    },
-});</code></pre></details>
-<details><summary>9. Small CLI grammar</summary><p>Proposed common configuration: <code>--config target.json</code> with explicit origin, caller binding, credential-source references and optional transport/observation limits. No target registry, implicit worktree selection or background database. For a one-off, <code>--target URL --native-binding binding.json</code> supplies the same context. An explicit saved run reference supplies its target/binding; conflicting explicit options fail rather than retarget it.</p><pre><code>{
-  &quot;schema&quot;: &quot;zeroshot-dotnet/target-config/v1&quot;,
-  &quot;target&quot;: &quot;https://target.example/&quot;,
-  &quot;nativeBinding&quot;: {
-    &quot;provenance&quot;: &quot;caller-supplied&quot;,
-    &quot;release&quot;: &quot;10.9.0&quot;,
-    &quot;sourceRevision&quot;: &quot;75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa&quot;
-  },
-  &quot;credentials&quot;: { &quot;targetBearerEnvironment&quot;: &quot;ZEROSHOT_TARGET_TOKEN&quot; },
-  &quot;transport&quot;: { &quot;requestTimeout&quot;: &quot;30s&quot;, &quot;maxBufferedBytesTotal&quot;: 33554432 },
-  &quot;observation&quot;: { &quot;recovery&quot;: &quot;established-interruptions&quot;, &quot;recoveryDelay&quot;: &quot;250ms&quot; }
-}</code></pre><p>Target bearer configuration is omitted for a target with no bearer requirement. Run credential inputs use <code>--credentials-file credentials.json</code> or an explicitly named environment reference map; neither is copied into request/run files or printed by default. No secret literal command-line flags. Request JSON contains the <code>RunRequest</code> fields from the C# example; prepared JSON is the exact exported <code>{runId,submission}</code> representation.</p><div class="table-scroll"><table><tr><th>Command</th><th>SDK calls</th><th>Result</th></tr><tr><td><code>prepare --request request.json --out prepared.json</code></td><td>Local request parser + shared preparation helper</td><td>Fix identity and write credential-free request; no target I/O/binding required</td></tr><tr><td><code>run --request request.json</code></td><td><code>SubmitAsync</code> then <code>Run.WaitAsync</code></td><td>Submit and wait; <code>--detach</code> returns after acknowledgement</td></tr><tr><td><code>run --prepared prepared.json</code></td><td>Import + <code>SubmitAsync(prepared)</code> then optional wait</td><td>Explicit send/replay of fixed bytes/identities; no regenerated IDs</td></tr><tr><td><code>status RUN_ID</code></td><td><code>GetRun(...).StatusAsync</code></td><td>Current status and available terminal data</td></tr><tr><td><code>wait RUN_ID</code></td><td><code>GetRun(...).WaitAsync</code></td><td>Terminal result; optional <code>--timeout 10m</code></td></tr><tr><td><code>watch RUN_ID [--after CURSOR]</code></td><td><code>GetRun(...).WatchAsync</code></td><td>Retained status events then live observation</td></tr><tr><td><code>logs RUN_ID [--after CURSOR] [--execution EXECUTION]</code></td><td><code>GetRun(...).LogsAsync</code></td><td>Retained log events then live observation</td></tr><tr><td><code>attach RUN_ID EXECUTION</code></td><td><code>GetRun(...).AttachAsync</code></td><td>Live read-only output; no after/checkpoint flag</td></tr><tr><td><code>force-stop RUN_ID</code></td><td><code>GetRun(...).ForceStopAsync</code></td><td>One force request, then wait; optional <code>--wait-timeout 2m</code></td></tr><tr><td><code>force-stop RUN_ID --request-only</code></td><td><code>GetRun(...).ForceAttemptAsync</code></td><td>Attempt/returned status only; acknowledged does not mean terminal</td></tr></table></div><p>Every known-run command may replace the positional ID with <code>--run-file run.json</code>. <code>run</code> can write <code>--save-request prepared.json</code> before sending and <code>--save-run run.json</code> after acknowledgement. An existing output file is refused unless its explicit <code>--overwrite</code> flag is supplied; writing failures before dispatch are not-sent, and writing failures after acknowledgement report that acknowledgement. Neither writing a run file nor printing stdout is a promise of consumer transactionality or fsync durability. Callers needing that guarantee use their own store through the SDK.</p><p><code>watch</code>/<code>logs</code> accept <code>--checkpoint checkpoint.json</code> as an alternative to <code>--after</code>; scope mismatch fails locally. They output cursors but never automatically advance a consumer processing checkpoint. <code>--recovery none</code> disables SDK recovery; default is <code>established-interruptions</code>. Shared resource controls are in the configuration file; <code>--request-timeout 45s</code> overrides the unary timeout. Durations accept <code>ms</code>, <code>s</code>, <code>m</code>, <code>h</code>, require an explicit unit, and use <code>infinite</code> only for a wait budget. Byte limits are integer bytes in configuration. CLI parsing/formatting and explicit file reads/writes stay in the CLI; request preparation, replay, waiting, recovery and failure classification stay in the libraries.</p><pre><code># All commands here are proposed interfaces, not available in the current scaffold.
-zeroshot-dotnet prepare --request request.json --out prepared.json
-zeroshot-dotnet run --config target.json --prepared prepared.json --detach --save-run run.json --json
-# stdout, one JSON object:
-# {&quot;schema&quot;:&quot;zeroshot-dotnet/cli/v1&quot;,&quot;kind&quot;:&quot;submission&quot;,&quot;runId&quot;:&quot;019f6ba6-7c00-7000-8000-000000000001&quot;,&quot;proposedRunId&quot;:&quot;019f6ba6-7c00-7000-8000-000000000001&quot;,&quot;runIdMatches&quot;:true,&quot;outcome&quot;:&quot;acknowledged&quot;}
-
-zeroshot-dotnet wait --run-file run.json --timeout 20m --json
-# stdout, terminal example (application output may be any JSON, including null):
-# {&quot;schema&quot;:&quot;zeroshot-dotnet/cli/v1&quot;,&quot;kind&quot;:&quot;result&quot;,&quot;runId&quot;:&quot;019f6ba6-7c00-7000-8000-000000000001&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;output&quot;:null,&quot;evidence&quot;:{&quot;kind&quot;:&quot;retained-terminal-event&quot;,&quot;cursor&quot;:&quot;opaque-terminal-cursor&quot;}}
-
-zeroshot-dotnet logs --run-file run.json --execution execution-opaque --after opaque-log-cursor --json
-# stdout: one versioned JSON record per line, including kind, runId, cursor,
-# execution (possibly null for unfiltered logs), timestamp and native log record.
-# stderr: one safe error object if observation fails; no synthetic success record.
-
-zeroshot-dotnet attach --run-file run.json execution-opaque
-zeroshot-dotnet force-stop --run-file run.json --request-only --json</code></pre><p>Without <code>--json</code>, print concise human status/result summaries and explicitly requested log/output content. With <code>--json</code>, unary commands emit one versioned JSON object, streams emit versioned NDJSON; records include native fields/metadata without promoting them to application approval. Known fields keep their type and meaning within a minor line. Additional optional envelope fields may be added. Consumers ignore unknown optional envelope fields; native strictness inside typed data still follows its contract. A breaking field/command change requires the next minor version.</p><p>In JSON mode errors go to stderr as one versioned <code>kind:error</code> record, including category, operation, safe target/run identifiers, mutation outcome where applicable and last delivered cursor when available. No raw request, input, output, token or remote message is included in default diagnostics. Explicit successful status/result/log commands intentionally output the content requested. Partial stream stdout remains valid; final exit/stderr communicates interruption. Broken stdout ends observation and releases resources without sending force; it preserves any captured mutation acknowledgement in stderr when possible.</p><div class="table-scroll"><table><tr><th>Exit code</th><th>Proposed meaning</th></tr><tr><td><code>0</code></td><td>Successful command; acknowledged detached/request-only mutation; successful terminal result for completion commands</td></tr><tr><td><code>1</code></td><td>Operational/transport/protocol/resource/incomplete-observation error, including known native rejection</td></tr><tr><td><code>2</code></td><td>Invalid command/configuration/input, including locally missing/mismatched native binding</td></tr><tr><td><code>3</code></td><td>A completion command (<code>run</code> without detach, <code>wait</code>, full <code>force-stop</code>) obtained a failed terminal run</td></tr><tr><td><code>4</code></td><td>Observation wait timeout; no stop implied</td></tr><tr><td><code>5</code></td><td>Mutation may have been dispatched but its effect/acceptance is unknown</td></tr><tr><td><code>130</code></td><td>User cancelled before mutation dispatch, or cancelled observation after a known acknowledgement</td></tr></table></div><p><code>status</code> exits 0 if it successfully reports even a failed run. <code>watch</code>/<code>logs</code>/<code>attach</code> exit 0 on a normal native close, independent of run success. Cancellation after possible mutation dispatch with no acknowledged outcome exits 5, so ambiguity remains visible; its error category also records cancellation. A captured acknowledgement followed by Ctrl+C remains acknowledged, exit 130. Other classification precedence is: invalid local invocation before dispatch → 2; uncertain mutation → 5; acknowledged mutation followed by wait timeout → 4; observed failed terminal → 3; read/call failure → 1.</p><p>The native terminology comes from its <code>run</code>, <code>status</code>, <code>watch</code>, <code>logs</code>, <code>attach</code>, and <code>force-stop</code> commands. Separate <code>prepare</code>/<code>wait</code>, explicit files, machine envelopes and richer exit codes are deliberate .NET proposals. Native 10.9.0 uses exit 1 broadly for errors, exits 0 for Ctrl+C detachment, and reports a failed run as a nonzero exit only for foreground <code>run</code>; its <code>status</code>/<code>watch</code>/<code>force-stop</code> behavior is not the richer proposed contract above.</p></details>
-<details><summary>10. Restore, build and local installation</summary><p>These examples describe the proposed first preview after implementation and publication. No package was published and no tool was installed in this session. Only <code>Zeroshot.Client</code> will be published to the selected GitHub feed. The CLI is built from the matching repository revision. The current source project is still named <code>src/Zeroshot.Sdk</code>; that existing directory name is not a public namespace promise and is not changed by this prototype.</p><p>The following <code>nuget.config</code> contains feed locations and package mapping, not credentials:</p><pre><code>&lt;configuration&gt;
-  &lt;packageSources&gt;
-    &lt;clear /&gt;
-    &lt;add key=&quot;nuget.org&quot; value=&quot;https://api.nuget.org/v3/index.json&quot; /&gt;
-    &lt;add key=&quot;github&quot; value=&quot;https://nuget.pkg.github.com/faviann/index.json&quot; /&gt;
-  &lt;/packageSources&gt;
-  &lt;packageSourceMapping&gt;
-    &lt;packageSource key=&quot;github&quot;&gt;&lt;package pattern=&quot;Zeroshot.Client&quot; /&gt;&lt;/packageSource&gt;
-    &lt;packageSource key=&quot;nuget.org&quot;&gt;&lt;package pattern=&quot;*&quot; /&gt;&lt;/packageSource&gt;
-  &lt;/packageSourceMapping&gt;
-&lt;/configuration&gt;</code></pre><p>Consumer project reference (exact preview):</p><pre><code>&lt;PackageReference Include=&quot;Zeroshot.Client&quot; Version=&quot;[0.1.0-preview.1]&quot; /&gt;</code></pre><pre><code># GITHUB_USER and GITHUB_PACKAGES_TOKEN are supplied by the caller's secret mechanism.
-# Do not place the token value in a committed file or a literal shell-history command.
-export NuGetPackageSourceCredentials_github=&quot;Username=${GITHUB_USER};Password=${GITHUB_PACKAGES_TOKEN};ValidAuthenticationTypes=Basic&quot;
-dotnet restore --configfile ./nuget.config</code></pre><p>PowerShell equivalent:</p><pre><code>$env:NuGetPackageSourceCredentials_github = &quot;Username=$env:GITHUB_USER;Password=$env:GITHUB_PACKAGES_TOKEN;ValidAuthenticationTypes=Basic&quot;
-dotnet restore --configfile ./nuget.config</code></pre><p>GitHub requires authentication even when the package is public. Use a classic PAT with <code>read:packages</code> for human consumption, or <code>GITHUB_TOKEN</code> in Actions where the workflow repository has access to the package. The credential environment variable suffix matches the source key exactly. The more specific source pattern selects <code>Zeroshot.Client</code> from GitHub; other packages use NuGet.org. Future NuGet.org publication and name reservation are separate work.</p><p>Sources: <a href="https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry#authenticating-to-github-packages">GitHub NuGet authentication</a>, <a href="https://learn.microsoft.com/en-us/nuget/consume-packages/consuming-packages-authenticated-feeds#credentials-in-environment-variables">NuGet environment credentials</a>, <a href="https://learn.microsoft.com/en-us/nuget/consume-packages/package-source-mapping">package source mapping</a>, <a href="https://learn.microsoft.com/en-us/nuget/concepts/package-versioning#version-ranges">exact version ranges</a>.</p><p>Repository build/run at the source tag matching the preview:</p><pre><code>dotnet build Zeroshot.sln --configuration Release -p:Version=0.1.0-preview.1
-dotnet run --project src/Zeroshot.Cli --configuration Release --no-build -- --help
-dotnet run --project src/Zeroshot.Cli --configuration Release --no-build -- status --run-file run.json --json</code></pre><p>Optional tool packaging requires the future CLI metadata <code>PackageId=Zeroshot.Cli</code>, <code>ToolCommandName=zeroshot-dotnet</code>, <code>PackAsTool=true</code>; the library requires <code>PackageId=Zeroshot.Client</code>, <code>AssemblyName=Zeroshot.Client</code> and the selected public namespaces. This metadata is not present in the current scaffold.</p><pre><code>dotnet pack src/Zeroshot.Cli/Zeroshot.Cli.csproj --configuration Release \
-  --output ./artifacts/packages -p:Version=0.1.0-preview.1
-
-# Optional global installation, from the local package source only:
-dotnet tool install --global Zeroshot.Cli --source ./artifacts/packages --version 0.1.0-preview.1
-zeroshot-dotnet --help
-
-# Or install into a project-local manifest:
-dotnet new tool-manifest
-dotnet tool install --local Zeroshot.Cli --source ./artifacts/packages --version 0.1.0-preview.1
-dotnet tool run zeroshot-dotnet --help
-
-# An isolated explicit path is useful for preview validation:
-dotnet tool install Zeroshot.Cli --tool-path ./artifacts/tools \
-  --source ./artifacts/packages --version 0.1.0-preview.1
-./artifacts/tools/zeroshot-dotnet --help</code></pre><p>Run <code>dotnet new tool-manifest</code> only when the consuming directory has no manifest; otherwise use its existing one. On Windows the explicitly installed command has an <code>.exe</code> suffix. <code>--source</code> chooses the local package feed; <code>--add-source</code> alone would also search other configured feeds. Building/restoring/managing tools requires the .NET SDK; running the built framework-dependent command requires a compatible .NET 10 runtime. No Python or native executable is required by these client calls. Native tooling used to prepare assets or run release conformance witnesses remains separate.</p><p>Sources: <a href="https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools-how-to-create#package-the-tool">create a .NET tool</a>, <a href="https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-pack">pack</a>, <a href="https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install">tool install</a>, <a href="https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-run">local tool invocation</a>.</p><p>The existing release decision still requires package/CLI checks on all six selected OS/architecture combinations and a Linux x64 controlled native 10.9.0 conformance witness. This prototype does not provide any of that evidence. CLI-only and asset-preparation capabilities are not being implemented by a usage sketch.</p></details>
-<details><summary>11. Questions for this prototype review</summary><p>1. <strong>API shape:</strong> retain the compact <code>SubmitAsync</code> / <code>RunAsync</code> / <code>GetRun</code> ordinary surface and explicit <code>Prepare</code> / <code>SubmitAttemptAsync</code> advanced path, with systematic native groups and typed contracts underneath? 2. <strong>Observation surface:</strong> keep both the simple asynchronous enumerables and explicit disposable observation objects, plus optional versioned <code>RunReference</code> / <code>HistoryCheckpoint</code> files? The extra objects expose close/checkpoint evidence without making ordinary callers manage it. 3. <strong>CLI shape:</strong> use prepared/request JSON files, native-like run verbs and explicit target configuration, rather than offering a second graph/runtime authoring interface? Are the proposed completion-aware exit codes useful? 4. <strong>Default controls:</strong> adopt the values in the resource table as initial adjustable .NET defaults, especially 30-second unary requests, indefinite cancellable waits, 250-millisecond recovery delay, and 16 observations with 32 MiB aggregate queued records?</p><p>The next round depends on feedback to these questions. This ticket remains open until live review is complete. The map's final adoption/handoff decision is a separate session; this draft does not settle it.</p></details></section>
-<footer>Planning artifact for <a href="https://github.com/faviann/zeroshot-dotnet-sdk/issues/7">Settle the first .NET SDK and CLI usage through a prototype</a>. Assets and all state are local to this file. Reloading clears the simulated state.</footer>
+  <details>
+    <summary>One-call convenience</summary>
+    <p>When you only want the final result, the same two steps can be combined:</p>
+    <pre><code>var result = await zeroshot.RunAsync(request);</code></pre>
+  </details>
+  <details>
+    <summary>Reference material for later</summary>
+    <p>The longer draft includes direct native calls, retained requests, CLI commands and resource settings. Those are separate review steps; they do not need to be reviewed to answer the question above.</p>
+    <p><a href="reference.html">Open the detailed prototype</a> · <a href="README.md">Read the full calling sketch</a></p>
+  </details>
+  <footer>Package: Zeroshot.Client · Entry point: Zeroshot.ZeroshotClient · CLI: zeroshot-dotnet<br>This is an interface proposal. The buttons show a scripted explanation and make no native calls.</footer>
+</main>
 <script>
-'use strict';
-const fresh = () => ({prepared:false,retained:false,proposed:null,acknowledged:null,attempt:'none',nativePhase:'no run',observedPhase:'unknown',observation:'detached',kind:'watch',received:null,delivered:null,checkpoint:null,buffer:[],submissions:0,forces:0,forceOutcome:'none',evidence:'none',recovery:true,history:true,reopened:false,note:'Ready. Choose a walkthrough or try the actions below.'});
-function transition(previous, action) {
-  const s = {...previous, buffer:[...previous.buffer]};
-  const need = (condition,message) => { if (!condition) s.note=message; return condition; };
-  const prepare = () => { if (!s.prepared) {s.prepared=true;s.proposed='proposed-run-A';} };
-  const known = () => need(s.acknowledged || s.reopened,'Acknowledge a submission or reopen a retained run reference first.');
-  switch(action) {
-    case 'prepare': prepare();s.note='Prepared once: proposed-run-A and submission-key-A are fixed before sending.';break;
-    case 'retain': if(need(s.prepared,'Prepare the request before retaining it.')){s.retained=true;s.note='The consumer retained the exact credential-free request bytes. No request has been sent by retention.';}break;
-    case 'submit': prepare();s.submissions++;s.acknowledged=s.proposed;s.attempt='acknowledged';s.nativePhase='running';s.observedPhase='unknown';s.note='SubmitAsync returned a Run for the acknowledged ID. Receipt alone says nothing about terminal status.';break;
-    case 'lost': prepare();s.submissions++;s.nativePhase='running';s.attempt='unknown';s.acknowledged=null;s.note='The simulated target accepted work, but the caller lost the reply. Attempt evidence says unknown. No automatic resend.';break;
-    case 'mismatch': prepare();s.submissions++;s.nativePhase='running';s.attempt='acknowledged';s.acknowledged='earlier-run-B';s.note='Native acknowledged earlier-run-B. Ordinary usage returns that run; advanced callers inspect both IDs before adoption. This is not proof of deduplication.';break;
-    case 'replay': if(need(s.retained,'Explicit replay requires the exact retained request and caller authorization.')){s.submissions++;s.attempt='acknowledged';s.acknowledged=s.proposed;s.nativePhase='running';s.note='Caller-authorized replay used the retained IDs and content with fresh credentials. One new attempt; no request reconstruction.';}break;
-    case 'reopen': if(need(s.acknowledged,'Retain an acknowledged run identity before reopening it in this walkthrough.')){s.reopened=true;s.observation='detached';s.buffer=[];s.note='A later process used target, caller binding and run ID. GetRun performs no network I/O or new submission.';}break;
-    case 'watch': if(known()){s.observation='watching';s.kind='watch';s.observedPhase=s.nativePhase;s.note='Wait reads status, then opens durable watch from its cursor. The default wait has no deadline.';}break;
-    case 'receive': if(need(s.observation==='watching','Open a watch before receiving a history record.')){const id='cursor-'+(s.buffer.length+1+(s.delivered?Number(s.delivered.split('-')[1]):0));s.received=id;s.buffer.push(id);s.note='A validated record is buffered. The delivered cursor and consumer checkpoint have not advanced.';}break;
-    case 'deliver': if(need(s.buffer.length,'Receive a record before delivering it.')){s.delivered=s.buffer.shift();s.note='The caller received '+s.delivered+'. Automatic recovery may resume after it; durable processing is not yet recorded.';}break;
-    case 'checkpoint': if(need(s.delivered,'Deliver and process a record before recording a checkpoint.')){s.checkpoint=s.delivered;s.note='The consumer recorded processing through '+s.checkpoint+' with target, run, stream and filter scope.';}break;
-    case 'disconnect': if(need(s.observation==='watching','Establish a durable watch first.')){s.buffer=[];s.received=s.delivered;if(s.recovery){s.note='SDK reopens after '+(s.delivered||'the original cursor')+' following a cancellable 250 ms delay. Undelivered records are replayed. Durable checkpoint stays '+(s.checkpoint||'unset')+'.';}else{s.observation='interrupted';s.note='Recovery is disabled: the caller receives the interruption and last delivered cursor.';}}break;
-    case 'noRecovery': s.recovery=false;s.note='Automatic durable-stream recovery is disabled for this observation.';break;
-    case 'unavailable': if(known()){s.history=false;s.observation='failed: history unavailable';s.note='SOURCE_UNAVAILABLE is an incomplete-history failure. Do not reset the cursor or claim completion.';}break;
-    case 'overflow': if(known()){s.observation='failed: local limit';s.buffer=[];s.note='This scenario terminates at its configured receive limit. No undelivered cursor advances; control calls remain available.';}break;
-    case 'cancel': s.observation='cancelled';s.buffer=[];s.note='Observation detached. Native state is unchanged and force count did not increase.';break;
-    case 'timeout': if(known()){s.observation='timed out';s.buffer=[];s.note='RunWaitTimeoutException carries the run and latest available evidence. No stop was requested.';}break;
-    case 'force': if(known()){s.forces++;s.nativePhase='stopping';s.observedPhase='stopping';s.forceOutcome='acknowledged';s.observation='waiting after force';s.note='One force request was acknowledged with stopping status. ForceStopAsync now uses the common wait helper.';}break;
-    case 'forceLost': if(known()){s.forces++;s.nativePhase='stopping';s.forceOutcome='unknown';s.note='The target may have applied force but its reply was lost. Preserve unknown effect; do not automatically send force again.';}break;
-    case 'terminal': if(known()){s.nativePhase='finished: succeeded';s.observedPhase=s.nativePhase;s.evidence='retained terminal event';s.observation='completed';s.delivered='cursor-terminal';s.note='A retained terminal event supplies a successful native result. Application acceptance and retained completion are still the consumer\'s decisions.';}break;
-    case 'statusFailure': if(known()){s.nativePhase='finished: failed';s.observedPhase=s.nativePhase;s.evidence='status report only';s.observation='completed';s.note='A status report returned runtime_failed. Wait returns failure data with status-only evidence; it does not invent a retained terminal event.';}break;
-    case 'done': if(known()){s.observation='failed: incomplete observation';s.note='The subscription ended normally but a final status read was nonterminal. EOF is not success.';}break;
-    case 'attach': if(known()){s.kind='attachment';s.observation='attached';s.received=null;s.delivered=null;s.note='Read-only live execution attachment opened. It has no cursor, replay or input channel.';}break;
-    case 'attachLost': if(need(s.observation==='attached','Open a live attachment first.')){s.observation='attachment interrupted';s.note='Attachment output was lost. Reattaching cannot recover it; retained execution-filtered logs are a separate API.';}break;
-    case 'binding': s.attempt='not sent';s.note='SDK run dispatch refused a missing/mismatched caller binding. A direct NativeClient can still issue protocol-valid calls without that assertion.';break;
-    default: s.note='Unknown demo action.';
-  }
-  return s;
-}
-const actions = {
-prepare:'Prepare request',retain:'Retain request',submit:'Submit: receipt arrives',lost:'Submit: reply lost',mismatch:'Submit: different ID',replay:'Authorize exact replay',reopen:'Reopen in later process',watch:'Wait / open watch',receive:'Receive into buffer',deliver:'Deliver to caller',checkpoint:'Retain processing checkpoint',disconnect:'Disconnect durable stream',noRecovery:'Disable recovery',unavailable:'History unavailable',overflow:'Hit local receive limit',cancel:'Cancel observation',timeout:'Wait expires',force:'Force: stopping reply',forceLost:'Force: reply lost',terminal:'Observe terminal event',statusFailure:'Read failed terminal status',done:'Close without terminal',attach:'Attach to execution',attachLost:'Lose attachment',binding:'Refuse SDK binding'};
-const cases = [
-{title:'Ordinary run',description:'Submit once, wait, and obtain generic native output with its evidence.',steps:['submit','watch','terminal'],csharp:'await using var client = new ZeroshotClient(options);\nRun run = await client.SubmitAsync(request, credentials, ct);\nRunResult result = await run.WaitAsync(cancellationToken: ct);\nif (result.IsSuccess) UseOutput(result.Output);',cli:'zeroshot-dotnet run --config target.json --request request.json --json\n# waits by default; --detach returns after acknowledgement'},
-{title:'Lost acknowledgement',description:'Retain before sending. The caller chooses whether to replay an uncertain submission.',steps:['prepare','retain','lost','replay','watch','terminal'],csharp:'PreparedSubmission p = client.Prepare(request);\nawait store.SaveRequestAsync(p.ExportUtf8(), ct);\nSubmissionAttempt a = await client.SubmitAttemptAsync(p, credentials, ct);\n// a.Outcome == Unknown: persist evidence, obtain replay authority.\na = await client.SubmitAttemptAsync(PreparedSubmission.ImportUtf8(bytes), freshCredentials, ct);',cli:'zeroshot-dotnet prepare --request request.json --out prepared.json\nzeroshot-dotnet run --config target.json --prepared prepared.json --detach --json\n# uncertain acknowledgement: exit 5; request file stays unchanged\n# Explicitly repeat that command only when replay is authorized.'},
-{title:'Different acknowledged ID',description:'The ordinary handle follows the receipt. A durable consumer can inspect both identities before adopting it.',steps:['prepare','retain','mismatch','watch'],csharp:'Run run = await client.SubmitAsync(prepared, credentials, ct);\n// run.Id is the acknowledged earlier ID.\nSubmissionEvidence evidence = run.Submission;\n// evidence.ProposedRunId != evidence.AcknowledgedRunId\n// Native acknowledgement does not prove submission-key deduplication.',cli:'zeroshot-dotnet run --config target.json --prepared prepared.json --detach --json\n# acknowledged runId differs from proposedRunId; runIdMatches:false'},
-{title:'Later process',description:'Reopen an exact run without submitting again. Target and caller binding remain explicit.',steps:['submit','reopen','watch','terminal'],csharp:'RunReference reference = RunReference.Parse(savedJson);\nRun run = client.GetRun(reference); // no I/O\nRunResult result = await run.WaitAsync(cancellationToken: ct);',cli:'zeroshot-dotnet run --config target.json --prepared prepared.json --detach --save-run run.json\n# Later:\nzeroshot-dotnet wait --run-file run.json --timeout 20m --json'},
-{title:'Delivered vs processed',description:'Receiving a record, delivering it and durably processing it are three different facts.',steps:['submit','watch','receive','deliver','receive','disconnect','checkpoint'],csharp:'await foreach (var record in run.WatchAsync(after: savedCursor, cancellationToken: ct))\n{\n    await ProcessAsync(record, ct);\n    await store.CommitCheckpointAsync(record.Checkpoint, ct);\n}\n// SDK recovery uses the last delivered cursor, not the last buffered one.',cli:'zeroshot-dotnet watch --run-file run.json --checkpoint checkpoint.json --json\n# Each record includes its cursor. The CLI does not commit processing checkpoints.'},
-{title:'Timeout / cancel',description:'Observation can stop while native work continues. No force request is sent.',steps:['submit','watch','timeout','watch','cancel'],csharp:'try { await run.WaitAsync(timeout: TimeSpan.FromMinutes(5), cancellationToken: ct); }\ncatch (RunWaitTimeoutException e) { Inspect(e.LatestStatus, e.Evidence); }\ncatch (OperationCanceledException) when (ct.IsCancellationRequested) { /* detached */ }',cli:'zeroshot-dotnet wait --run-file run.json --timeout 5m --json\n# timeout: exit 4; Ctrl+C during observation: exit 130; neither sends force'},
-{title:'Force and settlement',description:'One force request may return stopping. Waiting has its own budget and retains the acknowledgement.',steps:['submit','force','timeout','watch','terminal'],csharp:'RunResult result = await run.ForceStopAsync(\n    waitTimeout: TimeSpan.FromMinutes(2), cancellationToken: ct);\n// Or explicitly separate the operation:\nForceAttempt attempt = await run.ForceAttemptAsync(ct);\n// Persist attempt; choose whether and how to observe settlement.',cli:'zeroshot-dotnet force-stop --run-file run.json --wait-timeout 2m --json\n# Or only the one force attempt:\nzeroshot-dotnet force-stop --run-file run.json --request-only --json'},
-{title:'Unknown stop effect',description:'Losing the force reply does not mean the target ignored the stop. Preserve the uncertainty.',steps:['submit','forceLost','watch','terminal'],csharp:'ForceAttempt attempt = await run.ForceAttemptAsync(ct);\n// Outcome Unknown: no second force is sent.\nawait store.SaveForceAttemptAsync(attempt, ct);\n// A later status observation can report state but cannot restore the lost reply.',cli:'zeroshot-dotnet force-stop --run-file run.json --request-only --json\n# lost reply: exit 5, outcome:unknown\nzeroshot-dotnet status --run-file run.json --json'},
-{title:'History / local limits',description:'Unavailable history and local receive limits surface explicitly. Neither is repaired by resetting the cursor.',steps:['submit','watch','receive','deliver','overflow','watch','unavailable'],csharp:'await foreach (var record in run.LogsAsync(cancellationToken: ct))\n    await ProcessAsync(record, ct);\n// RunObservationException retains category, close origin and delivered cursor.\n// SOURCE_UNAVAILABLE and local limit errors are not auto-recovered.',cli:'zeroshot-dotnet logs --run-file run.json --json\n# valid earlier records remain on stdout; safe error on stderr; exit 1'},
-{title:'Live attachment',description:'Live execution output has no replay cursor. A disconnect cannot be repaired by pretending it is log history.',steps:['submit','attach','attachLost'],csharp:'await foreach (var output in run.AttachAsync(executionId, ct))\n    Show(output);\n// Attachment interrupted: report lost observation.\n// run.LogsAsync(execution: executionId, ...) is a separate durable history API.',cli:'zeroshot-dotnet attach --run-file run.json execution-opaque\n# read-only; no --after; no input channel'},
-{title:'Terminal evidence',description:'A reported terminal failure is a result. Status alone does not prove the outcome was retained in history.',steps:['submit','watch','statusFailure'],csharp:'RunResult result = await run.WaitAsync(cancellationToken: ct);\n// IsSuccess:false; FailureReason:"runtime_failed"\n// Evidence.Kind == StatusReport\n// EnsureSuccess() is optional; no retained-completion claim.',cli:'zeroshot-dotnet wait --run-file run.json --json\n# status:failed, evidence.kind:status-report; exit 3\n# status command would successfully report it with exit 0'},
-{title:'Direct native control',description:'Use typed native operations without adopting SDK binding, waiting or recovery policy.',steps:['binding'],csharp:'await using var native = NativeClient.ForHttp(options);\nvar discovery = await native.Target.DiscoverAsync(ct);\nvar session = await native.Target.CreateOecpSessionAsync(new(runId), ct);\nawait using var oecp = await native.ConnectOecpAsync(session, ct);\nawait oecp.InitializeAsync(new("openengine.cluster/v1"), ct);\nvar status = await oecp.Runs.StatusAsync(new(runId), ct);\n// Full method/HTTP coverage is in the calling sketch below.',cli:'# The initial CLI exposes the selected SDK workflows.\n# Broader native bindings are available to library callers.\n# No general raw-RPC or dashboard-administration CLI is proposed.'}
-];
-let current=0,step=0,view='csharp',state=fresh();
-const el=id=>document.getElementById(id);
-function draw() {
-  const values=[['Simulated native state',state.nativePhase],['State observed by caller',state.observedPhase],['Prepared request',state.prepared?'fixed request A':'none'],['Exact request retained',state.retained?'yes — consumer owned':'no'],['Proposed run',state.proposed||'none'],['Acknowledged run',state.acknowledged||'none'],['Submission outcome',state.attempt],['Submission attempts',state.submissions],['Observation',state.observation],['Last received cursor',state.received||'none'],['Last delivered cursor',state.delivered||'none'],['Consumer checkpoint',state.checkpoint||'none'],['Buffered records',state.buffer.length],['Force requests / outcome',state.forces+' / '+state.forceOutcome],['Terminal evidence',state.evidence],['Recovery',state.recovery?'eligible established interruptions':'disabled']];
-  el('state').replaceChildren(...values.map(([label,value])=>{const pair=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=String(value);pair.append(dt,dd);return pair;}));
-  el('notice').textContent=state.note;
-  el('scenario-title').textContent=cases[current].title;
-  el('description').textContent=cases[current].description;
-  el('steps').replaceChildren(...cases[current].steps.map((action,index)=>{const li=document.createElement('li'),b=document.createElement('button');b.textContent=actions[action];b.disabled=index!==step;b.className=index===step?'primary':'';b.onclick=()=>{state=transition(state,action);step++;draw();};li.append(b);return li;}));
-  const evidence={target:'https://target.example/',nativeBinding:{release:'10.9.0',provenance:'caller-supplied'},submission:{outcome:state.attempt,proposedRunId:state.proposed,acknowledgedRunId:state.acknowledged,runIdMatches:state.acknowledged?state.acknowledged===state.proposed:null,requestRetained:state.retained},observation:{kind:state.kind,lastReceivedCursor:state.received,lastDeliveredCursor:state.delivered,consumerCheckpoint:state.checkpoint,terminalEvidence:state.evidence},force:{attemptCount:state.forces,outcome:state.forceOutcome}};
-  el('code').textContent=view==='evidence'?JSON.stringify(evidence,null,2):cases[current][view];
-  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
-  [...el('scenarios').children].forEach((b,i)=>b.setAttribute('aria-selected',String(i===current)));
-}
-cases.forEach((item,index)=>{const b=document.createElement('button');b.textContent=item.title;b.setAttribute('role','tab');b.onclick=()=>{current=index;step=0;state=fresh();draw();};el('scenarios').append(b);});
-Object.entries(actions).forEach(([action,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>{state=transition(state,action);draw();};el('actions').append(b);});
-document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;draw();});
-el('reset').onclick=()=>{step=0;state=fresh();draw();};
-draw();
-</script></main></body></html>
+  const stages = [
+    { explanation: 'The client holds the connection options. Creating it does not start a run.', state: 'client configured · no submission · no result' },
+    { explanation: 'SubmitAsync returns once the target acknowledges the submission. The Run handle identifies that run; its work can still be running.', state: 'submission acknowledged · run handle available · result pending' },
+    { explanation: 'WaitAsync observes that run until a terminal result is reported. A successful or failed execution is result data. Cancelling the wait ends observation without stopping the run.', state: 'terminal result observed · result available · client can be disposed' }
+  ];
+  document.querySelectorAll('[data-stage]').forEach(button => {
+    button.addEventListener('click', () => {
+      const stage = stages[Number(button.dataset.stage)];
+      document.getElementById('explanation').textContent = stage.explanation;
+      document.getElementById('state').textContent = 'Simulated state: ' + stage.state;
+      document.querySelectorAll('[data-stage]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+    });
+  });
+</script>
+</body>
+</html>
