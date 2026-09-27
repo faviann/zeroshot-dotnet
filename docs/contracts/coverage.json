@@ -1411,14 +1411,17 @@
       "id": "callback:POST connectionResolver.endpoint",
       "transport": "HTTP",
       "bindingOwnerIssue": 34,
-      "status": "unimplemented",
-      "supportPrerequisites": "Caller-provided host endpoint; no same-target-origin assumption.",
-      "authenticationPrerequisites": "Run-scoped callback bearer.",
-      "typeClosure": "ConnectionResolveRequest -> ConnectionResolveResult; TargetConnectionResolver",
+      "status": "implemented",
+      "direction": "outbound: caller to a host-owned HTTPS callback; not an inbound target route",
+      "supportPrerequisites": "Caller-supplied TargetConnectionResolver: HTTPS endpoint with host and no userinfo/query/fragment (canonical spelling required, narrower than native), nonempty distinct keys, sourceConnection among them. No discovery and no target-origin comparison. [connections.rs:L45-L79][http-154]",
+      "authenticationPrerequisites": "The resolver's own run-scoped bearer, sent only in that request's Authorization header (1..16384 ASCII graphic bytes, narrower than native's non-control rule). Redirects refused.",
+      "typeClosure": "POST ConnectionResolveRequest {runId, connections: map<ConnectionKey, EnvironmentVariableName[]>} (keys among declared) -> any 2xx ConnectionResolveResult {connections: RunConnectionValues}; 30 s and 300 KiB bounds; ConnectionResolutionException Refused (401/403) / Unavailable (408/429/500-599, transport, deadline, capacity) / InvalidResponse (other status, redirect even when a supplied client followed it, malformed, received or declared oversized)",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L246"
-      }
+        "status": "Typed standalone client with deterministic fixtures: exact wire, descriptor and declared-key refusals before dispatch, status categories ignoring problem bodies, malformed/oversized/declared-oversized/truncated bodies, deadline and cancellation; controlled HTTPS endpoints prove an off-target resolver origin receiving only its own bearer, a 307 refused without contacting its Location, and a redirect followed by a non-compliant supplied client still classified InvalidResponse. Stock native 10.9.0 only calls this contract, so no native witness applies; live host interoperability unverified.",
+        "inventory": "native-inventory.md#L246",
+        "validation": "tests/Zeroshot.Sdk.Tests/ConnectionResolverTests.cs"
+      },
+      "binding": "ConnectionResolverClient.ResolveAsync"
     },
     {
       "id": "metadata:oauth.revocationEndpoint",
@@ -1440,7 +1443,7 @@
       "status": "advertised-only",
       "supportPrerequisites": "No native operation is inferred.",
       "authenticationPrerequisites": "Not applicable",
-      "typeClosure": "Route declaration validated as a bounded same-origin literal by the connections binding before any connection call (#31); never compiled into a caller operation. Host resolver callback owns the actual callable contract (#34).",
+      "typeClosure": "Route declaration validated as a bounded same-origin literal by the connections binding before any connection call (#31); never compiled into a caller operation. The callable contract is the explicit host callback bound by ConnectionResolverClient.ResolveAsync (#34).",
       "evidence": {
         "status": "pinned source only",
         "inventory": "native-inventory.md"

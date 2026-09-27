@@ -34,7 +34,8 @@ and finite; reserved slots must leave ordinary capacity. Discovery consumes ordi
 request capacity; session acquisition can use the reserved control slots. Discovery
 has no body, so its encoded request-body size is zero. Size
 checks count received bytes independently of Content-Length, including a one-byte
-overflow probe; they do not truncate a discovery document. Error bodies use the
+overflow probe; they do not truncate a discovery document. A success body whose
+declared Content-Length already exceeds the bound fails before it is read. Error bodies use the
 smaller response/error ceiling. The default transport uses HTTP/1.1 and registers
 each physical connection for its entire pooled lifetime; the handler also limits
 its real pool, and handler waits consume the complete request deadline.
@@ -175,7 +176,8 @@ run path or OECP `run/submit`, refresh credentials, or resend on any failure.
 including when empty. Each static connection contains 1–64 environment fields;
 values are nonempty, NUL-free, at most 64 KiB each and at most 256 KiB in aggregate
 including field names. Resolver endpoint/bearer/keys/sourceConnection remain native
-wire data; the SDK does not contact the resolver. Native admission owns runtime
+wire data; submission does not contact the resolver (see the
+[host connection resolver callback](#host-connection-resolver-callback)). Native admission owns runtime
 connection requirements and provider normalization. The target run ID must be a
 canonical UUIDv7. Run submission wire validation covers the full nested graph and
 runtime without performing native semantic admission.
@@ -450,6 +452,70 @@ serialization reveal them.
 authorities without production credentials. Stock native 10.9.0 consumes these
 endpoints but serves none, so the native witness cannot exercise them. Live hosted
 interoperability is unverified.
+
+## Host connection resolver callback
+
+```csharp
+await using var resolver = ConnectionResolverClient.ForHttp(targetConnectionResolver); // endpoint, bearer, keys
+var resolved = await resolver.ResolveAsync(new ConnectionResolveRequest
+{
+    RunId = runId,
+    Connections = ImmutableDictionary<string, ImmutableArray<EnvironmentVariableName>>.Empty
+        .Add("github", [new EnvironmentVariableName("GH_TOKEN")])
+});
+```
+
+`ConnectionResolverClient` makes the outbound call that native hosting makes to a
+`TargetConnectionResolver` (`native_v2_hosting/connections.rs`). The direction is
+caller to a host-owned HTTPS callback. It is not a target route, so it needs no
+discovery or `NativeClient`, and the endpoint is never compared with a target
+origin or capability route. The library does not serve the callback or store its
+credentials.
+
+`ForHttp` binds one resolver, as native builds one per run, and checks it before
+any contact: the endpoint is HTTPS with a host and no userinfo, query or fragment;
+keys are nonempty and distinct; and a `sourceConnection` must be one of them. Two
+rules are narrower than native. The endpoint must use the canonical spelling that
+target routes use (lowercase host, no explicit default port, a path, no dot
+segments or invalid escapes), so `System.Uri` never dials a URL native would not.
+The bearer must be 1..16384 ASCII graphic bytes, while native allows any
+non-control text; .NET cannot send non-ASCII header values by default. Invalid
+descriptors, and requests naming a key outside the declared keys, throw
+`ArgumentException` without dispatch.
+
+`ResolveAsync` sends one JSON POST with `Authorization: Bearer` set to the
+resolver's bearer on that request only. There is no retry, and redirects are
+refused, never followed. A supplied HttpClient is borrowed, as with `NativeClient`,
+and has the same caller contract. In particular it must disable automatic
+redirects: a redirect-following client resends the request body (run ID, keys and
+field names) to the `Location` before the SDK sees and refuses the redirect. .NET
+drops the `Authorization` header on that resend. The request deadline is the smaller of the
+configured `RequestTimeout` and native's fixed 30 s; the response bound is the
+smaller of `MaxResponseBytes` and 300 KiB. Any 2xx with a valid strict
+`ConnectionResolveResult` succeeds. Its values follow the static bounds shared with
+run submission. The result is not matched against the requested fields: that check
+belongs to native's supervisor, not the callback.
+
+Failures throw `ConnectionResolutionException` with native's category. The inner
+`NativeHttpException` keeps the failure kind, status and opt-in raw diagnostics.
+The category depends only on the status and failure kind; problem bodies are
+ignored, as native ignores them.
+
+| `Error` | Evidence |
+| --- | --- |
+| `Refused` | 401 or 403. |
+| `Unavailable` | 408, 429 or 500–599; transport or read failure, including a truncated body; the deadline; local capacity refusal. |
+| `InvalidResponse` | Any other non-2xx, including 3xx; a redirect even if a supplied client followed it; a malformed body; a received or declared oversized body. |
+
+Cancellation throws an `OperationCanceledException` subtype. Default formatting of
+the client, results and exceptions omits the bearer and resolved values.
+
+`ConnectionResolverTests.cs` covers the exact wire, descriptor rules, the status
+table, malformed/oversized/declared-oversized/truncated bodies, the deadline and cancellation, and
+controlled HTTPS endpoints: an off-target resolver that receives only its own
+bearer, a 307 whose `Location` is never contacted, and a redirect that a
+non-compliant supplied client follows, still classified `InvalidResponse`. Stock native 10.9.0 only
+calls this contract and serves none, so no native witness applies.
 
 ## Run history
 

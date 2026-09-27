@@ -48,9 +48,11 @@ internal sealed class OperationContext(OperationDescriptor operation, Guid corre
 
     // Reads at most the ceiling plus one probe byte, regardless of Content-Length or frame headers.
     // The caller retains stream ownership and releases it through the operation cleanup callback.
-    public async Task<byte[]> ReadResponseAsync(Stream stream, int? responseBytes = null)
+    // A declared length above the ceiling fails before reading, as native's content_length checks do.
+    public async Task<byte[]> ReadResponseAsync(Stream stream, int? responseBytes = null, long? declaredBytes = null)
     {
         var ceiling = Math.Min(Math.Min(limits.ResponseBytes, operation.ResponseBytes ?? int.MaxValue), responseBytes ?? int.MaxValue);
+        if (declaredBytes > ceiling) CheckSize(declaredBytes.Value, ceiling, OperationStage.Response);
         using var output = new MemoryStream();
         var buffer = new byte[Math.Min(8192, ceiling)];
         while (true)
