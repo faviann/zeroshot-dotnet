@@ -487,6 +487,49 @@ authorities. Stock native 10.9.0 serves no merge-plan routes and refuses them fo
 targets, so the native witness cannot exercise them. Live hosted interoperability is
 unverified.
 
+## Hosted workspace recovery
+
+```csharp
+var page = await native.HostedRecovery.CheckpointsAsync(discovery, new RunCheckpointsParams { RunId = runId, Limit = 10 }, access);
+var resumed = await native.HostedRecovery.ResumeAsync(discovery, runId, successorRunId, access,
+    new CheckpointResumeFrom { CheckpointId = page.Checkpoints[0].CheckpointId }, freshRunCredentials);
+if (resumed.Outcome == NativeAttemptOutcome.Unknown) { /* the source run's status reports any recorded successor */ }
+var discarded = await native.HostedRecovery.DiscardWorkspaceAsync(discovery, runId, access);
+```
+
+`NativeClient.HostedRecovery` binds native's hosted checkpoint and workspace-recovery
+operations. Each POSTs the OECP request body once, with the caller's hosted OAuth
+access bearer, `Accept: application/json` and `Cache-Control: no-store`. Request and
+result types are the shared OECP recovery contracts described in the
+[OECP guide](../oecp/README.md): the same checkpoint page contract, restart versus
+checkpoint selection, and fresh `TargetRunCredentials` kept apart from the identity
+arguments. There is no rediscovery, token refresh, retry or reconciliation.
+
+The hosted gate is the one used by hosted runs, and the capability is its own
+`hosted_workspace_recovery` extension of kind `openengine.hosted-workspace-recovery/v1`.
+It has no base URL: its `resume`, `checkpoints` and `discard_workspace` templates append
+to the validated `hosted_runs` base, and each must have exactly one whole `{run_id}`
+segment and no query. Native compiles all three together. The run ID in the path is
+encoded and restricted as for hosted runs, and the body carries the same ID. Direct and
+private targets recover over OECP; their `workspace_recovery` and
+`workspace_checkpoints` kinds do not enable these routes. Absent or malformed
+descriptors, unaddressable run IDs and invalid requests throw without dispatch.
+
+`CheckpointsAsync` returns the page or throws `NativeHttpException`; a page for another
+run, beyond the effective limit or with a `nextAfter` that is not its last checkpoint
+fails as `Protocol`. `ResumeAsync` and `DiscardWorkspaceAsync` return `NativeAttempt<T>`
+with the hosted classification: `Rejected` only for 400 `invalid_request`, 401
+`unauthorized`, 403 `forbidden` or 404 `not_found` problems. The OECP binding's
+JSON-RPC refusal codes have no pinned hosted equivalent, so every other received
+failure, a lost reply, and a malformed or foreign acknowledgement (a successor or source
+other than the requested ones, or another run's discard) is `Unknown`. Results must fit
+in 64 KiB (or the smaller configured limit), native's hosted bound.
+
+`HttpHostedRecoveryTests.cs` covers the three operations against controlled hosted peers
+with source-backed fixtures. Stock native 10.9.0 only consumes these routes and serves
+none, so the native witness cannot exercise them. Live hosted interoperability is
+unverified.
+
 ## Hosted OAuth operations
 
 ```csharp
