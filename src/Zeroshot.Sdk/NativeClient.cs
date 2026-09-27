@@ -122,7 +122,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     }
 
     private async Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
-        TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken)
+        TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
+        Action<Guid>? onDispatch = null, Action<T>? onResponse = null)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
@@ -147,6 +148,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 if (credentials is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.BearerToken);
                 request.Options.Set(ContextKey, context);
+                context.ThrowIfCancelled();
+                onDispatch?.Invoke(context.CorrelationId);
                 var response = await SendAsync(request, context).ConfigureAwait(false);
                 bool retained;
                 lock (responseGate)
@@ -168,12 +171,14 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
                 }
-                if (operation == NativeTargetClient.DiscoveryOperation && response.StatusCode != HttpStatusCode.OK)
+                if ((operation == NativeTargetClient.DiscoveryOperation || operation == NativeTargetClient.SubmitOperation) &&
+                    response.StatusCode != HttpStatusCode.OK)
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, statusCode: response.StatusCode);
                 try
                 {
                     var result = NativeJson.DeserializeUtf8<T>(bytes);
                     validate(result);
+                    onResponse?.Invoke(result);
                     return result;
                 }
                 catch (Exception error) when (error is JsonException or ArgumentException)
@@ -256,7 +261,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     }
 }
 
-public sealed class NativeTargetClient
+public sealed partial class NativeTargetClient
 {
     internal const string DiscoveryPath = "/.well-known/zeroshot-native-v2";
     internal static readonly OperationDescriptor DiscoveryOperation = new("target.discover", OperationTransport.Http);

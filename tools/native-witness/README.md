@@ -1,9 +1,9 @@
 # Stock native Linux x64 witness
 
 Run `tools/native-witness/run.sh` from any directory on Linux x64 with .NET 10,
-Bash, curl, tar, sha256sum, shuf and ripgrep. It downloads the pinned official stock
+Bash, Python 3, curl, tar, sha256sum, shuf and ripgrep. It downloads the pinned official stock
 release, verifies the archive and extracted executable, and launches a loopback
-native target with a fresh state directory, empty asset working directory and
+native target with fresh state and asset directories and a
 scrubbed environment. A test-owned no-worker graph is admitted with a fixed run/source
 identity and empty connection values. No user assets, credentials or provider tools
 are used. Process management and raw HTTP admission belong to this developer witness.
@@ -13,7 +13,8 @@ directory and prints its path on success or failure. It terminates the native
 process on exit and retains artifacts for inspection. The port is chosen randomly;
 `ZEROSHOT_WITNESS_PORT` can select an available unprivileged port. A bind collision
 fails explicitly. `ZEROSHOT_WITNESS_ARCHIVE` can supply a cached archive, which still
-must pass the pinned checksum check. Python is not required.
+must pass the pinned checksum check. Python is used only to extract/compare test
+assets; consumers and the client library do not depend on it.
 
 Pinned provenance:
 
@@ -38,12 +39,31 @@ native's empty cluster get, lists the admitted run, checks exact run/source stat
 through a terminal projection and verifies unsupported-protocol rejection. This host
 reports `runtime_unavailable`; that real terminal status is inspection evidence,
 not successful provider execution or terminal-event durability. The source identity
-is a fixture label, not evidence of checkout. No production submission binding is
-claimed by this test-owned admission step. The 30 s witness wait fails explicitly
+is a fixture label, not evidence of checkout. The 30 s witness wait fails explicitly
 if terminal evidence cannot be obtained.
 
+A second packed-package consumer exercises `Target.SubmitAttemptAsync`. The harness
+uses stock native `profile set --template software-change --pr` with Codex/gateway,
+`gpt-5.6-sol`, medium effort, small size, execution sessions and explicit gateway
+connection declarations. Isolated `ZEROSHOT_CONFIG_DIR` and `XDG_STATE_HOME` prevent
+ambient profile access. It extracts complete graph/runtime bytes, admits them again
+via `profile set --graph --runtime-config` and compares the extracted bytes exactly.
+The generated asset retains PR delivery and the default `Consider` feedback policy.
+
+The consumer omits agent connection declarations, then proves native contained
+normalization by observing admission refusal without gateway values and acceptance
+with test-owned values. Submitting the explicit equivalent runtime with another
+proposed ID returns the first run: normalized deduplication happens before replacement
+credential inspection. An exact retained-request replay with an empty outer map also
+returns that run. A changed immutable title under the same key yields the pinned
+409 conflict. `submission.json` records these outcomes and both identities, plus
+asset/retained hashes. These are admission/replay proofs, not provider or forge
+execution. The fake gateway points to a closed numeric loopback port; no external
+provider or forge authority is supplied.
+
 It retains provenance, request bytes and hash, receipt, native logs, raw discovery/
-session data, response headers, package/restore logs and consumer output. Later
+session data, response headers, complete/readmitted asset bytes and hashes, exact
+retained submission bytes, package/restore logs and both consumer outputs. Later
 binding issues extend this harness. Live hosted/private authorities, provider success
 and populated workspace recovery remain unverified. Hosted/private contracts currently use source-backed controlled
 HTTP peers; HTTPS acquisition uses a temporary trusted certificate in deterministic

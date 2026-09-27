@@ -21,6 +21,12 @@ internal static class WireValidation
             // Required fields, nullability, exact field names and per-type extension strictness.
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
             if (result is TargetHttpProblem problem) problem.Validate();
+            if (result is TargetRunCredentials credentials) credentials.Validate();
+            if (result is TargetRunRequest request)
+            {
+                TargetRunRequest.ValidateRunId(request.RunId);
+                Validate(value.GetProperty("submission"), typeof(RunSubmission));
+            }
             CheckDiscovery(value, type);
             return;
         }

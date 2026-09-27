@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -30,13 +29,30 @@ public sealed class PreparedSubmission
         var owned = utf8.ToArray();
         var envelope = NativeJson.DeserializeUtf8<RunSubmitParams>(owned);
         // This retained envelope is intended for the fixed target HTTP submission boundary.
-        var id = envelope.RunId.Value;
-        if (!Guid.TryParseExact(id, "D", out var guid) || guid.ToString("D") != id || id[14] != '7' || "89ab".IndexOf(id[19]) < 0)
-            throw new JsonException("Prepared submission requires a canonical UUIDv7 run ID.");
+        TargetRunRequest.ValidateRunId(envelope.RunId);
         return new PreparedSubmission(owned, envelope);
     }
 
     /// <summary>Returns an independent copy of the exact retained UTF-8, including whitespace and property order.</summary>
     public byte[] ExportUtf8() => (byte[])utf8.Clone();
+
+    internal byte[] WithCredentials(TargetRunCredentials credentials)
+    {
+        // Insert outer credentials before the closing brace. Every retained field keeps its
+        // original bytes, including whitespace, ordering, escapes and numeric spellings.
+        var fresh = NativeJson.SerializeUtf8(new TargetRunCredentials
+        {
+            Connections = credentials.Connections, ConnectionResolver = credentials.ConnectionResolver,
+            GithubToken = credentials.GithubToken
+        });
+        var end = utf8.Length - 1;
+        while (utf8[end] != (byte)'}') end--;
+        var body = new byte[utf8.Length + fresh.Length - 1];
+        utf8.AsSpan(0, end).CopyTo(body);
+        body[end] = (byte)',';
+        fresh.AsSpan(1, fresh.Length - 2).CopyTo(body.AsSpan(end + 1));
+        utf8.AsSpan(end).CopyTo(body.AsSpan(end + fresh.Length - 1));
+        return body;
+    }
     public override string ToString() => nameof(PreparedSubmission);
 }
