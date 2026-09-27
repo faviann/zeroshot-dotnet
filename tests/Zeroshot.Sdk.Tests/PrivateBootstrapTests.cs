@@ -96,21 +96,21 @@ public sealed class PrivateBootstrapTests
             Discovery(TargetAuthentication.None, path: null), Discovery(TargetAuthentication.HostedOauth, path: null),
             Discovery(path: null), Discovery(path: "https://other.example/native-v2/private-bootstrap")
         })
-            await Invalid(() => client.Private.BootstrapAsync(discovery, Envelope));
+            await Invalid<ArgumentException>(() => client.Private.BootstrapAsync(discovery, Envelope));
         foreach (var envelope in new[]
         {
             Envelope with { Nonce = Nonce.ToUpperInvariant() }, Envelope with { Nonce = Nonce[..22] },
             Envelope with { Nonce = Nonce + "a" }, Envelope with { Ciphertext = Ciphertext[..^2] },
             Envelope with { Ciphertext = Ciphertext[..^1] + "g" }, Envelope with { Ciphertext = Ciphertext + "00" }
         })
-            await Invalid(() => client.Private.BootstrapAsync(Discovery(), envelope));
+            await Invalid<JsonException>(() => client.Private.BootstrapAsync(Discovery(), envelope));
         Check(handler.Calls == 0);
     }
 
-    private static async Task Invalid(Func<Task> action)
+    private static async Task Invalid<TException>(Func<Task> action) where TException : Exception
     {
         try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException) { return; }
+        catch (Exception error) { Check(error.GetType() == typeof(TException), error.ToString()); return; }
         throw new InvalidOperationException("Expected invalid caller input.");
     }
 

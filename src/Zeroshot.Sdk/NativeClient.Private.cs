@@ -57,8 +57,8 @@ public sealed class NativePrivateClient
     internal NativePrivateClient(NativeClient client) => this.client = client;
 
     /// <summary>
-    /// Sends one caller-prepared envelope. An invalid envelope (400) or a closed bootstrap (404) is
-    /// <see cref="NativeAttemptOutcome.Rejected"/> with its status and problem retained. Discovery that is not
+    /// Sends one caller-prepared envelope. An invalid envelope (400), a closed bootstrap (404) or a native
+    /// request-read timeout (408) is <see cref="NativeAttemptOutcome.Rejected"/> with its status and problem retained. Discovery that is not
     /// private throws before sending. After an unknown outcome the key may be consumed; do not resend blindly.
     /// </summary>
     public Task<NativeAttempt<EmptyResponse>> BootstrapAsync(TargetDiscoveryDocument discovery,
