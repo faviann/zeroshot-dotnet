@@ -66,10 +66,13 @@ internal sealed class OperationDescriptor
     public bool UiRouter { get; }
     /// <summary>Refusals carry the closed native run-history problem vocabulary.</summary>
     public bool HistoryProblems { get; }
+    /// <summary>Refusals carry an OAuth <c>{error}</c> body instead of a target problem.</summary>
+    public bool OAuthErrors { get; }
 
     // Name is a binding-owned operation identifier, never a URL, remote string or caller payload.
     public OperationDescriptor(string name, OperationTransport transport, bool isControl = false,
-        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null, int? problemBytes = null, bool uiRouter = false, bool historyProblems = false)
+        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null, int? problemBytes = null, bool uiRouter = false, bool historyProblems = false,
+        bool oauthErrors = false)
     {
         if (string.IsNullOrEmpty(name) || name.Length > 128 ||
             name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '/' or '.' or '_' or '-')))
@@ -86,5 +89,6 @@ internal sealed class OperationDescriptor
         ProblemBytes = problemBytes;
         UiRouter = uiRouter;
         HistoryProblems = historyProblems;
+        OAuthErrors = oauthErrors;
     }
 }

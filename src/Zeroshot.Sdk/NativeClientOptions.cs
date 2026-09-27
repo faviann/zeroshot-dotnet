@@ -75,8 +75,12 @@ public sealed class NativeHttpException : Exception
     /// <summary>The closed native history category of the received problem, for history operations only.
     /// An unknown or malformed history problem leaves it null and keeps the observed status.</summary>
     public RunHistoryProblemCode? HistoryProblem { get; }
+    /// <summary>The recognized OAuth <c>{error}</c> of a device-token refusal, for that operation only.
+    /// An unrecognized or malformed error body leaves it null and keeps the observed status.</summary>
+    public DeviceTokenError? DeviceTokenError { get; }
     internal NativeHttpException(OperationFailure failure, TargetHttpProblem? problem = null,
-        HttpStatusCode? receivedStatus = null, UiProblem? uiProblem = null, RunHistoryProblemCode? historyProblem = null)
+        HttpStatusCode? receivedStatus = null, UiProblem? uiProblem = null, RunHistoryProblemCode? historyProblem = null,
+        DeviceTokenError? deviceTokenError = null)
         : base(failure.Message)
     {
         Operation = failure.Operation;
@@ -87,6 +91,7 @@ public sealed class NativeHttpException : Exception
         Problem = problem;
         UiProblem = uiProblem;
         HistoryProblem = historyProblem;
+        DeviceTokenError = deviceTokenError;
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();

@@ -352,6 +352,105 @@ the GitHub token, bearers and remote problem text. Explicit property access and
 Stock native 10.9.0 only consumes these routes and serves none, so the native
 witness cannot exercise them. Live hosted interoperability is unverified.
 
+## Hosted OAuth operations
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var metadata = await native.OAuth.MetadataAsync(discovery);
+var code = await native.OAuth.BeginDeviceAuthorizationAsync(discovery);
+// Show code.VerificationUriComplete ?? code.VerificationUri and code.UserCode, then poll yourself.
+var exchange = await native.OAuth.ExchangeDeviceTokenAsync(discovery, code, registeredDeviceToken);
+if (exchange.Failure is NativeHttpException { DeviceTokenError: DeviceTokenError.SlowDown }) { /* wait longer */ }
+var tokens = exchange.Response; // Acknowledged only
+var session = await native.OAuth.VerifySessionAsync(discovery,
+    new TargetControlCredentials(TargetAuthentication.HostedOauth, tokens!.AccessToken));
+var refreshed = await native.OAuth.RefreshAsync(discovery, tokens.RefreshToken);
+```
+
+`NativeClient.OAuth` binds the five native hosted OAuth calls individually. Each
+call sends one request to a URL from the explicitly supplied discovery. There is no
+login store, polling loop, `slow_down` backoff, token cache, automatic refresh or
+resend after refresh. Callers own storage and timing, including native's
++5 s (maximum 300 s) `slow_down` adjustment.
+
+Before sending anything, every operation requires `hosted_oauth` discovery with
+kind `zeroshot.native-v2-target/v2` and audience `controller`, plus:
+
+- `oauth` with device grant `urn:ietf:params:oauth:grant-type:device_code`, exactly
+  the exchange fields `device_token` and `device_label`, a client ID of 1–256 UTF-8
+  bytes without ASCII control characters, and canonical same-origin metadata, device,
+  token and revocation URLs with no credentials, query or fragment;
+- `loginSession` with method `GET`, cache policy `no-store` and a same-origin route.
+
+Other discovery capabilities are not examined. Invalid discovery or caller input
+throws `ArgumentException` or `JsonException` without dispatch.
+
+| Operation | Request | Result |
+| --- | --- | --- |
+| `MetadataAsync` | Unauthenticated GET `metadataUrl`, `Accept: application/json` | `OAuthMetadata`; other metadata fields are ignored |
+| `BeginDeviceAuthorizationAsync` | Unauthenticated form POST `client_id` | `DeviceAuthorization` |
+| `ExchangeDeviceTokenAsync` | Unauthenticated form POST `grant_type`, `device_code`, `client_id`, `device_token`, `device_label=zeroshot-cli`, `audience` | `NativeAttempt<OAuthTokens>` |
+| `RefreshAsync` | Unauthenticated form POST `grant_type=refresh_token`, `client_id`, `refresh_token`, `audience` | `NativeAttempt<OAuthTokens>` |
+| `VerifySessionAsync` | Bearer GET login route, `Accept: application/json`, `Cache-Control: no-store` | `TargetLoginSession` |
+
+Forms use native's `application/x-www-form-urlencoded` serialization and send
+`Accept: */*`, the default of native's pinned reqwest client. `grant_type` for the device exchange and `audience`
+come from discovery. The device token is the caller's registered hosted-target
+UUID, sent in lowercase hyphenated form. Any 2xx status is accepted, and responses
+are limited to 64 KiB.
+
+Metadata fails as a protocol error unless its device, token and revocation
+endpoints are canonical same-origin URLs equal to the discovered ones. Device
+authorization and token results are strict snake_case records with native bounds:
+
+- device code at most 16 KiB and user code at most 256 bytes, both nonempty without
+  ASCII controls; expiry 1–86400 s; interval at most 300 s (zero is valid);
+- verification URLs at most 4096 bytes, HTTPS or HTTP on `127.0.0.1`, with no
+  userinfo or fragment. Only the complete URL may carry a query, and it must share
+  the base URL's origin. Native's loopback test never matches `[::1]`, so neither
+  does this one;
+- token type exactly `Bearer`; access and refresh tokens 1–16 KiB without ASCII
+  controls; access expiry 1–86400 s; refresh expiry 1–31536000 s; scope 1–512 bytes
+  without ASCII controls;
+- session kind `openengine.target-session/v1` and an organization ID of 1–256 bytes.
+
+Both token grants have effects: a device code is consumed once tokens are issued,
+and refresh may rotate the refresh token. They therefore return `NativeAttempt`
+evidence. A lost reply or malformed token response is `Unknown`, and the caller
+cannot assume its refresh token is still current. For the device exchange, a strict
+`{error}` body naming `authorization_pending`, `slow_down`, `access_denied` or
+`expired_token` is `Rejected`, and `NativeHttpException.DeviceTokenError` carries the
+typed code. Any other error text, extra fields or a non-OAuth body stays `Unknown`
+with the status retained. Refresh refusals are `Rejected` only for the problem pairs
+used by connection management (400 `invalid_request`, 401 `unauthorized`,
+403 `forbidden`, 404 `not_found`); every other received failure is `Unknown`.
+Native parses refresh failures as target problems, so a refusal carried as an OAuth
+`{error}` body, such as 400 `invalid_grant`, is also `Unknown`. A caller therefore
+cannot distinguish a revoked or expired refresh token from a lost reply by outcome
+alone; `Failure.StatusCode` and the opted-in raw diagnostic keep what was received.
+Metadata, device authorization and session verification return their result or
+throw `NativeHttpException`.
+
+`VerifySessionAsync` takes the access token as `HostedOauth`
+`TargetControlCredentials`. That type requires 1–16384 ASCII graphic bytes, which is
+stricter than native's rule for access tokens (nonempty, at most 16 KiB, no ASCII
+controls). A token native would accept but that contains spaces or non-ASCII
+characters cannot be verified through this binding.
+
+`revocationEndpoint` stays visible on discovery and `OAuthMetadata.RevocationEndpoint`
+and is validated like native. Native 10.9.0 never calls it, so there is no revocation
+or logout operation; the coverage ledger keeps it as an advertised-only gap.
+
+Default formatting of device authorizations, tokens, attempts,
+exceptions and credentials omits device codes, device tokens, access and refresh
+tokens and remote error text. Explicit property access and `NativeJson`
+serialization reveal them.
+
+`HttpOAuthTests.cs` covers every flow and failure against controlled hosted
+authorities without production credentials. Stock native 10.9.0 consumes these
+endpoints but serves none, so the native witness cannot exercise them. Live hosted
+interoperability is unverified.
+
 ## Run history
 
 ```csharp

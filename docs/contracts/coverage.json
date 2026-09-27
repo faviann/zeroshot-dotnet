@@ -1265,66 +1265,76 @@
       "id": "discovered:GET oauth.metadata",
       "transport": "HTTP",
       "bindingOwnerIssue": 28,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
-      "authenticationPrerequisites": "Unauthenticated",
-      "typeClosure": "Unauthenticated GET discovered `metadataUrl`, `Accept: application/json` -> `OAuthMetadataWire` above. [controller_authority.rs:L142-L155][http-119] [controller_authority.rs:L421-L449][http-120]",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with `oauth` (device grant `urn:ietf:params:oauth:grant-type:device_code`, exchange fields exactly `device_token`/`device_label`, client ID 1-256 bytes without control characters, canonical same-origin metadata/device/token/revocation URLs) and `loginSession` (`GET`, `no-store`, same-origin route). Other discovery capabilities are not validated. Invalid discovery or caller input throws before dispatch. [contract.rs:L416-L448][http-118]",
+      "authenticationPrerequisites": "Unauthenticated; `Accept: application/json`.",
+      "typeClosure": "GET discovered `metadataUrl` -> any 2xx `OAuthMetadata {device_authorization_endpoint, token_endpoint, revocation_endpoint}` (other fields ignored); each endpoint must be a canonical same-origin URL equal to discovery, else Protocol failure; 64 KiB; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L216"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L216",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
+      },
+      "binding": "NativeClient.OAuth.MetadataAsync"
     },
     {
       "id": "discovered:POST oauth.begin_device_authorization",
       "transport": "HTTP",
       "bindingOwnerIssue": 28,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
-      "authenticationPrerequisites": "Unauthenticated form",
-      "typeClosure": "Unauthenticated POST form `{client_id}` to discovered device endpoint -> Strict snake_case `DeviceCodeWire {device_code,user_code,verification_uri,verification_uri_complete?,expires_in,interval}`. [controller_authority.rs:L197-L204][http-121] [contract.rs:L128-L137][http-122]",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with `oauth` (device grant `urn:ietf:params:oauth:grant-type:device_code`, exchange fields exactly `device_token`/`device_label`, client ID 1-256 bytes without control characters, canonical same-origin metadata/device/token/revocation URLs) and `loginSession` (`GET`, `no-store`, same-origin route). Other discovery capabilities are not validated. Invalid discovery or caller input throws before dispatch. [contract.rs:L416-L448][http-118]",
+      "authenticationPrerequisites": "Unauthenticated form; reqwest's default `Accept: */*`.",
+      "typeClosure": "POST form `client_id` -> any 2xx strict `DeviceAuthorization {device_code, user_code, verification_uri, verification_uri_complete?, expires_in, interval}`: codes nonempty without ASCII controls (device <= 16 KiB, user <= 256 bytes), expiry 1..86400, interval <= 300, verification URLs <= 4096 bytes, HTTPS or `127.0.0.1` HTTP, no userinfo/fragment, query only on the complete URL, which must share the base origin; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L217"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L217",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
+      },
+      "binding": "NativeClient.OAuth.BeginDeviceAuthorizationAsync"
     },
     {
       "id": "discovered:POST oauth.poll_device_token",
       "transport": "HTTP",
       "bindingOwnerIssue": 28,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
-      "authenticationPrerequisites": "Unauthenticated form with device material",
-      "typeClosure": "Unauthenticated POST form `{grant_type,device_code,client_id,device_token,device_label:\"zeroshot-cli\",audience:\"controller\"}` -> Strict snake_case `TokenWire` on any 2xx; on non-success strict `{error}` only. Supported poll errors: `authorization_pending`, `slow_down` (+5 seconds up to 300), `access_denied`, `expired_token`; unknown response errors fail. [controller_authority.rs:L38-L41][http-123] [controller_authority.rs:L226-L285][http-124]",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with `oauth` (device grant `urn:ietf:params:oauth:grant-type:device_code`, exchange fields exactly `device_token`/`device_label`, client ID 1-256 bytes without control characters, canonical same-origin metadata/device/token/revocation URLs) and `loginSession` (`GET`, `no-store`, same-origin route). Other discovery capabilities are not validated. Invalid discovery or caller input throws before dispatch. [contract.rs:L416-L448][http-118]",
+      "authenticationPrerequisites": "Unauthenticated form carrying the device code and the caller's registered device token (UUID); reqwest's default `Accept: */*`.",
+      "typeClosure": "POST form `grant_type, device_code, client_id, device_token, device_label=zeroshot-cli, audience` -> any 2xx strict `OAuthTokens` (`Bearer`, tokens 1..16 KiB without controls, expiry 1..86400, refresh expiry 1..31536000, scope 1..512 bytes); `NativeAttempt<OAuthTokens>`: a strict `{error}` of authorization_pending/slow_down/access_denied/expired_token is Rejected with `NativeHttpException.DeviceTokenError`; other received failures and malformed tokens are Unknown. No polling loop or backoff.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L218"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L218",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
+      },
+      "binding": "NativeClient.OAuth.ExchangeDeviceTokenAsync"
     },
     {
       "id": "discovered:POST oauth.refresh_access",
       "transport": "HTTP",
       "bindingOwnerIssue": 28,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
-      "authenticationPrerequisites": "Unauthenticated form with refresh token",
-      "typeClosure": "Unauthenticated POST form `{grant_type:\"refresh_token\",client_id,refresh_token,audience}` -> Strict `TokenWire {access_token,refresh_token,token_type,expires_in,refresh_expires_in,scope}`. Verifies session then persists rotated refresh token before caching access token. [controller_authority.rs:L288-L325][http-125] [contract.rs:L139-L148][http-126]",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with `oauth` (device grant `urn:ietf:params:oauth:grant-type:device_code`, exchange fields exactly `device_token`/`device_label`, client ID 1-256 bytes without control characters, canonical same-origin metadata/device/token/revocation URLs) and `loginSession` (`GET`, `no-store`, same-origin route). Other discovery capabilities are not validated. Invalid discovery or caller input throws before dispatch. [contract.rs:L416-L448][http-118]",
+      "authenticationPrerequisites": "Unauthenticated form carrying the caller's refresh token (1..16 KiB, no controls); reqwest's default `Accept: */*`.",
+      "typeClosure": "POST form `grant_type=refresh_token, client_id, refresh_token, audience` -> any 2xx strict `OAuthTokens` with the same bounds; `NativeAttempt<OAuthTokens>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown, including OAuth `{error}` bodies such as 400 invalid_grant (the refresh token may have rotated). No storage, caching or automatic refresh.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L219"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L219",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
+      },
+      "binding": "NativeClient.OAuth.RefreshAsync"
     },
     {
       "id": "discovered:GET oauth.verify_login_session",
       "transport": "HTTP",
       "bindingOwnerIssue": 28,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
-      "authenticationPrerequisites": "OAuth access bearer",
-      "typeClosure": "Bearer GET discovered login route; `Accept: application/json`, `Cache-Control: no-store` -> Strict snake_case `{kind:\"openengine.target-session/v1\",organization_id}`; nonempty org ID max 256 bytes. [controller_authority.rs:L328-L362][http-127] [contract.rs:L156-L161][http-128]",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with `oauth` (device grant `urn:ietf:params:oauth:grant-type:device_code`, exchange fields exactly `device_token`/`device_label`, client ID 1-256 bytes without control characters, canonical same-origin metadata/device/token/revocation URLs) and `loginSession` (`GET`, `no-store`, same-origin route). Other discovery capabilities are not validated. Invalid discovery or caller input throws before dispatch. [contract.rs:L416-L448][http-118]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth, ASCII graphic only, stricter than native's no-control rule); `Accept: application/json`, `Cache-Control: no-store`.",
+      "typeClosure": "GET discovered login route -> any 2xx strict `TargetLoginSession {kind: openengine.target-session/v1, organization_id: 1..256 bytes}`; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L220"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L220",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
+      },
+      "binding": "NativeClient.OAuth.VerifySessionAsync"
     },
     {
       "id": "oecp-notification:event",
@@ -1417,7 +1427,7 @@
       "status": "advertised-only",
       "supportPrerequisites": "No native operation is inferred.",
       "authenticationPrerequisites": "Not applicable",
-      "typeClosure": "Advertised URL only; no specified outgoing method",
+      "typeClosure": "Advertised URL only; no specified outgoing method. The OAuth bindings (#28) route-validate it in discovery, require metadata `revocation_endpoint` to equal it and expose both values, but offer no revocation or logout operation.",
       "evidence": {
         "status": "pinned source only",
         "inventory": "native-inventory.md"
