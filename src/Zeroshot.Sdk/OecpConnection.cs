@@ -1,4 +1,3 @@
-using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
@@ -7,12 +6,11 @@ using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
-/// <summary>One owned WebSocket, multiplexing bounded OECP calls and subscriptions. No retries, recovery or implicit native stop.</summary>
+/// <summary>One WebSocket or NDJSON stream, multiplexing bounded OECP calls and subscriptions. No retries, recovery or implicit native stop.</summary>
 public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
 {
     public const string ProtocolVersion = "openengine.cluster/v1";
-    private readonly ClientWebSocket socket;
-    private readonly HttpMessageInvoker invoker;
+    private readonly IOecpTransport transport;
     private readonly IDisposable lease;
     private readonly OperationExecutor executor;
     private readonly OperationLimits limits;
@@ -24,6 +22,8 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     private readonly Dictionary<SubscriptionId, IOecpSubscription> subscriptions = [];
     private readonly ObservationDelivery observations;
     private readonly TaskCompletionSource<OecpConnectionFailure?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static long streamRequestIds;
+    private readonly bool processWideIds;
     private long nextId;
     private bool closed;
     private Task receiveTask = Task.CompletedTask;
@@ -32,13 +32,19 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>Completes with a safe failure on interruption, or null on explicit disposal.</summary>
     public Task<OecpConnectionFailure?> Completion => completion.Task;
 
-    internal Uri Origin { get; }
+    /// <summary>The HTTP target origin, the Unix socket as a file URI, or null for caller-supplied streams.</summary>
+    internal Uri? Origin { get; }
 
-    internal OecpConnection(Uri origin, ClientWebSocket socket, HttpMessageInvoker invoker, IDisposable lease,
-        OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released)
+    internal OecpConnection(Uri? origin, IOecpTransport transport, IDisposable lease,
+        OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released,
+        bool processWideIds = false)
     {
         Origin = origin;
-        this.socket = socket; this.invoker = invoker; this.lease = lease; this.executor = executor;
+        // A borrowed stream can outlive its connection, so a late reply can reach a later one.
+        // Process-wide IDs never match its calls, and the seed makes that reply a retired ID.
+        this.processWideIds = processWideIds;
+        if (processWideIds) nextId = Interlocked.Read(ref streamRequestIds);
+        this.transport = transport; this.lease = lease; this.executor = executor;
         this.limits = limits; this.released = released;
         this.observations = observations;
         Cluster = new(this); Runs = new(this);
@@ -49,7 +55,12 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>Allocates a one-use unary ID, available for explicit cooperative cancellation while its call is pending.</summary>
     public OecpRequest CreateRequest()
     {
-        lock (gate) { ObjectDisposedException.ThrowIf(closed, this); return new(this, checked(++nextId)); }
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(closed, this);
+            nextId = processWideIds ? Interlocked.Increment(ref streamRequestIds) : checked(nextId + 1);
+            return new(this, nextId);
+        }
     }
 
     public Task<InitializeResult> InitializeAsync(InitializeParams? parameters = null, OecpRequest? request = null, CancellationToken cancellationToken = default)
@@ -62,10 +73,12 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         }, cancellationToken, request);
     }
 
-    /// <summary>Sends WebSocket $/cancelRequest for one unary ID. This has no acknowledgement and is neither subscription cancellation nor native run stop.</summary>
+    /// <summary>Sends WebSocket $/cancelRequest for one unary ID. This has no acknowledgement and is neither subscription cancellation nor native run stop.
+    /// Native NDJSON does not implement it, so stream connections throw <see cref="NotSupportedException"/>.</summary>
     public async Task CancelRequestAsync(RequestId requestId, CancellationToken cancellationToken = default)
     {
         lock (gate) ObjectDisposedException.ThrowIf(closed, this);
+        if (!transport.SupportsCancelRequest) throw new NotSupportedException("Native NDJSON connections do not implement $/cancelRequest.");
         var bytes = CancellationBytes(requestId);
         var state = new Pending(null);
         try
@@ -146,7 +159,8 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                 }
                 // An abandoned read does not stop a run. The native WebSocket binding accepts
                 // this cooperative notification; late replies keep their original ID and are ignored.
-                if (state.SendCompleted && !state.ResponseReceived)
+                // Native NDJSON would answer it as an invalid request, so there cancellation only detaches.
+                if (transport.SupportsCancelRequest && state.SendCompleted && !state.ResponseReceived)
                 {
                     try { await SendAsync(CancellationBytes(new(id)), new Pending(null), token).ConfigureAwait(false); }
                     catch (Exception) { }
@@ -210,12 +224,13 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
             }
             try
             {
-                await socket.SendAsync(bytes.AsMemory(), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+                await transport.SendAsync(bytes, token).ConfigureAwait(false);
                 state.SendCompleted = true;
             }
             catch
             {
-                // ClientWebSocket cancels an active write by aborting its connection.
+                // ClientWebSocket cancels an active write by aborting its connection; an
+                // interrupted NDJSON write can leave a partial line on the stream.
                 Close(NativeOecpFailureKind.Transport);
                 throw;
             }
@@ -228,20 +243,9 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         try
         {
             var ceiling = Math.Min(limits.MessageBytes, limits.ResponseBytes);
-            var buffer = new byte[Math.Min(8192, ceiling)];
             while (true)
             {
-                using var body = new MemoryStream();
-                ValueWebSocketReceiveResult frame;
-                do
-                {
-                    frame = await socket.ReceiveAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, ceiling - body.Length + 1)), lifetime.Token).ConfigureAwait(false);
-                    if (frame.MessageType == WebSocketMessageType.Close) { Close(NativeOecpFailureKind.Transport); return; }
-                    if (frame.MessageType != WebSocketMessageType.Text) { Close(NativeOecpFailureKind.Protocol); return; }
-                    if (body.Length + frame.Count > ceiling) { Close(NativeOecpFailureKind.SizeLimit); return; }
-                    body.Write(buffer, 0, frame.Count);
-                } while (!frame.EndOfMessage);
-                var bytes = body.ToArray();
+                var bytes = await transport.ReceiveAsync(ceiling, lifetime.Token).ConfigureAwait(false);
                 _ = new UTF8Encoding(false, true).GetCharCount(bytes);
                 using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 128 });
                 var root = document.RootElement;
@@ -265,6 +269,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                 }
             }
         }
+        catch (ConnectionInterrupted interrupted) { Close(interrupted.Kind); }
         catch (Exception error) when (error is JsonException or ArgumentException or DecoderFallbackException or InvalidOperationException)
         { Close(NativeOecpFailureKind.Protocol); }
         catch (Exception) { Close(NativeOecpFailureKind.Transport); }
@@ -282,7 +287,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
             subscriptions.Clear();
         }
         lifetime.Cancel();
-        socket.Abort(); socket.Dispose(); invoker.Dispose(); lease.Dispose(); released(this);
+        transport.Abort(); lease.Dispose(); released(this);
         completion.TrySetResult(failure is { } kind ? new(kind) : null);
     }
 
@@ -325,7 +330,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         public TaskCompletionSource<JsonElement> Response { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public OecpDispatchFacts Facts => new(id, SendStarted, SendCompleted, ResponseReceived);
     }
-    private sealed class ConnectionInterrupted(NativeOecpFailureKind kind) : Exception
+    internal sealed class ConnectionInterrupted(NativeOecpFailureKind kind) : Exception
     { public NativeOecpFailureKind Kind { get; } = kind; }
 }
 

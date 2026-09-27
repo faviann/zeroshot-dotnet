@@ -420,3 +420,68 @@ force-stopped and discarded sources. Native disposes a force-stopped workspace.
 Each run has one checkpoint, so live paging never gets past the first page.
 `INVALID_PHASE` has deterministic coverage only; a stock direct target supports
 both capabilities.
+
+## NDJSON streams and Unix controllers
+
+```csharp
+// A caller-known controller socket; the connection owns and closes it.
+await using var controller = await OecpConnection.ConnectUnixAsync(socketPath, cancellationToken: ct);
+// Caller-supplied streams stay open by default.
+await using var borrowed = await OecpConnection.FromStreamsAsync(input, output, leaveOpen: true, cancellationToken: ct);
+await borrowed.InitializeAsync(cancellationToken: ct);
+```
+
+Both factories return an ordinary `OecpConnection`. `Cluster`, `Runs`, subscriptions,
+force attempts, correlation, validation, deadlines and observation limits behave as
+on WebSocket. They bind existing endpoints only: nothing derives a socket path from
+state, launches native, sends an HTTP handshake or reopens a controller. Each
+connection has its own request and observation budgets from an optional
+`TransportOptions`, because there is no `NativeClient`.
+
+Framing follows native NDJSON: each request is one JSON-RPC message followed by
+`\n`, and each received line is one message, split or coalesced across reads.
+Received lines use the 8 MiB message bound (`SizeLimit` beyond it); native accepts
+request lines up to 1 MiB, the default `MaxOecpRequestBytes`. Empty or non-JSON-RPC
+lines are protocol failures. Native writes diagnostics to a separate stream that
+the client never reads or requires. EOF, with or without a partial line, is a
+`Transport` disconnect: pending calls fail, subscriptions drain validated records
+and end with `UnexpectedDisconnect`, and no close body or completion is invented.
+There is no heartbeat or idle deadline; a quiet stream is not a failure.
+
+Native NDJSON does not intercept `$/cancelRequest`; it would answer it as an invalid
+request. `CancelRequestAsync` therefore throws `NotSupportedException` on these
+connections, and cancelling a unary call only ends the local wait with its dispatch
+facts. A late reply is ignored. Subscription cancellation still sends
+`subscription/cancel`. A force whose send started stays `Unknown` when the reply is
+lost. `NativeAttempt.Origin` is the socket's `file://` URI for Unix connections and
+null for caller-supplied streams. The URI escapes each path segment and keeps the
+path exactly as supplied; `Uri.UnescapeDataString(origin.AbsolutePath)` returns it.
+
+`FromStreamsAsync` borrows its streams unless `leaveOpen: false` transfers
+ownership; one duplex stream can serve as both input and output and is disposed
+once. A borrowed stream can be reused by a later connection after disposal.
+Stream connections draw request IDs from one process-wide sequence, so a late
+native reply to an earlier connection's call is ignored as a retired ID and can
+never complete a later call; this holds only for connections in the same process.
+Disposal fails pending work at once and cancels the pending read. A borrowed
+stream that ignores cancellation can keep that read outstanding after
+`DisposeAsync` returns, until the caller closes the stream. `ConnectUnixAsync`
+requires an absolute path and connects within `ConnectTimeout`; disposal closes its
+socket within the cleanup bound.
+
+The stock portable controller serves one run at `<state>/runs/<runId>/controller.sock`
+and stops serving at terminal state. Other run IDs are `NOT_FOUND`. It has no
+recovery or cluster-method override, so `Runs.ResumeAsync` and
+`DiscardWorkspaceAsync` are `Rejected` attempts with `INVALID_PHASE`, as are the
+older cluster methods at the pinned source.
+
+`StreamConnectionTests` covers exact framing, split and coalesced replies, oversized
+lines, partial-frame EOF with an unknown force and drained subscription, local
+cancellation without `$/cancelRequest`, subscription cancellation, a late reply on a
+reused borrowed stream, stream ownership including a failing owned stream, and Unix
+socket ownership with an exact origin. The stock Linux witness's packed `ControllerConsumer`
+connects to a real local-run controller held active by a controlled provider. It
+checks initialize, empty get, the one-run list and status, foreign-run refusals,
+live `INVALID_PHASE` refusals of resume and discard,
+reuse of a borrowed socket stream after its first connection is disposed, and watch
+and log delivery through terminal state.

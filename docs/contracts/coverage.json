@@ -17,6 +17,14 @@
     "validationEvidence": "tests/Zeroshot.Sdk.Tests/ObservationDeliveryTests.cs",
     "nativeConformance": "not claimed"
   },
+  "oecpStreamBindings": {
+    "ownerIssue": 25,
+    "status": "implemented: caller-supplied NDJSON streams and caller-known Unix controller sockets; Windows pipes remain #26",
+    "binding": "OecpConnection.FromStreamsAsync (leaveOpen: true by default); OecpConnection.ConnectUnixAsync (owned socket)",
+    "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
+    "nativeConformance": "tools/native-witness/controller.sh: stock 10.9.0 local-run portable controller over its Unix socket and a borrowed socket stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
+    "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. The witness shows controller resume/discard_workspace INVALID_PHASE refusals live; the older cluster methods' INVALID_PHASE on the controller is source-backed only. Stdio NDJSON is exercised only by deterministic peers."
+  },
   "operations": [
     {
       "id": "oecp:initialize",

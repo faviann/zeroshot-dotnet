@@ -26,7 +26,8 @@ public enum NativeAttemptOutcome { Acknowledged, Rejected, NotSent, Unknown }
 /// <summary>Evidence from one operation, without automatic retry or consumer acceptance policy.</summary>
 public class NativeAttempt<T> where T : class
 {
-    public Uri Origin { get; }
+    /// <summary>The target origin; a file URI for a Unix controller, null for caller-supplied OECP streams.</summary>
+    public Uri? Origin { get; }
     public string Operation { get; }
     public Guid CorrelationId { get; }
     public NativeAttemptOutcome Outcome { get; }
@@ -35,7 +36,7 @@ public class NativeAttempt<T> where T : class
     /// <summary>Safe operational or cancellation evidence. Invalid use throws instead of returning an attempt.</summary>
     public Exception? Failure { get; }
 
-    internal NativeAttempt(Uri origin, string operation, Guid correlationId, NativeAttemptOutcome outcome, T? response, Exception? failure)
+    internal NativeAttempt(Uri? origin, string operation, Guid correlationId, NativeAttemptOutcome outcome, T? response, Exception? failure)
         => (Origin, Operation, CorrelationId, Outcome, Response, Failure) = (origin, operation, correlationId, outcome, response, failure);
 
     public override string ToString() => $"{nameof(NativeAttempt<T>)}: {Outcome}";

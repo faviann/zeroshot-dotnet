@@ -228,3 +228,21 @@ envelope is `Acknowledged` with an empty 204. Resending it is `Rejected` with 40
 retains discovery and all three attempts. Later private-route witnesses can reuse this
 target and its capability. This phase proves no live private submission, session or
 OECP authority.
+
+`controller.sh` then exercises the NDJSON bindings against a stock local-run
+portable controller. It seeds a local Git repository with a fixture GitHub origin
+(nothing is fetched) and runs `zeroshot run --detach` with the attachment worker
+graph under a fresh short `ZEROSHOT_STATE_DIR`. A test-owned Codex JSONL producer
+first on `PATH` holds the worker at a gate; the controller runs as the invoking user
+with a scrubbed environment and no provider service. The harness owns this process.
+The packed `ControllerConsumer` receives only the socket path. Through
+`ConnectUnixAsync` it verifies initialize, native's empty get, a list containing only
+the controller's run, active status, `NOT_FOUND` for a foreign run's status and a
+rejected force attempt identified by the socket's file URI, and the local refusal of
+`$/cancelRequest`. It then binds its own socket with `FromStreamsAsync`, disposes that
+connection, reuses the still-open stream in a second connection, opens watch and log
+subscriptions and releases the gate. Native stops serving at terminal state, so each
+subscription ends with native's close or an observed disconnect, and the connection
+ends with a transport failure. `controller.json` retains every response, record and
+completion. Resume and workspace discard of the owned run are rejected attempts
+with native `INVALID_PHASE`; the older cluster methods are not exercised here.
