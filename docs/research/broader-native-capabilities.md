@@ -73,6 +73,16 @@ Local and direct-target paths use native OECP operations. Hosted mode adds a mea
 | Hosted merge plans | Public `plan validate/submit/status/watch/force-stop` group; native explicitly rejects hosted merge-plan submission on a direct target. Separate workflow breadth. [Command tree][parser], [target control][target-submit] |
 | UI, ACP, update | Additional public commands, with their own UI build/lifetime, agent-protocol or executable replacement concerns. They need explicit inclusion if “all” means full command parity. [Command tree][parser], [UI feature handling][main-routing] |
 
+## Python SDK comparison
+
+At the same pinned source revision, Python delegates its exposed engine operations to the native executable, including local, direct-target and named hosted-target calls. Its process runner invokes native commands; it does not implement the HTTP/OECP transport in Python. For a direct target it registers a temporary native target named `python-sdk`, then supplies that target to native commands. [Python process runner][python-process], [direct registration and command routing][python-routing].
+
+Platform wheels bundle the matching native executable. Resolution uses a private development override or the package's `_bin/zeroshot` (`zeroshot.exe` on Windows), with no PATH fallback or first-run download in that resolver. Local execution is the default. Python exposes template listing/inspection and template-based submission, and runs native validation before ordinary submission. [Python binary resolver][python-binary], [Python packaging documentation][python-packaging], [default target and preparation][python-client].
+
+This is narrower than full native command parity: Python does not expose general target-registration, hosted-login, target-serving or profile-preparation management APIs. Its hosted-target contract expects native CLI configuration and login beforehand. Existing profiles can be referenced by merge-plan requests. [Python public client surface][python-client], [hosted-target contract][python-hosted].
+
+Consequently, optional native adapters in .NET would follow Python's reuse of native behavior for the selected convenience workflows, while a native-free direct HTTP/OECP path would be an intentional additional .NET boundary needed by Broodling. Wrapping the executable directly from .NET requires no Python. This comparison supplies evidence, not an API-parity or packaging decision.
+
 ## Relative work and validation obligations
 
 **Small increments after a reliable process runner exists:** template catalog/graph output, profile preparation/CRUD, connection CRUD and registration are bounded command adapters. The asset workflow can compose existing commands. This does not imply zero cost: metadata versus asset extraction, isolated stores, validation failures and secret-free diagnostics need coverage. The supporting native seams are linked above.
@@ -122,3 +132,9 @@ No binaries were built or executed, no providers contacted, and no infrastructur
 [target-recovery]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target.rs#L435
 [remote-profiles]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target/controller_authority/profiles.rs#L46
 [remote-connections]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target/controller_authority/connections.rs#L12
+[python-process]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/_process.py#L97
+[python-routing]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/client.py#L423
+[python-binary]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/_binary.py#L11
+[python-packaging]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/README.md#L171
+[python-client]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/client.py#L98
+[python-hosted]: https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/runtime.py#L43
