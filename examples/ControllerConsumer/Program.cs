@@ -1,9 +1,11 @@
+using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Text.Json;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
-if (args.Length != 2) throw new ArgumentException("Supply the existing controller socket path and witness directory.");
+if (args.Length != 2) throw new ArgumentException("Supply the existing controller socket or pipe path and witness directory.");
+// A Unix socket path, or on Windows the controller's \\.\pipe\ path; the run matrix is the same.
 var socketPath = args[0];
 var directory = args[1];
 using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -19,7 +21,9 @@ NativeOecpException foreignStatus;
 NativeAttempt<RunForceResult> foreignForce;
 NativeAttempt<RunResumeResult> resume;
 NativeAttempt<RunDiscardWorkspaceResult> discard;
-await using (var unix = await OecpConnection.ConnectUnixAsync(socketPath, cancellationToken: token))
+await using (var unix = OperatingSystem.IsWindows()
+    ? await OecpConnection.ConnectNamedPipeAsync(socketPath, cancellationToken: token)
+    : await OecpConnection.ConnectUnixAsync(socketPath, cancellationToken: token))
 {
     initialized = await unix.InitializeAsync(cancellationToken: token);
     cluster = await unix.Cluster.GetAsync(cancellationToken: token);
@@ -39,7 +43,7 @@ await using (var unix = await OecpConnection.ConnectUnixAsync(socketPath, cancel
     Check(foreignStatus.RpcError?.Data?.Code == "NOT_FOUND", "foreign run status is outside the controller's scope");
     foreignForce = await unix.Runs.ForceAsync(foreignRun, cancellationToken: token);
     Check(foreignForce is { Outcome: NativeAttemptOutcome.Rejected, Failure: NativeOecpException { RpcError.Data.Code: "NOT_FOUND" } } &&
-        foreignForce.Origin is { Scheme: "file", Host: "" } origin && Uri.UnescapeDataString(origin.AbsolutePath) == socketPath,
+        foreignForce.Origin is { Scheme: "file", Host: "" } origin && Uri.UnescapeDataString(origin.AbsolutePath) == (OperatingSystem.IsWindows() ? "/" : "") + socketPath,
         "foreign force is a rejected attempt identified by the socket");
     // The portable controller has no recovery override, so both requests are refused before any effect.
     resume = await unix.Runs.ResumeAsync(runId, new("0195af77-2500-7000-8000-0000000000fe"), cancellationToken: token);
@@ -51,16 +55,15 @@ await using (var unix = await OecpConnection.ConnectUnixAsync(socketPath, cancel
     await Throws<NotSupportedException>(unix.CancelRequestAsync(new RequestId(1), token));
 }
 
-// Caller-owned socket stream: borrowed by default, so it outlives the first connection.
-using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), token);
-await using var stream = new NetworkStream(socket, ownsSocket: true);
+// Caller-owned socket or pipe stream: borrowed by default, so it outlives the first connection.
+await using var stream = await ConnectStream(socketPath, token);
 await using (var first = await OecpConnection.FromStreamsAsync(stream, stream, cancellationToken: token))
 {
     await first.InitializeAsync(cancellationToken: token);
     active = await first.Runs.StatusAsync(active.RunId, active.Source, cancellationToken: token);
 }
-Check(socket.Connected, "borrowed stream remains open after connection disposal");
+Check(stream is NamedPipeClientStream { IsConnected: true } || stream is NetworkStream { Socket.Connected: true },
+    "borrowed stream remains open after connection disposal");
 await using var second = await OecpConnection.FromStreamsAsync(stream, stream, cancellationToken: token);
 var current = await second.Runs.StatusAsync(active.RunId, active.Source, cancellationToken: token);
 Check(current.Status is RunningRunStatus, "borrowed stream reused by a new connection");
@@ -97,6 +100,20 @@ Console.WriteLine(JsonSerializer.Serialize(new
     connectionEnd = connectionEnd!.Kind.ToString()
 }));
 
+static async Task<Stream> ConnectStream(string path, CancellationToken token)
+{
+    if (OperatingSystem.IsWindows())
+    {
+        // The borrowed pipe is the caller's; FromStreamsAsync performs no security check of its own.
+        var pipe = new NamedPipeClientStream(".", path[@"\\.\pipe\".Length..], PipeDirection.InOut, PipeOptions.Asynchronous,
+            System.Security.Principal.TokenImpersonationLevel.Identification);
+        await pipe.ConnectAsync(token);
+        return pipe;
+    }
+    var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+    await socket.ConnectAsync(new UnixDomainSocketEndPoint(path), token);
+    return new NetworkStream(socket, ownsSocket: true);
+}
 static async Task<(List<T> Records, NativeSubscriptionException? Failure)> Drain<E, T>(NativeSubscription<E, T> subscription)
 {
     var records = new List<T>();

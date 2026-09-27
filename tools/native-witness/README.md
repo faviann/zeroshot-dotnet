@@ -287,3 +287,25 @@ subscription ends with native's close or an observed disconnect, and the connect
 ends with a transport failure. `controller.json` retains every response, record and
 completion. Resume and workspace discard of the owned run are rejected attempts
 with native `INVALID_PHASE`; the older cluster methods are not exercised here.
+
+## Stock native Windows x64 controller pipe
+
+`windows-controller.ps1` is the Windows counterpart of `controller.sh`. Run it with
+PowerShell 7 on Windows x64 with .NET 10, Git, Python 3 and tar; the
+`windows-native-witness` workflow runs it on `windows-2025`. Native 10.9.0 ships no
+Windows arm64 build, so no arm64 native witness exists. The script downloads the
+pinned `x86_64-pc-windows-msvc` archive, verifies it and the extracted executable,
+packs the library and restores the packed `ControllerConsumer` from that feed with an
+isolated cache. It seeds a local Git repository with a fixture GitHub origin and runs
+`zeroshot run --detach` with the attachment worker graph and runtime committed in
+`windows/`. The environment is
+scrubbed, and state, configuration and profile directories are fresh. The same
+controlled Codex producer sits first on `PATH` behind a `codex.cmd` shim and holds
+the worker at a gate. The harness owns the controller process. GitHub Actions runs
+each step inside a Windows Job that forbids breakaway, which native's detach refuses,
+so the script starts its own launcher through WMI (`Win32_Process.Create`) outside that
+Job; the launcher scrubs the environment and runs native. It reads the pipe path
+from native's own `controller.ready.json`; nothing derives it from the state path.
+The consumer checks the same matrix as on Unix through `ConnectNamedPipeAsync`, which
+validates the pipe's security descriptor, and through a borrowed pipe stream.
+`controller.json` and `provenance.txt` are printed to the job log.

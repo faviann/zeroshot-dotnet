@@ -19,11 +19,12 @@
   },
   "oecpStreamBindings": {
     "ownerIssue": 25,
-    "status": "implemented: caller-supplied NDJSON streams and caller-known Unix controller sockets; Windows pipes remain #26",
-    "binding": "OecpConnection.FromStreamsAsync (leaveOpen: true by default); OecpConnection.ConnectUnixAsync (owned socket)",
+    "status": "implemented: caller-supplied NDJSON streams, caller-known Unix controller sockets and Windows controller pipes (#26)",
+    "binding": "OecpConnection.FromStreamsAsync (leaveOpen: true by default); OecpConnection.ConnectUnixAsync (owned socket); OecpConnection.ConnectNamedPipeAsync (owned, security-validated pipe)",
     "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
     "nativeConformance": "tools/native-witness/controller.sh: stock 10.9.0 local-run portable controller over its Unix socket and a borrowed socket stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
-    "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. The witness shows controller resume/discard_workspace INVALID_PHASE refusals live; the older cluster methods' INVALID_PHASE on the controller is source-backed only. Stdio NDJSON is exercised only by deterministic peers."
+    "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. The witness shows controller resume/discard_workspace INVALID_PHASE refusals live; the older cluster methods' INVALID_PHASE on the controller is source-backed only. Stdio NDJSON is exercised only by deterministic peers.",
+    "windowsPipeEvidence": "See operations binding:windows-controller: tests/Zeroshot.Sdk.Tests/NamedPipeConnectionTests.cs on Windows CI runners and tools/native-witness/windows-controller.ps1 against the stock 10.9.0 Windows x64 controller"
   },
   "operations": [
     {
@@ -1607,12 +1608,16 @@
       "id": "binding:ndjson-streams",
       "transport": "ndjson-streams",
       "bindingOwnerIssue": 25,
-      "status": "unimplemented",
+      "status": "implemented",
+      "binding": "OecpConnection.FromStreamsAsync (leaveOpen: true by default)",
       "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
       "authenticationPrerequisites": "Caller supplied streams and enclosing identity",
       "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "status": "deterministic in-memory NDJSON peers",
+        "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
+        "nativeConformance": "tools/native-witness/controller.sh: a borrowed Unix socket stream to the stock 10.9.0 local-run controller, reused after its first connection is disposed",
+        "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. Stdio NDJSON is exercised only by deterministic peers.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
     },
@@ -1620,12 +1625,16 @@
       "id": "binding:unix-controller",
       "transport": "unix-controller",
       "bindingOwnerIssue": 25,
-      "status": "unimplemented",
+      "status": "implemented",
+      "binding": "OecpConnection.ConnectUnixAsync (owned socket)",
       "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
       "authenticationPrerequisites": "Existing controller endpoint, filesystem/socket access",
       "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "status": "deterministic local Unix socket peer",
+        "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
+        "nativeConformance": "tools/native-witness/controller.sh: stock 10.9.0 local-run portable controller over its Unix socket; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, watch/log records and closes, disconnect at controller exit",
+        "limitations": "The older cluster methods' INVALID_PHASE on the controller is source-backed only.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
     },
@@ -1633,12 +1642,16 @@
       "id": "binding:windows-controller",
       "transport": "windows-controller",
       "bindingOwnerIssue": 26,
-      "status": "unimplemented",
+      "status": "implemented",
+      "binding": "OecpConnection.ConnectNamedPipeAsync",
       "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
       "authenticationPrerequisites": "Existing native named pipe and native current-user/SYSTEM security validation",
       "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "status": "deterministic controlled local pipes on Windows Server 2025 x64 and Windows 11 arm64 CI runners",
+        "validationEvidence": "tests/Zeroshot.Sdk.Tests/NamedPipeConnectionTests.cs",
+        "nativeConformance": "tools/native-witness/windows-controller.ps1 (.github/workflows/windows-native-witness.yml): stock 10.9.0 Windows x64 local-run portable controller over its validated pipe and a borrowed pipe stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
+        "limitations": "Native 10.9.0 ships no Windows arm64 build, so arm64 has deterministic evidence only. Refused descriptors are exercised only with controlled pipes; a stock controller always creates a private pipe.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
     }

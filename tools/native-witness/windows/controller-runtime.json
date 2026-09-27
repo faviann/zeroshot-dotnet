@@ -1,0 +1,1 @@
+{"harness":"codex","provider":"openai","size":"small","nodes":{"worker":{"kind":"agent","model":"fixture-owned-model","connections":{"openai":["OPENAI_API_KEY"]}}}}

@@ -1,0 +1,2 @@
+# Native witness fixtures keep their exact bytes on every platform.
+tools/native-witness/windows/*.json -text

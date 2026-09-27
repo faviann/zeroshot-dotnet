@@ -19,3 +19,19 @@ jobs:
       - run: dotnet pack src/Zeroshot.Sdk/Zeroshot.Sdk.csproj --configuration Release --no-build --output artifacts/packages
       - run: dotnet restore examples/ContractsConsumer/ContractsConsumer.csproj --source artifacts/packages --source https://api.nuget.org/v3/index.json
       - run: dotnet run --project examples/ContractsConsumer/ContractsConsumer.csproj --configuration Release --no-restore
+
+  windows-pipes:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-vs2026-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet --info
+      - run: dotnet build tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --configuration Release
+      # Controlled local pipes with explicit descriptors; the stock-native pipe witness is windows-native-witness.yml.
+      - run: dotnet test --project tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --configuration Release --no-build --treenode-filter "/*/*/NamedPipeConnectionTests/*"
