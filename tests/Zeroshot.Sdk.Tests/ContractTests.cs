@@ -43,6 +43,31 @@ public sealed class ContractTests
     }
 
     [Test]
+    public void DiagnosticPathsPreserveTaggedSegmentsAndNativeIndexBounds()
+    {
+        Roundtrip<GraphDiagnostic>("diagnostics.json");
+        using var fixture = JsonDocument.Parse(Fixture("diagnostics.json"));
+        var diagnostic = NativeJson.DeserializeUtf8<GraphDiagnostic>(Encoding.UTF8.GetBytes(fixture.RootElement[0].GetRawText()));
+        Check(diagnostic.Path is [FieldDiagnosticPathSegment { Name.Value: "input" },
+            IndexDiagnosticPathSegment { Index: uint.MaxValue }, NodeDiagnosticPathSegment { Name.Value: "work" }],
+            "Diagnostic field, index and node alternatives were not preserved.");
+        DiagnosticPathSegment[] authored =
+        [
+            new FieldDiagnosticPathSegment { Name = new FieldName("input") },
+            new IndexDiagnosticPathSegment { Index = 0 },
+            new NodeDiagnosticPathSegment { Name = new NodeName("work") }
+        ];
+        foreach (var segment in authored)
+            Check(NativeJson.DeserializeUtf8<DiagnosticPathSegment>(NativeJson.SerializeUtf8(segment)) == segment,
+                "Authored diagnostic path did not round-trip.");
+        Check(NativeJson.DeserializeUtf8<IndexDiagnosticPathSegment>("""{"kind":"index","index":1e0}"""u8).Index == 1,
+            "Native integral floating index spelling was rejected.");
+        using var rejected = JsonDocument.Parse(Fixture("negative-diagnostic-paths.json"));
+        foreach (var segment in rejected.RootElement.EnumerateArray())
+            Reject(() => NativeJson.DeserializeUtf8<DiagnosticPathSegment>(Encoding.UTF8.GetBytes(segment.GetRawText())));
+    }
+
+    [Test]
     public void GoldenInvalidEnvelopesFailLocally()
     {
         using var cases = JsonDocument.Parse(Fixture("negative-prepared.json"));

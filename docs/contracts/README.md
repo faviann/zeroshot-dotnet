@@ -14,4 +14,4 @@ Validation uses the pinned schema through JsonSchema.Net and native deserializer
 
 The generated `compiled-ir.schema.json` is exposed as local data by `NativeSchemas.ExportCompiledIrUtf8()`. It does not imply a compilation operation. Native schema assets retain the upstream MIT notice in `src/Zeroshot.Sdk/Schemas/NATIVE-LICENSE`, also included in the package.
 
-Golden fixtures derive from pinned protocol source/tests, expanded across all graph node, payload, guard/join, provider and runtime alternatives. They establish wire-shape/retention behavior, not graph execution. The external package consumer at `examples/ContractsConsumer` creates, exports and reimports a request without network I/O, Python or a native executable.
+Golden fixtures derive from pinned protocol source/tests, expanded across all graph node, payload, guard/join, provider and runtime alternatives, plus tagged diagnostic paths and their u32 index boundaries. They establish wire-shape/retention behavior, not graph execution. The external package consumer at `examples/ContractsConsumer` creates, exports and reimports a request without network I/O, Python or a native executable.

@@ -34,6 +34,7 @@ def typ(s, field=''):
   q=dict(s);q['type']=next(x for x in t if x!='null')
   return typ(q,field)+'?'
  if t=='string':return primitive_fields.get(field,'string')
+ if t=='integer' and s.get('format')=='uint32':return 'uint'
  if t=='integer':return 'PositiveInteger' if s.get('minimum')==1 and s.get('maximum')==9007199254740991 else 'ByteLength' if field=='byteLength' else 'Generation' if field=='generation' else 'ulong'
  if t=='boolean':return 'bool'
  if t=='array':return 'ImmutableArray<'+typ(s['items'])+'>'
@@ -48,9 +49,8 @@ def model(name,s,base='NativeContract',schema_name=None,tag=None):
  for key,value in s.get('properties',{}).items():
   if key==tag:continue
   t=typ(value,key);optional=key not in s.get('required',[])
-  # Node/name diagnostic property names can be arbitrary strings only where inline schema says so.
-  if name=='FailNode' and key=='reason': t='FailReason'
-  elif name=='GraphDiagnostic' and key=='node': t='Optional<NodeName?>' if optional else 'NodeName'
+  if name=='FieldDiagnosticPathSegment' and key=='name': t='FieldName'
+  elif name=='FailNode' and key=='reason': t='FailReason'
   elif optional:t='Optional<'+t+'>'
   lines.append('    [JsonPropertyName("'+key+'")]')
   if optional:lines.append('    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]')
@@ -60,9 +60,6 @@ for name,s in defs.items():
  if name in aliases or name in scalar_refs or name.startswith('NonEmptyVec_of_') or name in ('DeclaredConnections','DeclaredEnvironment'):continue
  if name=='WorkerDescriptor':model(name,defs['WorkerDescriptorWire']);continue
  if name=='WorkerOutcome':s=defs['WorkerOutcomeWire']
- if name=='DiagnosticPathSegment':
-  # Untagged string/index union has a dedicated converter.
-  continue
  if 'enum' in s:
   if name=='RunSize': values=['small','medium','large']
   else:values=s['enum']

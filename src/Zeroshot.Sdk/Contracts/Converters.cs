@@ -57,6 +57,13 @@ internal sealed class NativeUnsignedConverter : JsonConverter<ulong>
     public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options) => writer.WriteNumberValue(value);
 }
 
+internal sealed class NativeUnsigned32Converter : JsonConverter<uint>
+{
+    public override uint Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        checked((uint)new NativeUnsignedConverter().Read(ref reader, typeof(ulong), options));
+    public override void Write(Utf8JsonWriter writer, uint value, JsonSerializerOptions options) => writer.WriteNumberValue(value);
+}
+
 internal sealed class RunSizeConverter : JsonConverter<RunSize>
 {
     public override RunSize Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => reader.GetString() switch
@@ -70,30 +77,6 @@ internal sealed class RunSizeConverter : JsonConverter<RunSize>
     {
         RunSize.Small => "small", RunSize.Medium => "medium", RunSize.Large => "large", _ => throw new JsonException("Invalid run size.")
     });
-}
-
-/// <summary>A diagnostic path segment is a field string or an unsigned array index.</summary>
-[WireContract("DiagnosticPathSegment")]
-[JsonConverter(typeof(DiagnosticPathSegmentConverter))]
-public readonly record struct DiagnosticPathSegment
-{
-    public string? Field { get; }
-    public ulong? Index { get; }
-    public DiagnosticPathSegment(string field) { ArgumentNullException.ThrowIfNull(field); Field = field; }
-    public DiagnosticPathSegment(ulong index) { Index = index; }
-    public override string ToString() => nameof(DiagnosticPathSegment);
-}
-
-internal sealed class DiagnosticPathSegmentConverter : JsonConverter<DiagnosticPathSegment>
-{
-    public override DiagnosticPathSegment Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
-        reader.TokenType == JsonTokenType.String ? new(reader.GetString()!) : new(new NativeUnsignedConverter().Read(ref reader, typeof(ulong), options));
-    public override void Write(Utf8JsonWriter writer, DiagnosticPathSegment value, JsonSerializerOptions options)
-    {
-        if (value.Field is { } field) writer.WriteStringValue(field);
-        else if (value.Index is { } index) writer.WriteNumberValue(index);
-        else throw new JsonException("A diagnostic path segment must contain a field or index.");
-    }
 }
 
 internal sealed class StrictStringConverter : JsonConverter<string>

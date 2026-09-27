@@ -159,6 +159,34 @@ public sealed record ItemSelector : DataSelector
     public required ImmutableArray<string> Path { get; init; }
 }
 
+[WireContract("DiagnosticPathSegment")]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(FieldDiagnosticPathSegment), "field")]
+[JsonDerivedType(typeof(IndexDiagnosticPathSegment), "index")]
+[JsonDerivedType(typeof(NodeDiagnosticPathSegment), "node")]
+public abstract record DiagnosticPathSegment : NativeContract;
+
+[WireContract("DiagnosticPathSegment")]
+public sealed record FieldDiagnosticPathSegment : DiagnosticPathSegment
+{
+    [JsonPropertyName("name")]
+    public required FieldName Name { get; init; }
+}
+
+[WireContract("DiagnosticPathSegment")]
+public sealed record IndexDiagnosticPathSegment : DiagnosticPathSegment
+{
+    [JsonPropertyName("index")]
+    public required uint Index { get; init; }
+}
+
+[WireContract("DiagnosticPathSegment")]
+public sealed record NodeDiagnosticPathSegment : DiagnosticPathSegment
+{
+    [JsonPropertyName("name")]
+    public required NodeName Name { get; init; }
+}
+
 [WireContract("DiagnosticSeverity")]
 public enum DiagnosticSeverity
 {
