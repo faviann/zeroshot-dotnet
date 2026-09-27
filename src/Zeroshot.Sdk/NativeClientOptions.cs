@@ -1,5 +1,6 @@
 using System.Net;
 using Zeroshot.Native.Execution;
+using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Native;
 
@@ -49,13 +50,17 @@ public sealed class NativeHttpException : Exception
     public string Stage { get; }
     public NativeHttpFailureKind Kind { get; }
     public HttpStatusCode? StatusCode { get; }
-    internal NativeHttpException(OperationFailure failure) : base(failure.Message)
+    /// <summary>Validated remote facts, if received. Never included in default exception formatting.</summary>
+    public TargetHttpProblem? Problem { get; }
+    internal NativeHttpException(OperationFailure failure, TargetHttpProblem? problem = null,
+        HttpStatusCode? receivedStatus = null) : base(failure.Message)
     {
         Operation = failure.Operation;
         CorrelationId = failure.CorrelationId;
         Stage = failure.Stage.ToString();
         Kind = Enum.Parse<NativeHttpFailureKind>(failure.Kind.ToString());
-        StatusCode = failure.StatusCode;
+        StatusCode = failure.StatusCode ?? receivedStatus;
+        Problem = problem;
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();

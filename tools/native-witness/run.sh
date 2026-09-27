@@ -37,7 +37,7 @@ printf '%s  %s\n' "$executable_sha256" "$witness_dir/bin/zeroshot" | sha256sum -
   printf 'archiveSha256=%s\n' "$archive_sha256"
   sha256sum "$witness_dir/bin/zeroshot"
   "$witness_dir/bin/zeroshot" --version
-  printf 'assets=empty isolated working directory; discovery only, no submitted assets or provider processes\n'
+  printf 'assets=empty isolated working directory; discovery and session acquisition, no submitted assets or provider processes\n'
 } > "$witness_dir/provenance.txt"
 # A random unprivileged loopback port keeps concurrent witnesses independent. A caller
 # can select a known free port; any bind failure is reported instead of using another target.
@@ -62,10 +62,13 @@ curl --fail --silent --show-error "$origin/.well-known/zeroshot-native-v2" > "$w
 head_status=$(curl --silent --show-error --head --dump-header "$witness_dir/head.headers" \
   --output /dev/null --write-out '%{http_code}' "$origin/.well-known/zeroshot-native-v2")
 [[ $head_status == 404 ]] || { echo "Expected fixed-route HEAD refusal; received $head_status" >&2; exit 1; }
+curl --fail --silent --show-error --header 'Content-Type: application/json' --data '{}' \
+  --dump-header "$witness_dir/session.headers" "$origin/native-v2/oecp-session" > "$witness_dir/session.json"
+rg --quiet --ignore-case '^Cache-Control: no-store' "$witness_dir/session.headers"
 dotnet pack "$repo_dir/src/Zeroshot.Sdk/Zeroshot.Sdk.csproj" -c Release -o "$witness_dir/feed" > "$witness_dir/pack.log"
 cp "$repo_dir/examples/DiscoveryConsumer/"*.cs* "$witness_dir/consumer/"
 dotnet restore "$witness_dir/consumer/DiscoveryConsumer.csproj" --packages "$witness_dir/packages" \
   --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/consumer-restore.log"
-dotnet run --project "$witness_dir/consumer/DiscoveryConsumer.csproj" -c Release --no-restore -- "$origin" > "$witness_dir/consumer-discovery.json"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, fresh packed-package consumer\n' | tee "$witness_dir/result.txt"
+dotnet run --project "$witness_dir/consumer/DiscoveryConsumer.csproj" -c Release --no-restore -- "$origin" > "$witness_dir/consumer.json"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package discovery/session consumer (optional run selector)\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"
