@@ -49,6 +49,13 @@ if (phase == "live")
     Check(history.Cursor == existingHistory, "preexisting history replayed");
     var beforeRelease = await connection.Runs.StatusAsync(runId, source, cancellationToken: token);
     Check(beforeRelease.Status is AdmittedRunStatus && beforeRelease.AtCursor == history.Cursor, "history exists before gate release");
+    // Retained run history is readable while the run is admitted and not terminal.
+    var activeDefinition = await native.History.DetailAsync(discovery, runId, cancellationToken: token);
+    Check(activeDefinition is { Phase: RunPhase.Admitted, Terminal: null, HistoryAvailable: true, History.Complete: false } &&
+        activeDefinition.Cursor == history.Cursor, "history definition while the run is active");
+    var activePage = await native.History.PageAsync(discovery, runId, cancellationToken: token);
+    Check(activePage is { Complete: true, Finished: false } && activePage.HeadCursor == history.Cursor &&
+        activePage.Events.Any(entry => entry.Event is SafeLogHistoryEvent { Execution: null }), "history page while the run is active");
     await File.WriteAllTextAsync(Path.Combine(directory, "observation-release"), "release", token);
     await Task.WhenAll(logsTask, watchTask);
     var logEvents = await logsTask;
@@ -64,6 +71,11 @@ if (phase == "live")
     var watchClose = await Done(watch, token);
     Check(logs.LastDeliveredCursor == logEvents[^1].Cursor && logClose.LastDeliveredCursor == logs.LastDeliveredCursor, "log delivery and server close positions");
     Check(watch.LastDeliveredCursor == watchEvents[^1].Cursor && watchClose.LastDeliveredCursor == watch.LastDeliveredCursor, "watch delivery and server close positions");
+    var finishedPage = await native.History.PageAsync(discovery, runId, cancellationToken: token);
+    Check(finishedPage is { Complete: true, Finished: true } && finishedPage.Events[^1] is
+        { Event: TerminalHistoryEvent { Result: FailedTerminalResult { Reason.Value: "environment_setup_failed" } } } terminal &&
+        terminal.Cursor == watchEvents[0].Cursor, "retained terminal event in history");
+    File.WriteAllBytes(Path.Combine(directory, "observation-history.json"), NativeJson.SerializeUtf8(finishedPage));
     SaveEvents(directory, "observation-logs.json", logEvents);
     SaveEvents(directory, "observation-watch.json", watchEvents);
     File.WriteAllText(Path.Combine(directory, "observation-history-cursor.txt"), history.Cursor.Value);
@@ -85,6 +97,9 @@ var boundary = new Cursor(File.ReadAllText(Path.Combine(directory, "observation-
 var status = await connection.Runs.StatusAsync(runId, source, cancellationToken: token);
 Check(status.AtCursor == baselineWatch[^1].Cursor && status.Status is FinishedRunStatus, "exact terminal run after observation/restart");
 var replay = await Replay(connection, runId, source, boundary, baselineLogs, baselineWatch, token);
+var retained = NativeJson.DeserializeUtf8<HistoryPage>(File.ReadAllBytes(Path.Combine(directory, "observation-history.json")));
+var restartedPage = await native.History.PageAsync(discovery, runId, cancellationToken: token);
+Check(restartedPage.Complete && Events(restartedPage) == Events(retained), "identical retained history page after restart");
 Console.WriteLine(JsonSerializer.Serialize(new { phase, status = Wire(status), replay }));
 
 static async Task<object> Replay(OecpConnection connection, RunId runId, ResolvedSource source, Cursor boundary,
@@ -150,6 +165,8 @@ static List<T> LoadEvents<T>(string directory, string file)
     using var document = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(directory, file)));
     return document.RootElement.EnumerateArray().Select(element => NativeJson.DeserializeUtf8<T>(System.Text.Encoding.UTF8.GetBytes(element.GetRawText()))).ToList();
 }
+static string Events(HistoryPage page)
+    => string.Join('\n', page.Events.Select(entry => System.Text.Encoding.UTF8.GetString(NativeJson.SerializeUtf8(entry))));
 static bool Same<T>(List<T> actual, List<T> expected) => actual.Select(Content).SequenceEqual(expected.Select(Content));
 static string Content<T>(T value)
 {
