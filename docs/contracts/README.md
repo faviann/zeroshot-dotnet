@@ -32,3 +32,8 @@ records produced after both establishments, and exact-run/source observation aft
 a target restart. A native setup hook supplies safe logs and a controlled terminal
 setup failure without provider credentials. Both server-close cursors and last
 caller-delivered cursors remain available independently.
+
+`Contracts/Connections.cs` maps hosted connection-management requests, summaries
+and results. `NativeClient.Connections` binds list/set/delete on validated hosted
+discovery; see [hosted connection records](../http/README.md#hosted-connection-records).
+These bindings have controlled-authority evidence only.

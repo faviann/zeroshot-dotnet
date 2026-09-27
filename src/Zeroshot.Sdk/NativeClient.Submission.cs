@@ -9,7 +9,7 @@ public sealed partial class NativeClient
     internal Task<TargetSubmissionAttempt> SubmitAttemptAsync(TargetRunRequest request,
         TargetControlCredentials? credentials, CancellationToken cancellationToken)
     {
-        ValidateSubmissionUse();
+        ValidateHttpUse();
         ArgumentNullException.ThrowIfNull(request);
         var body = NativeJson.SerializeUtf8(request);
         return SubmitAttemptAsync(PreparedSubmission.Create(request.RunId, request.Submission), body, credentials, cancellationToken);
@@ -18,13 +18,13 @@ public sealed partial class NativeClient
     internal Task<TargetSubmissionAttempt> SubmitAttemptAsync(PreparedSubmission prepared,
         TargetRunCredentials runCredentials, TargetControlCredentials? credentials, CancellationToken cancellationToken)
     {
-        ValidateSubmissionUse();
+        ValidateHttpUse();
         ArgumentNullException.ThrowIfNull(prepared);
         ArgumentNullException.ThrowIfNull(runCredentials);
         return SubmitAttemptAsync(prepared, prepared.WithCredentials(runCredentials), credentials, cancellationToken);
     }
 
-    private void ValidateSubmissionUse()
+    private void ValidateHttpUse()
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         if (http.DefaultRequestHeaders.Authorization is not null)
@@ -34,40 +34,13 @@ public sealed partial class NativeClient
     private async Task<TargetSubmissionAttempt> SubmitAttemptAsync(PreparedSubmission prepared, byte[] body,
         TargetControlCredentials? credentials, CancellationToken cancellationToken)
     {
-        var dispatched = 0;
-        var correlationId = Guid.Empty;
-        TargetRunReceipt? receipt = null;
-        Exception? failure = null;
-        try
-        {
-            await ExecuteJsonAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation,
-                new Uri(Origin, "/native-v2/run"), body, credentials, _ => { }, cancellationToken,
-                onDispatch: id => { correlationId = id; Interlocked.Exchange(ref dispatched, 1); },
-                onResponse: value => Volatile.Write(ref receipt, value)).ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
-        {
-            failure = error;
-            correlationId = error switch
-            {
-                NativeHttpException httpFailure => httpFailure.CorrelationId,
-                OperationCancelled cancelled => cancelled.CorrelationId,
-                _ => correlationId
-            };
-        }
-
-        // ExecuteJsonAsync has finished its bounded cleanup. A response already validated
-        // by the adapter wins a cancellation race, including cancellation during cleanup.
-        var captured = Volatile.Read(ref receipt);
-        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
-            : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
-            : IsSubmissionRefusal(failure) ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
-        return new TargetSubmissionAttempt(Origin, correlationId, prepared, outcome, captured, captured is null ? failure : null);
+        var (correlationId, outcome, receipt, failure) = await AttemptJsonAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation,
+            new Uri(Origin, "/native-v2/run"), body, credentials, IsSubmissionRefusal, cancellationToken).ConfigureAwait(false);
+        return new TargetSubmissionAttempt(Origin, correlationId, prepared, outcome, receipt, failure);
     }
 
-    private static bool IsSubmissionRefusal(Exception? failure) => failure is NativeHttpException
-        { Kind: NativeHttpFailureKind.HttpStatus, Problem: { } problem } httpFailure &&
-        (httpFailure.StatusCode, problem.Code) is
+    private static bool IsSubmissionRefusal(HttpStatusCode? status, string code) =>
+        (status, code) is
             (HttpStatusCode.BadRequest, "request.invalid" or "run.rejected") or
             (HttpStatusCode.Unauthorized, "request.unauthorized") or
             (HttpStatusCode.NotFound, "request.not_found") or

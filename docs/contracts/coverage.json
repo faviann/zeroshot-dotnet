@@ -557,40 +557,46 @@
       "id": "discovered:POST connections.list",
       "transport": "HTTP",
       "bindingOwnerIssue": 31,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `ConnectionListRequest` -> `ConnectionListResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.connections/v1` capability: distinct nonempty dynamicKinds of at most 128 UTF-8 bytes without control characters; same-origin baseUrl; list/set/delete/resolve bounded literal templates. Direct and private targets, absent capability and invalid descriptors throw before dispatch. The resolve declaration is validated but never called. [contract/connections.rs:L18-L47][http-75] [connections.rs:L12-L29][http-85]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `ConnectionListRequest {scope: user|org}` -> any 2xx `ConnectionListResult {connections: ConnectionSummary[]}`; summary `{key, scope, kind: open string, fields: EnvironmentVariableName[]}`; 64 KiB response; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L192"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L192",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
+      },
+      "binding": "NativeClient.Connections.ListAsync"
     },
     {
       "id": "discovered:POST connections.set",
       "transport": "HTTP",
       "bindingOwnerIssue": 31,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `ConnectionSetRequest` -> `ConnectionMutationResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.connections/v1` capability: distinct nonempty dynamicKinds of at most 128 UTF-8 bytes without control characters; same-origin baseUrl; list/set/delete/resolve bounded literal templates. Direct and private targets, absent capability and invalid descriptors throw before dispatch. The resolve declaration is validated but never called. [contract/connections.rs:L18-L47][http-75] [connections.rs:L12-L29][http-85]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `ConnectionSetRequest {key, scope, values}` (1-64 fields; values nonempty, NUL-free, <= 64 KiB, <= 256 KiB aggregate with names) -> any 2xx `ConnectionMutationResult {connection}`; `NativeAttempt<ConnectionMutationResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L193"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L193",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
+      },
+      "binding": "NativeClient.Connections.SetAsync"
     },
     {
       "id": "discovered:POST connections.delete",
       "transport": "HTTP",
       "bindingOwnerIssue": 31,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `ConnectionDeleteRequest` -> `ConnectionDeleteResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.connections/v1` capability: distinct nonempty dynamicKinds of at most 128 UTF-8 bytes without control characters; same-origin baseUrl; list/set/delete/resolve bounded literal templates. Direct and private targets, absent capability and invalid descriptors throw before dispatch. The resolve declaration is validated but never called. [contract/connections.rs:L18-L47][http-75] [connections.rs:L12-L29][http-85]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `ConnectionDeleteRequest {key, scope}` -> any 2xx `ConnectionDeleteResult {deleted}`; `NativeAttempt<ConnectionDeleteResult>` with the same refusal pairs as set",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L194"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L194",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
+      },
+      "binding": "NativeClient.Connections.DeleteAsync"
     },
     {
       "id": "discovered:POST run_profiles.list",
@@ -1333,7 +1339,7 @@
       "status": "advertised-only",
       "supportPrerequisites": "No native operation is inferred.",
       "authenticationPrerequisites": "Not applicable",
-      "typeClosure": "Validated route declaration; host resolver callback owns actual callable contract",
+      "typeClosure": "Route declaration validated as a bounded same-origin literal by the connections binding before any connection call (#31); never compiled into a caller operation. Host resolver callback owns the actual callable contract (#34).",
       "evidence": {
         "status": "pinned source only",
         "inventory": "native-inventory.md"
