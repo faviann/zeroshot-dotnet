@@ -41,7 +41,14 @@ UUIDv7 run selector. It checks the returned same-authority `ws` endpoint and abs
 of a bearer. Direct session acquisition does not require the selected run to exist.
 The packed consumer then initializes WebSocket OECP, verifies capabilities, reads
 native's empty cluster get, lists the admitted run, checks exact run/source status
-through a terminal projection and verifies unsupported-protocol rejection. This host
+through a terminal projection and verifies unsupported-protocol rejection. It then
+sends well-formed requests for the ten shared cluster methods that the target does
+not implement (plan, apply, update, stop, retry, resubmit, delete, watch, logs,
+agent/attach). Each must return `-32000`/`INVALID_PHASE`, although initialize
+advertises logs and agent attachment. Trusted `run/submit` must be a rejected
+`RUN_CONFLICT` attempt. Afterwards cluster get stays empty and the inventory is
+unchanged. `consumer.json` retains every refusal body. This proves stock refusals,
+not cluster execution. This host
 reports `runtime_unavailable`; that real terminal status is inspection evidence,
 not successful provider execution or terminal-event durability. The source identity
 is a fixture label, not evidence of checkout. The 30 s witness wait fails explicitly

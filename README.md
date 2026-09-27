@@ -4,7 +4,7 @@
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
 definitions, local wire validation, immutable credential-free prepared submissions,
 [bounded HTTP discovery, session acquisition, direct submission attempts and private target bootstrap](docs/http/README.md), and
-[WebSocket OECP inspection, bounded watch/log/attachment subscriptions and native force attempts](docs/oecp/README.md) of existing targets, and
+[WebSocket OECP inspection, bounded watch/log/attachment subscriptions, native force attempts, shared cluster bindings and trusted run submit](docs/oecp/README.md) of existing targets, and
 [browser dashboard assets, bootstrap and draft transformations](docs/dashboard/README.md). An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
@@ -27,7 +27,7 @@ explicit serialization/export remains the caller's responsibility.
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
 | `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
-| `examples/DiscoveryConsumer` | Packed-library discovery/session and native OECP inspection witness. |
+| `examples/DiscoveryConsumer` | Packed-library discovery/session, native OECP inspection and stock cluster/run-submit refusal witness. |
 | `examples/SubmissionConsumer` | Packed-library complete-asset admission, normalization and replay witness. |
 | `examples/ObservationConsumer` | Packed-library watch/log replay, live records and target-restart witness. |
 | `examples/AttachmentConsumer` | Packed-library exact active execution, live output, settlement and refusal witness. |

@@ -157,6 +157,46 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         catch (OperationCancelled error) { throw new OecpOperationCanceledException(error, state.Facts); }
     }
 
+    /// <summary>Sends one mutation and returns its evidence. Only isRefusal errors prove that native had no effect.</summary>
+    // afterCapture lets tests place cancellation between capture and operation completion. That placement is
+    // deterministic only because the cancelled WaitAsync continuation runs inline during Cancel().
+    internal async Task<NativeAttempt<T>> AttemptAsync<T>(string method, byte[] parameters, Action<T>? validate,
+        Func<JsonRpcError, bool> isRefusal, bool control, OecpRequest? request, CancellationToken cancellationToken,
+        Action? afterCapture = null) where T : class
+    {
+        var correlationId = Guid.Empty;
+        T? acknowledged = null;
+        Exception? failure = null;
+        var sendStarted = false;
+        try
+        {
+            await CallAsync(method, parameters, validate, cancellationToken, request, control: control, onResponse: (id, result) =>
+            {
+                correlationId = id;
+                Volatile.Write(ref acknowledged, result);
+                afterCapture?.Invoke();
+            }).ConfigureAwait(false);
+        }
+        catch (NativeOecpException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
+        catch (OecpOperationCanceledException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
+
+        // Cancellation can end the call after validation but before the operation completes.
+        var captured = Volatile.Read(ref acknowledged);
+        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
+            : !sendStarted ? NativeAttemptOutcome.NotSent
+            : failure is NativeOecpException { RpcError: { } rpcError } && isRefusal(rpcError) ? NativeAttemptOutcome.Rejected
+            : NativeAttemptOutcome.Unknown;
+        return new(Origin, method, correlationId, outcome, captured, captured is null ? failure : null);
+    }
+
+    // Connection admission and dispatch answer these before any backend method runs
+    // (openengine-cluster-server connection/admission.rs and dispatch.rs).
+    internal static bool IsDispatchRefusal(JsonRpcError error) => (error.Code, error.Data?.Code) is
+        (-32601, _) or
+        (-32602, "SCHEMA_VIOLATION") or
+        (-32600, "DUPLICATE_REQUEST_ID") or
+        (-32000, "SERVER_BUSY");
+
     private async Task SendAsync(byte[] bytes, Pending state, CancellationToken token)
     {
         await sendGate.WaitAsync(token).ConfigureAwait(false);
@@ -287,14 +327,6 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     }
     private sealed class ConnectionInterrupted(NativeOecpFailureKind kind) : Exception
     { public NativeOecpFailureKind Kind { get; } = kind; }
-}
-
-public sealed class OecpClusterClient
-{
-    private readonly OecpConnection connection;
-    internal OecpClusterClient(OecpConnection connection) => this.connection = connection;
-    public Task<GetResult> GetAsync(GetParams? parameters = null, OecpRequest? request = null, CancellationToken cancellationToken = default)
-        => connection.CallAsync<GetResult>("get", NativeJson.SerializeUtf8(parameters ?? new()), null, cancellationToken, request);
 }
 
 public sealed partial class OecpRunsClient

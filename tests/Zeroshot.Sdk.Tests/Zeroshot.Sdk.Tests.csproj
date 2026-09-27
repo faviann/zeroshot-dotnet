@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/*.json;Fixtures/cluster/*" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="TUnit" Version="1.68.17" />
     <ProjectReference Include="../../src/Zeroshot.Sdk/Zeroshot.Sdk.csproj" />
   </ItemGroup>

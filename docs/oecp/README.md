@@ -254,3 +254,94 @@ witness's packed `ForceConsumer` forces an active controlled execution, records 
 acknowledged phase, then verifies durable `stopping` history, the `force_stopped`
 terminal record and status, an acknowledged repeated force and unknown-run
 `NOT_FOUND`.
+
+## Shared cluster contract and trusted run submit
+
+```csharp
+var plan = await oecp.Cluster.PlanAsync(new PlanParams { Graph = graph });
+var applied = await oecp.Cluster.ApplyAsync(new ApplyParams
+{
+    Graph = graph, Input = input, IfGeneration = 0, IdempotencyKey = new("apply-1")
+});
+await using var watch = await oecp.Cluster.WatchAsync(new WatchParams { RunId = runId });
+var submitted = await oecp.Runs.SubmitAsync(new RunSubmitParams { RunId = runId, Submission = submission });
+```
+
+`Cluster` binds the twelve generic cluster methods: `InitializeAsync` (on the
+connection), `GetAsync`, `PlanAsync`, `ApplyAsync`, `UpdateAsync`, `StopAsync`,
+`RetryAsync`, `ResubmitAsync`, `DeleteAsync`, `WatchAsync`, `LogsAsync` and
+`AttachAgentAsync`. `Runs.SubmitAsync` binds trusted-controller `run/submit`. These
+are shared protocol contracts, not aliases for `run/*`. The client never converts
+one into the other, and never treats `InitializeResult.Capabilities` as a support
+matrix. Support belongs to the backend: stock DirectTarget refuses all ten
+unimplemented cluster methods with `-32000`/`INVALID_PHASE`, even though initialize
+advertises `logs` and `agentAttach`. Its `get` stays empty, and it refuses
+`run/submit` with `RUN_CONFLICT`. Submit a direct run over HTTP instead.
+
+Contracts in `Contracts/Cluster.cs` come from the pinned `schema.json` closure in
+`Schemas/oecp.schema.json`. They preserve these distinctions:
+
+- `ifGeneration`, `ifRunId` and `idempotencyKey` fences. A zero apply generation
+  requires an empty cluster.
+- `ApplyParams.Input` and `ResubmitParams.ReplacementInput` are `Optional<JsonElement>`.
+  Omission and explicit JSON null are different requests.
+- Apply `DryRun` is sent only when true. A dry run must omit input and key; native
+  reports a violation as `SCHEMA_VIOLATION`.
+- `UpdateParams` needs at least one of labels, log level or suspension. Labels
+  replace the whole map.
+- `PlanResult` diagnostics and bounds, and the `ApplyResult` diff, are kept for dry
+  runs. Nullable apply/delete identities stay null.
+- `StopResult` keeps the accepted and effective modes separately. The response must
+  echo the requested mode as accepted.
+- `ResubmitResult` must name the requested predecessor as `PriorRunId`.
+- `DomainErrorData.NoRetryableFrontierReason` types the `exhausted`, `success`,
+  `active` and `consumed` reasons of `NO_RETRYABLE_FRONTIER`. An unrecognized reason
+  is null, and the raw value remains in `Details`.
+- `run/submit` accepts any acknowledged run ID, because native deduplication can
+  return an earlier run.
+
+The seven mutations return `NativeAttempt<T>` from the same single-send helper as
+force; only `StopAsync` uses reserved control capacity. `Rejected` is limited to
+dispatcher refusals (`-32601`; `-32602`/`SCHEMA_VIOLATION`;
+`-32600`/`DUPLICATE_REQUEST_ID`; `-32000`/`SERVER_BUSY`) and these per-operation
+`-32000` codes:
+
+| Operation | Pre-effect refusals |
+| --- | --- |
+| `apply` | `GRAPH_INVALID`, `GENERATION_CONFLICT`, `IDEMPOTENCY_REUSE`, `INVALID_PHASE`, `CANCELLED` |
+| `update`, `stop` | `GENERATION_CONFLICT`, `IDEMPOTENCY_REUSE`, `INVALID_PHASE` |
+| `retry` | those three plus `NO_RETRYABLE_FRONTIER` |
+| `resubmit`, `delete` | `GENERATION_CONFLICT`, `RUN_CONFLICT`, `IDEMPOTENCY_REUSE`, `INVALID_PHASE`, `CANCELLED` |
+| `run/submit` | `-32602`/`GRAPH_INVALID`, `IDEMPOTENCY_REUSE`, `RUN_CONFLICT`, `INVALID_PHASE` |
+
+The cluster rows come from the shared admission server's store-error mapping
+(`openengine-cluster-server` admission and lifecycle), which commits nothing before
+returning them. No stock backend implements these methods. The only live evidence
+is therefore the stock `INVALID_PHASE` and `RUN_CONFLICT` refusals. Every other code,
+including `INTERNAL_ERROR`, `SOURCE_UNAVAILABLE` and `source_checkout_unavailable`, is
+`Unknown`.
+
+The three cluster subscriptions reuse `NativeSubscription` and the shared
+observation budget:
+
+- `WatchAsync` delivers `EventNotification` records with the closed `WatchEvent`
+  algebra: `phase`, `node_begin`, `node_end`, `bookmark`, `fault` and `finished`.
+  `WatchResult.AtCursor` is the tail captured at establishment, not an echo of
+  `FromCursor`. A requested run must be the resolved run. Without one, native may
+  return a null run while parked; the first record then fixes the run, and later
+  foreign records fail the subscription.
+- `LogsAsync` takes no filters and delivers cluster-wide, future-only
+  `LogEventNotification` records.
+- `AttachAgentAsync` takes only an execution and has no run selector.
+- Logs and agent attachment are cursorless. `LastDeliveredCursor` stays null, and a
+  `subscription/closed` that carries a cursor is a protocol failure. Native `fault`
+  events describe retry dispositions but never authorize a retry.
+
+`ClusterTests` replays the pinned native admission, lifecycle, delete and resubmit
+goldens and the admission-error golden through every typed method. It checks exact
+request parameters and complete response round trips. It also covers the watch, log
+and attachment session goldens, both native backend-fault fixtures, every event
+variant, the per-operation refusal table, identity fences, Stop control capacity,
+parked watch resolution and cursorless closes. The packed `DiscoveryConsumer` in the
+stock Linux witness proves the eleven stock refusals and unchanged empty get and
+inventory afterwards.

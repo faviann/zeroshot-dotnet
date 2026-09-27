@@ -38,7 +38,7 @@ public sealed record ServerCapabilities : NativeContract
 [WireContract("GetParams")]
 public sealed record GetParams : NativeContract
 {
-    [JsonPropertyName("atCursor")]
+    [JsonPropertyName("atCursor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Cursor? AtCursor { get; init; }
 }
 
@@ -337,6 +337,21 @@ public sealed record DomainErrorData : NativeContract
     [JsonPropertyName("details")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Details { get; init; }
+
+    /// <summary>The reason of a NO_RETRYABLE_FRONTIER refusal. Null for other codes and unrecognized reasons, which remain in Details.</summary>
+    [JsonIgnore]
+    public NoRetryableFrontierReason? NoRetryableFrontierReason =>
+        Code == "NO_RETRYABLE_FRONTIER" && Details is { ValueKind: JsonValueKind.Object } details &&
+        details.TryGetProperty("reason", out var reason) && reason.ValueKind == JsonValueKind.String
+            ? reason.GetString() switch
+            {
+                "exhausted" => Contracts.NoRetryableFrontierReason.Exhausted,
+                "success" => Contracts.NoRetryableFrontierReason.Success,
+                "active" => Contracts.NoRetryableFrontierReason.Active,
+                "consumed" => Contracts.NoRetryableFrontierReason.Consumed,
+                _ => null
+            }
+            : null;
 }
 
 internal sealed class OecpUnsigned32Converter : JsonConverter<uint>
