@@ -61,7 +61,7 @@ var request = new RunRequest
     Runtime = RuntimePlan.Parse(await File.ReadAllTextAsync("runtime.json", ct)),
     InitialInput = JsonSerializer.SerializeToElement(new { task = "Fix the build" }),
     Source = new ResolvedSource(
-        repository: "https://github.com/example/project.git",
+        repository: "example/project",
         branch: "main",
         revision: "0123456789abcdef0123456789abcdef01234567"),
 };

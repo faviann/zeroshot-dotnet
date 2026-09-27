@@ -43,7 +43,7 @@ await using var sdkOverNative = new ZeroshotClient(native, binding, ownsClient: 
     Runtime = RuntimePlan.Parse(await File.ReadAllTextAsync(&quot;runtime.json&quot;, ct)),
     InitialInput = JsonSerializer.SerializeToElement(new { task = &quot;Fix the build&quot; }),
     Source = new ResolvedSource(
-        repository: &quot;https://github.com/example/project.git&quot;,
+        repository: &quot;example/project&quot;,
         branch: &quot;main&quot;,
         revision: &quot;0123456789abcdef0123456789abcdef01234567&quot;),
 };
