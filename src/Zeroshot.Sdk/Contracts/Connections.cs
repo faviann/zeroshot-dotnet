@@ -80,6 +80,16 @@ public sealed record ConnectionDeleteResult : TargetHttpContract
 // Native StaticConnectionValues::new, shared by run credentials and stored connections.
 internal static class StaticConnectionValues
 {
+    // Native RunConnectionValues: fresh per-run static values keyed by connection.
+    internal static void ValidateRun(ImmutableDictionary<string, ImmutableDictionary<string, string>> connections)
+    {
+        foreach (var (key, values) in connections)
+        {
+            _ = new ConnectionKey(key);
+            Validate(values);
+        }
+    }
+
     internal static void Validate(ImmutableDictionary<string, string>? values)
     {
         if (values is null || values.Count is < 1 or > 64) throw new JsonException();

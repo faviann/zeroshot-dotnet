@@ -19,6 +19,7 @@ internal static class ValueRules
                 value.Length <= 256 && Regex.IsMatch(value, @"\A[A-Za-z_][A-Za-z0-9_.-]*@[1-9][0-9]*\z"),
             nameof(Sha256Digest) or nameof(GraphIdentity) or nameof(RequestFingerprint) => Regex.IsMatch(value, @"\A[0-9a-f]{64}\z"),
             nameof(SourceRevisionId) => Regex.IsMatch(value, @"\A[0-9a-f]{40}\z"),
+            nameof(RunProfileName) => value.Length <= 64 && Regex.IsMatch(value, @"\A[A-Za-z0-9][A-Za-z0-9._-]*\z"),
             nameof(EnvironmentVariableName) => value.Length <= 128 && Regex.IsMatch(value, @"\A[A-Za-z_][A-Za-z0-9_]*\z"),
             nameof(ConnectionKey) or nameof(ExecutionRef) or nameof(BoundedLogTarget) => NonControl(value, 128, bytes: true),
             nameof(BoundedLogMessage) or nameof(BoundedAssistantOutput) => !value.Any(char.IsControl) && Encoding.UTF8.GetByteCount(value) <= 16_384,

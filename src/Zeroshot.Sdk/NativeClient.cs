@@ -22,6 +22,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     public Uri Origin { get; }
     public NativeTargetClient Target { get; }
     public NativeConnectionsClient Connections { get; }
+    public NativeProfilesClient Profiles { get; }
 
     private NativeClient(NativeClientOptions options, HttpClient? supplied, bool ownsHttpClient)
     {
@@ -46,6 +47,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         else { http = supplied; this.ownsHttpClient = ownsHttpClient; }
         Target = new NativeTargetClient(this);
         Connections = new NativeConnectionsClient(this);
+        Profiles = new NativeProfilesClient(this);
     }
 
     /// <summary>Creates a safe owned HTTP transport, or borrows a caller-compliant client by default.</summary>
