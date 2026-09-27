@@ -12,5 +12,9 @@ on the same client, reads the run routes and their HEADs against the discovered
 run-history binding, streams a finished run's SSE events to native's close, and checks
 `Last-Event-ID` precedence and the `run_not_found`/`invalid_cursor` refusals. A consumer-owned handler, which the library does not offer,
 injects a foreign Origin or a cross-site `Sec-Fetch-Site` and a `text/plain` body to prove
-native's typed `origin_rejected` (including on the SSE route) and `json_required` refusals. `tools/native-witness/run.sh` runs it
-and checks that the UI profile store stays empty.
+native's typed `origin_rejected` (including on the SSE route) and `json_required` refusals.
+
+Finally it checks that the drafts left the UI profile store empty. It then creates,
+reads, updates and races saves of one profile, and provokes `profile_conflict`,
+`workspace_changed` and `invalid_profile` rejections. `tools/native-witness/run.sh` runs it and
+checks the final store independently.

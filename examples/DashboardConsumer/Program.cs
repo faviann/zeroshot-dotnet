@@ -148,6 +148,66 @@ var eventsOrigin403 = await Refused(request => request.Headers.TryAddWithoutVali
 var media415 = await Refused(request => { if (request.Content is not null) request.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain"); },
     d => d.ValidateAsync(new DashboardProfileDocument { Graph = graph, Runtime = runtime }), HttpStatusCode.UnsupportedMediaType, "json_required");
 
+// Profiles in this target's own isolated UI store. The drafts above stored nothing.
+var emptyStore = await dashboard.ListProfilesAsync();
+var listHead = await dashboard.HeadProfilesAsync();
+Require(emptyStore.Profiles.IsEmpty && listHead is { StatusCode: HttpStatusCode.OK, MediaType: "application/json" }, "Drafts changed the profile store.");
+var profileName = new RunProfileName("witness");
+// Native reports a missing profile as a store error, not 404; its HEAD keeps only the status.
+var missingProfile = await Problem(() => dashboard.GetProfileAsync(profileName), HttpStatusCode.InternalServerError, "profile_store_error");
+try { await dashboard.HeadProfileAsync(profileName); throw new InvalidOperationException("HEAD found a missing profile."); }
+catch (NativeHttpException error) when (error.StatusCode == HttpStatusCode.InternalServerError && error.UiProblem is null) { }
+var workspace = bootstrap.Workspace.Id;
+var resized = NativeJson.DeserializeUtf8<RuntimePlan>(System.Text.Encoding.UTF8.GetBytes(
+    Wire(runtime).ToJsonString().Replace("\"size\":\"small\"", "\"size\":\"medium\"")));
+Require(Wire(resized).ToJsonString() != Wire(runtime).ToJsonString(), "The update runtime is unchanged.");
+DashboardProfileSaveRequest Save(RuntimePlan plan, string? expectedRevision)
+    => new() { Name = profileName, Graph = graph, Runtime = plan, ExpectedRevision = expectedRevision };
+object Attempt(NativeAttempt<DashboardProfile> attempt) => new
+{
+    outcome = attempt.Outcome.ToString(), attempt.Response?.Revision,
+    problem = (attempt.Failure as NativeHttpException)?.UiProblem is { } p ? new { p.Code, p.Message } : null
+};
+void Conflict(NativeAttempt<DashboardProfile> attempt, string code, string message)
+    => Require(attempt is { Outcome: NativeAttemptOutcome.Rejected, Failure: NativeHttpException { StatusCode: HttpStatusCode.Conflict } refused } &&
+        refused.UiProblem?.Code == code, message);
+
+// Create without a revision, then read it back with the same revision.
+var created = await dashboard.SaveProfileAsync(Save(runtime, null), workspace);
+Require(created is { Outcome: NativeAttemptOutcome.Acknowledged, Response.Profile: { Scope: RunProfileScope.User, IsDefault: false } } &&
+    Wire(created.Response.Profile.Graph).ToJsonString() == Wire(graph).ToJsonString() &&
+    Wire(created.Response.Profile.Runtime).ToJsonString() == Wire(runtime).ToJsonString(), "The profile was not created.");
+var first = created.Response!;
+var shown = await dashboard.GetProfileAsync(profileName);
+var shownHead = await dashboard.HeadProfileAsync(profileName);
+Require(shown.Revision == first.Revision && Wire(shown).ToJsonString() == Wire(first).ToJsonString() &&
+    shownHead is { StatusCode: HttpStatusCode.OK, MediaType: "application/json" }, "The created profile reads back differently.");
+// Without a revision a taken name conflicts; the read revision updates in place; the old one is then stale.
+var taken = await dashboard.SaveProfileAsync(Save(runtime, null), workspace);
+Conflict(taken, "profile_conflict", "A taken name was overwritten.");
+var updated = await dashboard.SaveProfileAsync(Save(resized, first.Revision), workspace);
+Require(updated is { Outcome: NativeAttemptOutcome.Acknowledged } && updated.Response!.Profile.Id == first.Profile.Id &&
+    updated.Response.Revision != first.Revision && Wire(updated.Response.Profile.Runtime).ToJsonString() == Wire(resized).ToJsonString(),
+    "The expected revision did not update the profile.");
+var stale = await dashboard.SaveProfileAsync(Save(runtime, first.Revision), workspace);
+Conflict(stale, "profile_conflict", "A stale revision overwrote the profile.");
+// Two concurrent saves from the same read: native's store lock lets exactly one win.
+var second = updated.Response!.Revision;
+var raced = await Task.WhenAll(dashboard.SaveProfileAsync(Save(runtime, second), workspace),
+    dashboard.SaveProfileAsync(Save(runtime, second), workspace));
+var winner = raced.Single(a => a.Outcome == NativeAttemptOutcome.Acknowledged).Response!;
+Conflict(raced.Single(a => a.Outcome != NativeAttemptOutcome.Acknowledged), "profile_conflict", "Both racing saves were not resolved by revision.");
+// A different workspace identity and an inadmissible runtime are refused without touching the store.
+var foreignWorkspace = await dashboard.SaveProfileAsync(Save(resized, winner.Revision), "0195af77-1000-7000-8000-00000000abcd");
+Conflict(foreignWorkspace, "workspace_changed", "A foreign workspace saved.");
+var inadmissible = await dashboard.SaveProfileAsync(Save(unbound, winner.Revision), workspace);
+Require(inadmissible is { Outcome: NativeAttemptOutcome.Rejected, Failure: NativeHttpException { StatusCode: HttpStatusCode.UnprocessableEntity, UiProblem.Code: "invalid_profile" } },
+    "An inadmissible profile was not rejected.");
+var final = await dashboard.GetProfileAsync(profileName);
+var finalList = await dashboard.ListProfilesAsync();
+Require(Wire(final).ToJsonString() == Wire(winner).ToJsonString() && finalList.Profiles is [{ Name.Value: "witness" } summary] &&
+    summary.Id == first.Profile.Id, "Refused saves changed the profile.");
+
 Console.WriteLine(JsonSerializer.Serialize(new
 {
     redirects, index = new { index.MediaType, index.CharSet, index.Length, headLength = indexHead.ContentLength }, assets,
@@ -167,7 +227,13 @@ Console.WriteLine(JsonSerializer.Serialize(new
         stream = new { sseEvents, events = streamed.Count, close = streamClose.Origin.ToString(), resumedFrom = resumedFrom.Value },
         refusals = new { missingRun, aheadCursor }
     },
-    refusals = new { origin = origin403, eventsOrigin = eventsOrigin403, mediaType = media415 }
+    refusals = new { origin = origin403, eventsOrigin = eventsOrigin403, mediaType = media415 },
+    profiles = new
+    {
+        workspace, emptyList = Wire(emptyStore), missing = missingProfile, created = Attempt(created), taken = Attempt(taken),
+        updated = Attempt(updated), stale = Attempt(stale), raced = raced.Select(Attempt), foreignWorkspace = Attempt(foreignWorkspace),
+        inadmissible = Attempt(inadmissible), final = new { final.Profile.Id, final.Revision, summary = Wire(finalList) }
+    }
 }));
 
 static async Task<object> Problem(Func<Task> call, HttpStatusCode status, string code)

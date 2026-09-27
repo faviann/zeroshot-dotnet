@@ -62,6 +62,29 @@ public sealed partial class NativeClient
         return ExecuteJsonAsync<T>(operation, new Uri(Origin, path), body, null, _ => { }, cancellationToken);
     }
 
+    /// <summary>One save attempt. Only native's pre-write refusals are rejections; any other received failure leaves the effect unknown.</summary>
+    internal async Task<NativeAttempt<DashboardProfile>> SaveDashboardProfileAsync(OperationDescriptor operation, string path,
+        DashboardProfileSaveRequest request, string workspaceId, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        var body = NativeJson.SerializeUtf8(request);
+        var (correlationId, outcome, response, failure) = await AttemptAsync<DashboardProfile>(operation, new Uri(Origin, path), body,
+            null, IsProfileSaveRefusal, cancellationToken,
+            configure: message => message.Headers.Add("X-Zeroshot-Workspace", workspaceId)).ConfigureAwait(false);
+        return new NativeAttempt<DashboardProfile>(Origin, operation.Name, correlationId, outcome, response, failure);
+    }
+
+    // The browser boundary, the workspace check, decoding/admission and the revision check all answer before
+    // native writes (profile_ui.rs save, server.rs browser_boundary). A 500 profile_store_error can follow the write.
+    private static bool IsProfileSaveRefusal(HttpStatusCode? status, string code) =>
+        (status, code) is
+            (HttpStatusCode.Conflict, "workspace_changed") or
+            (HttpStatusCode.Conflict, "profile_conflict") or
+            (HttpStatusCode.UnprocessableEntity, "invalid_profile") or
+            (HttpStatusCode.Forbidden, "origin_rejected") or
+            (HttpStatusCode.UnsupportedMediaType, "json_required") or
+            (HttpStatusCode.ServiceUnavailable, "server_stopping");
+
     internal async Task<DashboardRunEvents> OpenRunEventsAsync(OperationDescriptor operation, Uri requestUri, Cursor start,
         Cursor? lastEventId, CancellationToken cancellationToken)
     {
@@ -96,7 +119,7 @@ public sealed partial class NativeClient
 
 /// <summary>
 /// Native browser routes on an existing UI origin. Requests carry the exact origin Host and no
-/// Origin or Sec-Fetch-Site header. Transformations return drafts; nothing is saved or run.
+/// Origin or Sec-Fetch-Site header. Transformations return drafts; only a profile save stores anything, and nothing runs.
 /// </summary>
 public sealed class NativeDashboardClient
 {
@@ -115,6 +138,11 @@ public sealed class NativeDashboardClient
     internal static readonly OperationDescriptor ValidateOperation = Browser("dashboard.validate", MaxDraftRequestBytes);
     internal static readonly OperationDescriptor AuthoringOperation = Browser("dashboard.authoring", MaxDraftRequestBytes);
     internal static readonly OperationDescriptor DataOperation = Browser("dashboard.data", MaxDraftRequestBytes);
+    internal static readonly OperationDescriptor ListProfilesOperation = Browser("dashboard.listProfiles");
+    internal static readonly OperationDescriptor HeadProfilesOperation = Browser("dashboard.headProfiles");
+    internal static readonly OperationDescriptor GetProfileOperation = Browser("dashboard.getProfile");
+    internal static readonly OperationDescriptor HeadProfileOperation = Browser("dashboard.headProfile");
+    internal static readonly OperationDescriptor SaveProfileOperation = Browser("dashboard.saveProfile", MaxDraftRequestBytes);
     // Native serves these with the run-history handlers behind the discovered direct-target routes.
     internal static readonly OperationDescriptor ListRunsOperation = History("dashboard.listRuns", 4);
     internal static readonly OperationDescriptor HeadRunsOperation = History("dashboard.headRuns", 4);
@@ -130,6 +158,7 @@ public sealed class NativeDashboardClient
     private const string EventsPath = "/ui/api/runs/{run_id}/events{?after}";
     private static readonly Cursor InitialCursor = new("v2:0");
     private const string BootstrapPath = "/ui/api/bootstrap";
+    private const string ProfilesPath = "/ui/api/profiles";
     private readonly NativeClient client;
     internal NativeDashboardClient(NativeClient client) => this.client = client;
 
@@ -189,6 +218,35 @@ public sealed class NativeDashboardClient
         return client.DashboardJsonAsync<DashboardDataDraft>(DataOperation, "/ui/api/data", request, cancellationToken);
     }
 
+    /// <summary>`GET /ui/api/profiles`: summaries of the UI store's user-scope profiles.</summary>
+    public Task<RunProfileListResult> ListProfilesAsync(CancellationToken cancellationToken = default)
+        => client.DashboardJsonAsync<RunProfileListResult>(ListProfilesOperation, ProfilesPath, null, cancellationToken);
+    public Task<NativeHeadResult> HeadProfilesAsync(CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadProfilesOperation, new Uri(client.Origin, ProfilesPath), null, cancellationToken);
+
+    /// <summary>
+    /// `GET /ui/api/profiles/{name}`: one user-scope profile and its current revision. Native reports a missing
+    /// profile as 500 <c>profile_store_error</c>, not 404.
+    /// </summary>
+    public Task<DashboardProfile> GetProfileAsync(RunProfileName name, CancellationToken cancellationToken = default)
+        => client.DashboardJsonAsync<DashboardProfile>(GetProfileOperation, ProfilePath(name), null, cancellationToken);
+    public Task<NativeHeadResult> HeadProfileAsync(RunProfileName name, CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadProfileOperation, new Uri(client.Origin, ProfilePath(name)), null, cancellationToken);
+
+    /// <summary>
+    /// `POST /ui/api/profiles`: one compare-and-swap save, sent once with <paramref name="workspaceId"/> (from
+    /// <see cref="DashboardBootstrap.Workspace"/>) verbatim as <c>X-Zeroshot-Workspace</c>. 409 <c>workspace_changed</c>
+    /// and <c>profile_conflict</c>, 422 <c>invalid_profile</c> and boundary refusals are rejected attempts; any other
+    /// failure after dispatch, including a lost reply or 500 <c>profile_store_error</c>, is unknown and never retried.
+    /// </summary>
+    public Task<NativeAttempt<DashboardProfile>> SaveProfileAsync(DashboardProfileSaveRequest request, string workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(workspaceId);
+        return client.SaveDashboardProfileAsync(SaveProfileOperation, ProfilesPath, request, workspaceId, cancellationToken);
+    }
+
     /// <summary>`GET /ui/api/runs`: one run list page, optionally strictly after a canonical UUIDv7 run ID.</summary>
     public Task<RunHistoryList> ListRunsAsync(RunId? after = null, CancellationToken cancellationToken = default)
         => client.ExecuteJsonAsync<RunHistoryList>(ListRunsOperation, RunsUri(after), null, null,
@@ -224,6 +282,13 @@ public sealed class NativeDashboardClient
     }
     public Task<NativeHeadResult> HeadRunEventsAsync(RunId runId, Cursor? after = null, CancellationToken cancellationToken = default)
         => client.ExecuteHeadAsync(HeadRunEventsOperation, RunUri(EventsPath, runId, after), null, cancellationToken);
+
+    private static string ProfilePath(RunProfileName name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        // Profile names are unreserved path characters that cannot form a dot segment.
+        return ProfilesPath + "/" + name.Value;
+    }
 
     private Uri RunsUri(RunId? after)
     {

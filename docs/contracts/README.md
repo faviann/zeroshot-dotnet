@@ -60,6 +60,8 @@ bindings also have controlled-authority evidence only.
 authoring/data draft actions from native `profile_ui`; see
 [dashboard routes](../dashboard/README.md). They reuse the generated graph, runtime and
 payload contracts, and `examples/DashboardConsumer` exercises them against the stock UI mount.
+Dashboard profiles reuse the hosted `RunProfile` and `RunProfileListResult` types; the UI
+adds only `DashboardProfileSaveRequest` and the `{profile,revision}` `DashboardProfile`.
 The dashboard run routes reuse the run-history records; their SSE route adds only the
 `DashboardRunEvent` page/error union delivered by `DashboardRunEvents`.
 

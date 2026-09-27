@@ -152,6 +152,41 @@ public sealed record DashboardValidation : DashboardContract
     }
 }
 
+/// <summary>
+/// `POST /ui/api/profiles` request: saves one user-scope profile after native admission. Native has no scope
+/// or set-default field. A null expected revision is omitted, which native accepts only for a new name.
+/// </summary>
+public sealed record DashboardProfileSaveRequest : DashboardContract
+{
+    [JsonPropertyName("name")]
+    public required RunProfileName Name { get; init; }
+    [JsonPropertyName("graph")]
+    public required GraphSpec Graph { get; init; }
+    [JsonPropertyName("runtime")]
+    public required RuntimePlan Runtime { get; init; }
+    /// <summary>The opaque revision last read for this name, sent verbatim.</summary>
+    [JsonPropertyName("expectedRevision")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExpectedRevision { get; init; }
+
+    internal override void Validate(JsonElement json)
+    {
+        Nested(json, "graph", typeof(GraphSpec));
+        Nested(json, "runtime", typeof(RuntimePlan));
+    }
+}
+
+/// <summary>A stored user-scope profile with native's opaque revision of it, from a read or a save.</summary>
+public sealed record DashboardProfile : DashboardContract
+{
+    [JsonPropertyName("profile")]
+    public required RunProfile Profile { get; init; }
+    [JsonPropertyName("revision")]
+    public required string Revision { get; init; }
+
+    internal override void Validate(JsonElement json) => Nested(json, "profile", typeof(RunProfile));
+}
+
 /// <summary>`POST /ui/api/authoring`: an outcome edit of a draft. The runtime draft is not interpreted.</summary>
 public sealed record DashboardAuthoringRequest : DashboardContract
 {

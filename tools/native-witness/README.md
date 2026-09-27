@@ -88,8 +88,20 @@ for a missing asset, the complete bootstrap catalog and its HEAD, native admissi
 the generated asset and a 422 for an unbound draft, and authoring/data draft edits.
 The same client then reads discovery, proving UI-routed requests do not capture a
 pooled connection. A consumer-owned handler injects a foreign Origin and a `text/plain`
-body to show native's typed `origin_rejected` and `json_required` refusals. The harness
-checks that the UI profile store is still empty; `dashboard.json` retains the evidence.
+body to show native's typed `origin_rejected` and `json_required` refusals; `dashboard.json`
+retains the evidence.
+
+The consumer then uses the UI profile store in the target's fresh `--storage`. It first
+lists it empty, which proves that the drafts stored nothing, and reads a missing profile
+(native's 500 `profile_store_error`). It creates a profile from the generated asset with no
+expected revision and reads it back with the same revision, also by HEAD. A second
+create of that name is a rejected `profile_conflict`. An update with the read revision is
+acknowledged with a new revision and the same profile ID, and a save with the old revision
+is a rejected `profile_conflict`. Two concurrent saves from the same revision end with
+exactly one acknowledged and one `profile_conflict`. A foreign workspace ID is rejected with
+`workspace_changed` and an unbound runtime with 422 `invalid_profile`, and neither changes
+the stored profile. The harness then reads the list and profile with curl and requires the
+last acknowledged ID and revision. A store replaced under a running host is fixture-only.
 
 The same consumer reads the browser run routes: the list, a finished run's definition and
 page must equal the discovered run-history binding's results, and all four run routes
