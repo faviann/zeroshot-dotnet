@@ -534,66 +534,76 @@
       "id": "discovered:GET hosted_runs.list",
       "transport": "HTTP",
       "bindingOwnerIssue": 29,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET, no body -> `HostedRunListResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.hosted-runs/v1` capability: same-origin `base_url`; list (no variables), status and force (one whole `{run_id}` segment), watch (`{run_id}` + `{?from_cursor}`) and logs (`{run_id}` + `{?from_cursor,execution}`), all compiled before any operation, segments appended to the base path. Direct and private targets, absent capability, invalid descriptors and run IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) throw before dispatch. Run IDs are percent-encoded as one path segment; cursor and execution are form-encoded query values. [contract/hosted_runs.rs:L142-L187][http-73] [hosted_runs.rs:L118-L159][http-83]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
+      "typeClosure": "GET, `Accept: application/json`, `Cache-Control: no-store` -> any 2xx (64 KiB response) `HostedRunListResult {runs: HostedRunStatusResult[]}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L184"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L184",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
+      },
+      "binding": "NativeClient.HostedRuns.ListAsync"
     },
     {
       "id": "discovered:GET hosted_runs.status",
       "transport": "HTTP",
       "bindingOwnerIssue": 29,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{run_id}` -> `HostedRunStatusResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.hosted-runs/v1` capability: same-origin `base_url`; list (no variables), status and force (one whole `{run_id}` segment), watch (`{run_id}` + `{?from_cursor}`) and logs (`{run_id}` + `{?from_cursor,execution}`), all compiled before any operation, segments appended to the base path. Direct and private targets, absent capability, invalid descriptors and run IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) throw before dispatch. Run IDs are percent-encoded as one path segment; cursor and execution are form-encoded query values. [contract/hosted_runs.rs:L142-L187][http-73] [hosted_runs.rs:L118-L159][http-83]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
+      "typeClosure": "GET `{run_id}`, `Accept: application/json`, `Cache-Control: no-store` -> any 2xx (64 KiB) `HostedRunStatusResult {runId, title, source, size, atCursor, status: HostedRunStatus (strict `{phase:\"queued\"}` | native `RunStatus`), workspaceRecovery?}`; the result must name the requested run",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L185"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L185",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
+      },
+      "binding": "NativeClient.HostedRuns.StatusAsync"
     },
     {
       "id": "discovered:GET hosted_runs.watch",
       "transport": "HTTP",
       "bindingOwnerIssue": 29,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{run_id}`, optional `from_cursor` -> NDJSON `HostedRunStreamFrame<HostedRunWatchEventNotification>`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.hosted-runs/v1` capability: same-origin `base_url`; list (no variables), status and force (one whole `{run_id}` segment), watch (`{run_id}` + `{?from_cursor}`) and logs (`{run_id}` + `{?from_cursor,execution}`), all compiled before any operation, segments appended to the base path. Direct and private targets, absent capability, invalid descriptors and run IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) throw before dispatch. Run IDs are percent-encoded as one path segment; cursor and execution are form-encoded query values. [contract/hosted_runs.rs:L142-L187][http-73] [hosted_runs.rs:L118-L159][http-83]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
+      "typeClosure": "GET `{run_id}`, optional `from_cursor` (`RunWatchParams`), `Accept: application/x-ndjson`, `Cache-Control: no-store`; any 2xx admits `HostedRunStream<HostedRunWatchEventNotification>` over strict NDJSON `{type:\"event\",event}` | `{type:\"closed\",reason: SubscriptionCloseReason}` frames. The event is `{subscriptionId, runId, title, source, size, cursor, status: HostedRunStatus}` with no workspaceRecovery; records keep the run and the first record's subscription ID and source",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L186"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L186",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
+      },
+      "binding": "NativeClient.HostedRuns.WatchAsync"
     },
     {
       "id": "discovered:GET hosted_runs.logs",
       "transport": "HTTP",
       "bindingOwnerIssue": 29,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "GET `{run_id}`, optional `from_cursor`, `execution` -> NDJSON `HostedRunStreamFrame<RunLogEventNotification>`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.hosted-runs/v1` capability: same-origin `base_url`; list (no variables), status and force (one whole `{run_id}` segment), watch (`{run_id}` + `{?from_cursor}`) and logs (`{run_id}` + `{?from_cursor,execution}`), all compiled before any operation, segments appended to the base path. Direct and private targets, absent capability, invalid descriptors and run IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) throw before dispatch. Run IDs are percent-encoded as one path segment; cursor and execution are form-encoded query values. [contract/hosted_runs.rs:L142-L187][http-73] [hosted_runs.rs:L118-L159][http-83]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
+      "typeClosure": "GET `{run_id}`, optional `from_cursor` and `execution` (`RunLogsParams`), NDJSON headers as watch; any 2xx admits `HostedRunStream<RunLogEventNotification>` over the same frames; records keep the run, the first record's subscription ID and any execution filter",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L187"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L187",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
+      },
+      "binding": "NativeClient.HostedRuns.LogsAsync"
     },
     {
       "id": "discovered:POST hosted_runs.force",
       "transport": "HTTP",
       "bindingOwnerIssue": 29,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `{}` at `{run_id}` route -> `HostedRunForceResult` = status result",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.hosted-runs/v1` capability: same-origin `base_url`; list (no variables), status and force (one whole `{run_id}` segment), watch (`{run_id}` + `{?from_cursor}`) and logs (`{run_id}` + `{?from_cursor,execution}`), all compiled before any operation, segments appended to the base path. Direct and private targets, absent capability, invalid descriptors and run IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) throw before dispatch. Run IDs are percent-encoded as one path segment; cursor and execution are form-encoded query values. [contract/hosted_runs.rs:L142-L187][http-73] [hosted_runs.rs:L118-L159][http-83]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
+      "typeClosure": "POST `{}` at the `{run_id}` route -> any 2xx (64 KiB) `HostedRunStatusResult` naming the requested run, returned as `NativeAttempt<HostedRunStatusResult>`: `Rejected` only for 400 `invalid_request`, 401 `unauthorized`, 403 `forbidden` or 404 `not_found` problems; other post-dispatch failures are `Unknown`. Acknowledged queued or stopping status is not terminal; no retry or wait",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L188"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L188",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
+      },
+      "binding": "NativeClient.HostedRuns.ForceAsync"
     },
     {
       "id": "discovered:POST hosted_workspace_recovery.resume",

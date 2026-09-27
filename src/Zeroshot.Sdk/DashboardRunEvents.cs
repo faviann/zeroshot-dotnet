@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
@@ -34,114 +33,47 @@ public sealed record DashboardHistoryErrorEvent : DashboardRunEvent
 /// </summary>
 public sealed class DashboardRunEvents : IAsyncDisposable
 {
-    private readonly ObservationQueue<DashboardRunEvent, Cursor> queue;
-    private readonly object gate = new();
-    private readonly CancellationTokenSource reading = new();
-    private readonly TaskCompletionSource<NativeSubscriptionCompletion> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private NativeSubscriptionCompletion? outcome;
-    public Task<NativeSubscriptionCompletion> Completion => completion.Task;
+    private readonly HttpObservation<DashboardRunEvent> observation;
+    public Task<NativeSubscriptionCompletion> Completion => observation.Completion;
     /// <summary>Last page cursor handed to the caller, including pages drained after closure. Not a processing checkpoint.</summary>
-    public Cursor? LastDeliveredCursor => queue.LastDeliveredPosition;
+    public Cursor? LastDeliveredCursor => observation.LastDeliveredCursor;
 
     internal DashboardRunEvents(ObservationQueue<DashboardRunEvent, Cursor> queue, HttpResponseMessage response, Stream body,
         Cursor start, int eventBytes)
-    {
-        this.queue = queue;
-        _ = SettleAsync(response, ReadAsync(body, start, eventBytes));
-    }
+        => observation = new(queue, response, (target, token) => ReadAsync(target, body, start, eventBytes, token));
 
-    public async IAsyncEnumerable<DashboardRunEvent> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await using var reader = queue.ReadAllAsync(cancellationToken).GetAsyncEnumerator();
-        while (true)
-        {
-            bool next;
-            try { next = await reader.MoveNextAsync().ConfigureAwait(false); }
-            catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
-            if (!next) yield break;
-            yield return reader.Current;
-        }
-    }
+    public IAsyncEnumerable<DashboardRunEvent> ReadAllAsync(CancellationToken cancellationToken = default)
+        => observation.ReadAllAsync(cancellationToken);
 
-    private async Task ReadAsync(Stream body, Cursor after, int eventBytes)
+    private static async Task<NativeSubscriptionException?> ReadAsync(HttpObservation<DashboardRunEvent> observation,
+        Stream body, Cursor after, int eventBytes, CancellationToken cancellationToken)
     {
-        await Task.Yield();
-        NativeSubscriptionOrigin origin;
-        NativeSubscriptionException? failure = null;
-        try
+        var reader = new SseReader(body, eventBytes);
+        while (await reader.NextAsync(cancellationToken).ConfigureAwait(false) is { } sse)
         {
-            var reader = new SseReader(body, eventBytes);
-            while (await reader.NextAsync(reading.Token).ConfigureAwait(false) is { } sse)
+            DashboardRunEvent record;
+            Cursor? position = null;
+            if (sse.Type == "history")
             {
-                DashboardRunEvent record;
-                Cursor? position = null;
-                if (sse.Type == "history")
-                {
-                    var page = NativeJson.DeserializeUtf8<HistoryPage>(sse.Data);
-                    // The id names the page's own end, and each page continues the previous one without gaps.
-                    if (sse.Id != page.NextCursor.Value) throw new JsonException();
-                    RunHistoryRules.Page(page, after);
-                    after = position = page.NextCursor;
-                    record = new DashboardHistoryPageEvent { Page = page };
-                }
-                else if (sse.Type == "history_error")
-                {
-                    var problem = NativeJson.DeserializeUtf8<UiProblem>(sse.Data);
-                    record = new DashboardHistoryErrorEvent { Problem = problem, Code = RunHistoryProblems.Parse(problem.Code) };
-                }
-                else throw new JsonException();
-                if (!queue.TryEnqueue(record, sse.Data.Length, position)) return;
+                var page = NativeJson.DeserializeUtf8<HistoryPage>(sse.Data);
+                // The id names the page's own end, and each page continues the previous one without gaps.
+                if (sse.Id != page.NextCursor.Value) throw new JsonException();
+                RunHistoryRules.Page(page, after);
+                after = position = page.NextCursor;
+                record = new DashboardHistoryPageEvent { Page = page };
             }
-            origin = NativeSubscriptionOrigin.ServerClosed;
+            else if (sse.Type == "history_error")
+            {
+                var problem = NativeJson.DeserializeUtf8<UiProblem>(sse.Data);
+                record = new DashboardHistoryErrorEvent { Problem = problem, Code = RunHistoryProblems.Parse(problem.Code) };
+            }
+            else throw new JsonException();
+            observation.Enqueue(record, sse.Data.Length, position);
         }
-        catch (ObservationFailure overflow)
-        {
-            origin = NativeSubscriptionOrigin.LocalFailure;
-            failure = NativeSubscriptionException.From(overflow);
-        }
-        catch (Exception) when (reading.IsCancellationRequested) { return; } // Stopped locally; the settle path decides.
-        catch (SseSizeException)
-        { (origin, failure) = (NativeSubscriptionOrigin.LocalFailure, new(NativeSubscriptionFailureKind.SizeLimit)); }
-        catch (Exception error) when (error is JsonException or ArgumentException) // Includes invalid UTF-8.
-        { (origin, failure) = (NativeSubscriptionOrigin.LocalFailure, new(NativeSubscriptionFailureKind.Protocol)); }
-        catch (Exception)
-        {
-            // Read failures and a stream ending inside an event; foreign exception text is never retained.
-            (origin, failure) = (NativeSubscriptionOrigin.UnexpectedDisconnect, new(NativeSubscriptionFailureKind.UnexpectedDisconnect));
-        }
-        lock (gate)
-        {
-            if (outcome is not null) return;
-            outcome = new() { Origin = origin, Failure = failure };
-            queue.StopReceiving(failure);
-        }
+        return null;
     }
 
-    private async Task SettleAsync(HttpResponseMessage response, Task read)
-    {
-        await queue.StopRequested.ConfigureAwait(false);
-        reading.Cancel();
-        response.Dispose(); // Closes only this observation's connection, also unblocking a read that ignores cancellation.
-        await read.ConfigureAwait(false);
-        NativeSubscriptionCompletion result;
-        lock (gate)
-        {
-            outcome ??= new() { Origin = queue.StopFailure is OperationCanceledException
-                ? NativeSubscriptionOrigin.Cancelled : NativeSubscriptionOrigin.Disposed };
-            result = outcome;
-        }
-        reading.Dispose();
-        queue.Complete();
-        completion.TrySetResult(result);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        queue.Dispose();
-        await Completion.ConfigureAwait(false);
-    }
-
-    private sealed class SseSizeException : Exception;
+    public ValueTask DisposeAsync() => observation.DisposeAsync();
 
     private sealed record SseEvent(string Type, string? Id, byte[] Data);
 
@@ -183,7 +115,7 @@ public sealed class DashboardRunEvents : IAsyncDisposable
                 var at = span.IndexOfAny((byte)'\r', (byte)'\n');
                 var count = at < 0 ? span.Length : at + 1;
                 // A data line is at most its field name plus one event's data; the line's own split is checked below.
-                if (line.Length + count > (long)ceiling + FramingBytes) throw new SseSizeException();
+                if (line.Length + count > (long)ceiling + FramingBytes) throw new ObservationFrameTooLarge();
                 line.Write(span[..(at < 0 ? span.Length : at)]);
                 start += count;
                 if (at < 0) continue;
@@ -203,7 +135,7 @@ public sealed class DashboardRunEvents : IAsyncDisposable
                 if (bytes[0] == ':')
                 {
                     framing += bytes.Length + 1;
-                    if (framing > FramingBytes) throw new SseSizeException();
+                    if (framing > FramingBytes) throw new ObservationFrameTooLarge();
                     return null;
                 }
                 var colon = bytes.IndexOf((byte)':');
@@ -213,13 +145,13 @@ public sealed class DashboardRunEvents : IAsyncDisposable
                 var isData = field.SequenceEqual("data"u8);
                 // The line end and everything but data content is framing.
                 framing += bytes.Length + 1 - (isData ? value.Length : 0);
-                if (framing > FramingBytes) throw new SseSizeException();
+                if (framing > FramingBytes) throw new ObservationFrameTooLarge();
                 if (isData)
                 {
                     if (hasData) data.WriteByte((byte)'\n');
                     data.Write(value);
                     hasData = true;
-                    if (data.Length > ceiling) throw new SseSizeException();
+                    if (data.Length > ceiling) throw new ObservationFrameTooLarge();
                 }
                 else if (field.SequenceEqual("event"u8)) type = Strict.GetString(value);
                 else if (field.SequenceEqual("id"u8) && value.IndexOf((byte)0) < 0) id = Strict.GetString(value);

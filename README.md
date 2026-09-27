@@ -6,8 +6,9 @@ definitions, local wire validation, immutable credential-free prepared submissio
 [bounded HTTP discovery, session acquisition, direct submission attempts, private target bootstrap and private operator diagnostics/history exports](docs/http/README.md), and
 [WebSocket OECP inspection, bounded watch/log/attachment subscriptions, native force attempts, checkpoints and workspace recovery, shared cluster bindings and trusted run submit](docs/oecp/README.md) of existing targets,
 [the same OECP operations over borrowed NDJSON streams and existing Unix controller sockets](docs/oecp/README.md#ndjson-streams-and-unix-controllers)
-and [security-validated Windows controller pipes](docs/oecp/README.md#windows-controller-pipes), and
-[browser dashboard assets, bootstrap, draft transformations, revision-checked profiles, run history and SSE run events](docs/dashboard/README.md). An
+and [security-validated Windows controller pipes](docs/oecp/README.md#windows-controller-pipes),
+[browser dashboard assets, bootstrap, draft transformations, revision-checked profiles, run history and SSE run events](docs/dashboard/README.md), and
+[hosted run list, status, NDJSON watch/logs and force](docs/http/README.md#hosted-run-lifecycle). An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).

@@ -21,6 +21,7 @@ public sealed class NativeHistoryClient
 {
     internal const string Kind = "zeroshot.run-history/v1";
     private const int ProblemBytes = 64 * 1024;
+    internal const string AfterQuery = "{?after}";
     internal static readonly Cursor InitialCursor = new("v2:0");
     // Direct history is served by the target's UI router; hosted history is a host-owned HTTP API.
     private static readonly HistoryOperation List = new("history.list", 4);
@@ -140,10 +141,10 @@ public sealed class NativeHistoryClient
         var baseUrl = NativeRoutes.CapabilityBaseUrl(client.Origin, capability.BaseUrl);
         // Native build_run_history_descriptor compiles all three routes before any is used.
         var routes = capability.RouteTemplates;
-        _ = NativeRoutes.RunHistoryPath(routes.List, requiresRunId: false, allowsAfter: true);
-        _ = NativeRoutes.RunHistoryPath(routes.Detail, requiresRunId: true, allowsAfter: false);
-        _ = NativeRoutes.RunHistoryPath(routes.Page, requiresRunId: true, allowsAfter: true);
-        return NativeRoutes.RunHistoryRoute(baseUrl, select(routes), runId, after, allowsAfter);
+        _ = NativeRoutes.RunIdPath(routes.List, requiresRunId: false, AfterQuery);
+        _ = NativeRoutes.RunIdPath(routes.Detail, requiresRunId: true, query: null);
+        _ = NativeRoutes.RunIdPath(routes.Page, requiresRunId: true, AfterQuery);
+        return NativeRoutes.RunIdRoute(baseUrl, select(routes), runId, allowsAfter ? AfterQuery : null, ("after", after));
     }
 }
 

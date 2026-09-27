@@ -51,6 +51,12 @@ results. `NativeClient.Profiles` binds list/show/set/delete/default/run on
 validated hosted discovery; see [hosted run profiles](../http/README.md#hosted-run-profiles).
 These bindings have controlled-authority evidence only.
 
+`Contracts/HostedRuns.cs` maps the hosted lifecycle status union, status/list/force
+result and watch record. `NativeClient.HostedRuns` binds list/status/watch/logs/force
+on validated hosted discovery; watch and logs deliver NDJSON frames through the shared
+bounded observation queue. See [hosted run lifecycle](../http/README.md#hosted-run-lifecycle).
+These bindings have controlled-peer evidence only.
+
 `Contracts/OAuth.cs` maps hosted OAuth metadata, device authorization, token and
 login-session records. `NativeClient.OAuth` binds the five individual native calls on
 validated hosted discovery; see [hosted OAuth operations](../http/README.md#hosted-oauth-operations).
