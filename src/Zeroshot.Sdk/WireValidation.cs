@@ -11,7 +11,8 @@ namespace Zeroshot.Native;
 internal static class WireValidation
 {
     private static readonly JsonObject Definitions = LoadDefinitions();
-    private static readonly ConcurrentDictionary<string, JsonSchema> Schemas = new();
+    // Lazy: compiling one schema clones every definition, so concurrent first use must not repeat it.
+    private static readonly ConcurrentDictionary<string, Lazy<JsonSchema>> Schemas = new();
 
     /// <summary>Validates native wire data; returns the typed instance when validation already decoded it.</summary>
     internal static object? Validate(JsonElement value, Type type)
@@ -45,12 +46,12 @@ internal static class WireValidation
             if (typeof(NativeString).IsAssignableFrom(type)) return null;
             throw new ArgumentException("Unsupported native contract type.");
         }
-        var schema = Schemas.GetOrAdd(name, key => JsonSchema.FromText(new JsonObject
+        var schema = Schemas.GetOrAdd(name, key => new Lazy<JsonSchema>(() => JsonSchema.FromText(new JsonObject
         {
             ["$schema"] = "https://json-schema.org/draft/2020-12/schema",
             ["$ref"] = "#/$defs/" + key,
             ["$defs"] = Definitions.DeepClone()
-        }.ToJsonString()));
+        }.ToJsonString()))).Value;
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
         return null;
