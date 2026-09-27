@@ -1,0 +1,53 @@
+[
+  {
+    "status": "verified",
+    "output": {
+      "open": [
+        null,
+        true,
+        4,
+        "sensitive"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifactId": "artifact-opaque",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "byteLength": 9007199254740991,
+        "mediaType": "not required to be MIME",
+        "typeId": "data@1",
+        "producer": {
+          "node": "work",
+          "worker": "agent@1"
+        },
+        "lineage": {
+          "generation": 0,
+          "runId": "generic-opaque",
+          "attempt": 1
+        },
+        "redaction": "restricted"
+      }
+    ]
+  },
+  {
+    "status": "verifier",
+    "output": null,
+    "signals": {
+      "ok": "yes"
+    },
+    "diagnostic": {
+      "unstructured": true
+    },
+    "artifacts": []
+  },
+  {
+    "status": "error",
+    "code": "refusal",
+    "reason": "policy_denied"
+  },
+  {
+    "status": "error",
+    "code": "malformed",
+    "reason": "malformed_result"
+  }
+]

@@ -1,0 +1,711 @@
+[
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "step",
+      "name": "work",
+      "worker": "agent.worker@1",
+      "instructions": "Authored 🔑 content\nDo the work.",
+      "input": {
+        "kind": "null"
+      },
+      "output": {
+        "kind": "null"
+      },
+      "inputBindings": [
+        {
+          "target": [
+            "x"
+          ],
+          "value": {
+            "source": "state",
+            "path": [
+              "value"
+            ]
+          }
+        }
+      ],
+      "writeBindings": [
+        {
+          "target": [
+            "x"
+          ],
+          "value": {
+            "node": "work",
+            "channel": "out",
+            "path": [
+              "result"
+            ]
+          }
+        }
+      ],
+      "attempts": 1,
+      "timeoutMs": 1.0
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "verifier",
+      "name": "check",
+      "worker": "agent.worker@1",
+      "instructions": "Authored 🔑 content\nDo the work.",
+      "input": {
+        "kind": "null"
+      },
+      "output": {
+        "kind": "null"
+      },
+      "inputBindings": [
+        {
+          "target": [
+            "x"
+          ],
+          "value": {
+            "source": "state",
+            "path": [
+              "value"
+            ]
+          }
+        }
+      ],
+      "writeBindings": [
+        {
+          "target": [
+            "x"
+          ],
+          "value": {
+            "node": "work",
+            "channel": "out",
+            "path": [
+              "result"
+            ]
+          }
+        }
+      ],
+      "attempts": 1,
+      "timeoutMs": 1.0,
+      "signals": {
+        "ok": [
+          "yes",
+          "no"
+        ]
+      },
+      "diagnostic": {
+        "kind": "string"
+      }
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "seq",
+      "name": "all",
+      "state": {
+        "kind": "null"
+      },
+      "children": [
+        {
+          "kind": "step",
+          "name": "work",
+          "worker": "agent.worker@1",
+          "instructions": "Authored 🔑 content\nDo the work.",
+          "input": {
+            "kind": "null"
+          },
+          "output": {
+            "kind": "null"
+          },
+          "inputBindings": [
+            {
+              "target": [
+                "x"
+              ],
+              "value": {
+                "source": "state",
+                "path": [
+                  "value"
+                ]
+              }
+            }
+          ],
+          "writeBindings": [
+            {
+              "target": [
+                "x"
+              ],
+              "value": {
+                "node": "work",
+                "channel": "out",
+                "path": [
+                  "result"
+                ]
+              }
+            }
+          ],
+          "attempts": 1,
+          "timeoutMs": 1.0
+        },
+        {
+          "kind": "verifier",
+          "name": "check",
+          "worker": "agent.worker@1",
+          "instructions": "Authored 🔑 content\nDo the work.",
+          "input": {
+            "kind": "null"
+          },
+          "output": {
+            "kind": "null"
+          },
+          "inputBindings": [
+            {
+              "target": [
+                "x"
+              ],
+              "value": {
+                "source": "state",
+                "path": [
+                  "value"
+                ]
+              }
+            }
+          ],
+          "writeBindings": [
+            {
+              "target": [
+                "x"
+              ],
+              "value": {
+                "node": "work",
+                "channel": "out",
+                "path": [
+                  "result"
+                ]
+              }
+            }
+          ],
+          "attempts": 1,
+          "timeoutMs": 1.0,
+          "signals": {
+            "ok": [
+              "yes",
+              "no"
+            ]
+          },
+          "diagnostic": {
+            "kind": "string"
+          }
+        },
+        {
+          "kind": "succeed",
+          "name": "done",
+          "output": {
+            "kind": "null"
+          },
+          "bindings": []
+        },
+        {
+          "kind": "fail",
+          "name": "fail",
+          "reason": "policy_declined"
+        }
+      ],
+      "promotedStatePaths": [
+        [
+          "result"
+        ]
+      ]
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "choice",
+      "name": "choice",
+      "state": {
+        "kind": "null"
+      },
+      "branches": [
+        {
+          "when": {
+            "kind": "in",
+            "value": {
+              "name": "check",
+              "source": "signal",
+              "field": "ok"
+            },
+            "labels": [
+              "yes"
+            ]
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        {
+          "when": {
+            "kind": "all",
+            "guards": [
+              {
+                "kind": "in",
+                "value": {
+                  "name": "check",
+                  "source": "signal",
+                  "field": "ok"
+                },
+                "labels": [
+                  "yes"
+                ]
+              }
+            ]
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        {
+          "when": {
+            "kind": "any",
+            "guards": [
+              {
+                "kind": "in",
+                "value": {
+                  "name": "check",
+                  "source": "signal",
+                  "field": "ok"
+                },
+                "labels": [
+                  "yes"
+                ]
+              }
+            ]
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        {
+          "when": {
+            "kind": "not",
+            "guard": {
+              "kind": "in",
+              "value": {
+                "name": "check",
+                "source": "signal",
+                "field": "ok"
+              },
+              "labels": [
+                "no"
+              ]
+            }
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        {
+          "when": {
+            "kind": "k_of_n",
+            "count": 1,
+            "values": [
+              {
+                "name": "check",
+                "source": "signal",
+                "field": "ok"
+              }
+            ],
+            "labels": [
+              "yes"
+            ]
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        {
+          "when": {
+            "kind": "k_of_map",
+            "count": 1,
+            "value": {
+              "name": "check",
+              "source": "signal",
+              "field": "ok"
+            },
+            "labels": [
+              "yes"
+            ]
+          },
+          "node": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        }
+      ],
+      "otherwise": null,
+      "promotedStatePaths": []
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "par",
+      "name": "parallel",
+      "state": {
+        "kind": "null"
+      },
+      "branches": [
+        {
+          "kind": "succeed",
+          "name": "done",
+          "output": {
+            "kind": "null"
+          },
+          "bindings": []
+        }
+      ],
+      "promotedStatePaths": [],
+      "join": {
+        "kind": "all"
+      }
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "par",
+      "name": "parallel",
+      "state": {
+        "kind": "null"
+      },
+      "branches": [
+        {
+          "kind": "succeed",
+          "name": "done",
+          "output": {
+            "kind": "null"
+          },
+          "bindings": []
+        }
+      ],
+      "promotedStatePaths": [],
+      "join": {
+        "kind": "any"
+      }
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "par",
+      "name": "parallel",
+      "state": {
+        "kind": "null"
+      },
+      "branches": [
+        {
+          "kind": "succeed",
+          "name": "done",
+          "output": {
+            "kind": "null"
+          },
+          "bindings": []
+        }
+      ],
+      "promotedStatePaths": [],
+      "join": {
+        "kind": "quorum",
+        "count": 1
+      }
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "par",
+      "name": "parallel",
+      "state": {
+        "kind": "null"
+      },
+      "branches": [
+        {
+          "kind": "succeed",
+          "name": "done",
+          "output": {
+            "kind": "null"
+          },
+          "bindings": []
+        }
+      ],
+      "promotedStatePaths": [],
+      "join": {
+        "kind": "first",
+        "when": {
+          "kind": "in",
+          "value": {
+            "name": "check",
+            "source": "signal",
+            "field": "ok"
+          },
+          "labels": [
+            "yes"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "loop",
+      "name": "repeat",
+      "state": {
+        "kind": "null"
+      },
+      "body": {
+        "kind": "step",
+        "name": "work",
+        "worker": "agent.worker@1",
+        "instructions": "Authored 🔑 content\nDo the work.",
+        "input": {
+          "kind": "null"
+        },
+        "output": {
+          "kind": "null"
+        },
+        "inputBindings": [
+          {
+            "target": [
+              "x"
+            ],
+            "value": {
+              "source": "state",
+              "path": [
+                "value"
+              ]
+            }
+          }
+        ],
+        "writeBindings": [
+          {
+            "target": [
+              "x"
+            ],
+            "value": {
+              "node": "work",
+              "channel": "out",
+              "path": [
+                "result"
+              ]
+            }
+          }
+        ],
+        "attempts": 1,
+        "timeoutMs": 1.0
+      },
+      "maxIterations": 2,
+      "until": {
+        "kind": "in",
+        "value": {
+          "name": "check",
+          "source": "signal",
+          "field": "ok"
+        },
+        "labels": [
+          "yes"
+        ]
+      },
+      "promotedStatePaths": []
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "map",
+      "name": "each",
+      "state": {
+        "kind": "null"
+      },
+      "body": {
+        "kind": "step",
+        "name": "work",
+        "worker": "agent.worker@1",
+        "instructions": "Authored 🔑 content\nDo the work.",
+        "input": {
+          "kind": "null"
+        },
+        "output": {
+          "kind": "null"
+        },
+        "inputBindings": [
+          {
+            "target": [
+              "x"
+            ],
+            "value": {
+              "source": "state",
+              "path": [
+                "value"
+              ]
+            }
+          }
+        ],
+        "writeBindings": [
+          {
+            "target": [
+              "x"
+            ],
+            "value": {
+              "node": "work",
+              "channel": "out",
+              "path": [
+                "result"
+              ]
+            }
+          }
+        ],
+        "attempts": 1,
+        "timeoutMs": 1.0
+      },
+      "over": {
+        "source": "item",
+        "path": [
+          "items"
+        ]
+      },
+      "maxItems": 3,
+      "promotedStatePaths": []
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "succeed",
+      "name": "done",
+      "output": {
+        "kind": "null"
+      },
+      "bindings": []
+    }
+  },
+  {
+    "profile": "openengine.graph.full/v1",
+    "initialInput": {
+      "kind": "null"
+    },
+    "policy": {
+      "policy": "policy.native-v2@1",
+      "default": "deny"
+    },
+    "root": {
+      "kind": "fail",
+      "name": "fail",
+      "reason": "policy_declined"
+    }
+  }
+]

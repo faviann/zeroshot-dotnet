@@ -1,0 +1,53 @@
+{
+  "worker": "worker.external@1",
+  "graphProfiles": [
+    "openengine.graph.full/v1",
+    "openengine.graph.single-worker/v1"
+  ],
+  "binding": {
+    "protocol": "external",
+    "version": "2",
+    "profile": "vendor.worker/v2"
+  },
+  "contract": {
+    "input": {
+      "kind": "null"
+    },
+    "output": {
+      "kind": "null"
+    },
+    "verifier": {
+      "signals": {
+        "ok": [
+          "yes",
+          "no"
+        ]
+      },
+      "diagnostic": {
+        "kind": "string"
+      }
+    },
+    "errors": [
+      "timeout",
+      "crash",
+      "malformed",
+      "refusal"
+    ]
+  },
+  "capabilityPolicy": {
+    "autonomy": "strict",
+    "permissionPolicy": "permissions@1"
+  },
+  "artifactProfile": {
+    "allowedTypeIds": [
+      "artifact@1"
+    ],
+    "allowedMediaTypes": [
+      "application/json"
+    ],
+    "minimumRedaction": "confidential"
+  },
+  "credentialRequirements": [
+    "registry.handle@1"
+  ]
+}

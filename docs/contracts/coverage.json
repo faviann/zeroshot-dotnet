@@ -1,0 +1,1341 @@
+{
+  "nativeVersion": "10.9.0",
+  "sourceRevision": "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa",
+  "inventoryRevision": "3c64d3ba39ddd8599b748e5938cba35bc1026e11",
+  "scope": "Named complete native HTTP/OECP bindings; endpoint applicability is not a claim of support on every target.",
+  "commonContracts": {
+    "bindingOwnerIssue": 14,
+    "status": "implemented",
+    "typeClosure": "type-closure.json",
+    "validationEvidence": "tests/Zeroshot.Sdk.Tests/ContractTests.cs; examples/ContractsConsumer",
+    "nativeConformance": "not claimed"
+  },
+  "operations": [
+    {
+      "id": "oecp:initialize",
+      "transport": "OECP",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Succeeds: `openengine.graph.full/v1`, both booleans true, empty cluster status.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`InitializeParams {protocolVersion}` \u2192 `InitializeResult {protocolVersion, capabilities, status}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L36"
+      }
+    },
+    {
+      "id": "oecp:plan",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`PlanParams {graph}` \u2192 `PlanResult {ok, diagnostics, bounds?}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L37"
+      }
+    },
+    {
+      "id": "oecp:apply",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`ApplyParams {graph, input?, dryRun?, ifGeneration?, idempotencyKey?}` \u2192 `ApplyResult {generation, runId, phase, deduped, diff?}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L38"
+      }
+    },
+    {
+      "id": "oecp:update",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`UpdateParams {labels?, logLevel?, suspended?, ifGeneration, idempotencyKey}` \u2192 `UpdateResult {generation, runId, phase, operational, atCursor, deduped}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L39"
+      }
+    },
+    {
+      "id": "oecp:stop",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`StopParams {mode, ifGeneration, idempotencyKey}` \u2192 `StopResult {generation, runId, phase, acceptedMode, effectiveMode, operational, atCursor, deduped}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L40"
+      }
+    },
+    {
+      "id": "oecp:retry",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RetryParams {ifGeneration, idempotencyKey}` \u2192 `RetryResult {generation, runId, phase, retriedTurnId, retryTurnId, operational, atCursor, deduped}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L41"
+      }
+    },
+    {
+      "id": "oecp:resubmit",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`ResubmitParams {ifGeneration, ifRunId, idempotencyKey, replacementInput?}` \u2192 `ResubmitResult {generation, priorRunId, runId, phase, operational, atCursor, deduped}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L42"
+      }
+    },
+    {
+      "id": "oecp:delete",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`DeleteParams {ifGeneration, ifRunId?, idempotencyKey}` \u2192 `DeleteResult {deleted, phase, generation?, runId?, atCursor?, deduped}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L43"
+      }
+    },
+    {
+      "id": "oecp:get",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "Always `GetResult::empty()`; does not read a native run.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`GetParams {atCursor?}` \u2192 `GetResult {spec, status, atCursor, terminalResult?}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L44"
+      }
+    },
+    {
+      "id": "oecp:watch",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`WatchParams {runId?, fromCursor?}` \u2192 `WatchResult {subscriptionId, runId, atCursor}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L45"
+      }
+    },
+    {
+      "id": "oecp:logs",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`, despite initialize's boolean.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`LogsParams {}` \u2192 `LogsResult {subscriptionId}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L46"
+      }
+    },
+    {
+      "id": "oecp:agent/attach",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "`INVALID_PHASE`, despite initialize's boolean.",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`AgentAttachParams {execution}` \u2192 `AgentAttachResult {subscriptionId}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L47"
+      }
+    },
+    {
+      "id": "oecp:run/submit",
+      "transport": "OECP",
+      "bindingOwnerIssue": 27,
+      "status": "unimplemented",
+      "supportPrerequisites": "Generic trusted-controller bootstrap contract exists. Target OECP deliberately rejects with `RUN_CONFLICT`; use HTTP run request, which also carries credentials/resolver. [Types][run-wire], [adapter][target-backend]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunSubmitParams {runId, submission}` \u2192 `RunSubmitResult {runId}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L57"
+      }
+    },
+    {
+      "id": "oecp:run/list",
+      "transport": "OECP",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Every retained run projection in this controller/ledger namespace; no filter, cursor, pagination, submission-key lookup, or total count limit in this type. [Types][run-wire], [backend][cloud-backend]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunListParams {}` \u2192 `RunListResult {runs: RunStatusResult[]}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L58"
+      }
+    },
+    {
+      "id": "oecp:run/status",
+      "transport": "OECP",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Current identity/source/size/cursor/status and optional recovery metadata. Missing run \u2192 `NOT_FOUND`. A runtime failure fallback can be visible without a newly durable event; the wire has no durability marker. [Observation types][observation], [fallback][runtime-observation]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunStatusParams {runId}` \u2192 `RunStatusResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L59"
+      }
+    },
+    {
+      "id": "oecp:run/watch",
+      "transport": "OECP",
+      "bindingOwnerIssue": 21,
+      "status": "unimplemented",
+      "supportPrerequisites": "Durable status projections, resume exclusively after cursor. Event body includes `cursor` and status, but **does not contain `workspaceRecovery`**, unlike status/force/list results. [Observation types][observation]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunWatchParams {runId, fromCursor?}` \u2192 `RunWatchResult {subscriptionId, runId, atCursor}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L60"
+      }
+    },
+    {
+      "id": "oecp:run/logs",
+      "transport": "OECP",
+      "bindingOwnerIssue": 21,
+      "status": "unimplemented",
+      "supportPrerequisites": "Retained safe log replay then live records; optional exact opaque execution selector accepts active or settled execution. Without the optional fields, returns all retained safe logs. [Observation types][observation]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunLogsParams {runId, fromCursor?, execution?}` \u2192 `RunLogsResult {subscriptionId, runId, atCursor}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L61"
+      }
+    },
+    {
+      "id": "oecp:run/attach",
+      "transport": "OECP",
+      "bindingOwnerIssue": 22,
+      "status": "unimplemented",
+      "supportPrerequisites": "Exactly one live execution; no history, cursor, replay, or input channel. Unknown execution \u2192 `NOT_FOUND`; inactive/not-live \u2192 `GONE`. [Types][observation], [error mapping][cloud-errors]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunAttachParams {runId, execution}` \u2192 `RunAttachResult {subscriptionId, runId, execution}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L62"
+      }
+    },
+    {
+      "id": "oecp:run/force",
+      "transport": "OECP",
+      "bindingOwnerIssue": 23,
+      "status": "unimplemented",
+      "supportPrerequisites": "Records force intent; idempotent per run. Same projection shape as status, potentially `stopping`, so response is not necessarily terminal or proof of cleanup completion. [Observation types][observation], [controller force][cloud-force]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunForceParams {runId}` \u2192 `RunForceResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L63"
+      }
+    },
+    {
+      "id": "oecp:run/checkpoints",
+      "transport": "OECP",
+      "bindingOwnerIssue": 24,
+      "status": "unimplemented",
+      "supportPrerequisites": "Requires workspace-checkpoint support. Exclusive opaque `after`; default limit 50, accepted 1\u2013100, at most 100 results. Checkpoints ordered by sequence. Target rejects unsupported capability with `INVALID_PHASE` and noncanonical run ID with `SCHEMA_VIOLATION`. [Checkpoint types][checkpoints], [adapter][target-backend]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunCheckpointsParams {runId, after?, limit?}` \u2192 `RunCheckpointsResult {runId, checkpoints, nextAfter?}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L64"
+      }
+    },
+    {
+      "id": "oecp:run/resume",
+      "transport": "OECP",
+      "bindingOwnerIssue": 24,
+      "status": "unimplemented",
+      "supportPrerequisites": "Requires workspace recovery, and checkpoint capability when selected. `from` omitted or `{kind:\"restart\"}` restarts graph on latest retained workspace; `{kind:\"checkpoint\",checkpointId}` restores an entry checkpoint and settled prerequisites. Admits a successor; no old provider session, secret or token usage import. Both IDs canonical UUIDv7 at target. [Types][run-wire], [checkpoints][checkpoints], [adapter][target-backend]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunResumeParams {runId, successorRunId, from?, connections?, connectionResolver?, githubToken?}` \u2192 `RunResumeResult {runId, resumedFrom}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L65"
+      }
+    },
+    {
+      "id": "oecp:run/discard_workspace",
+      "transport": "OECP",
+      "bindingOwnerIssue": 24,
+      "status": "unimplemented",
+      "supportPrerequisites": "Requires workspace recovery; destroys retained recovery workspace, not run/history identity. Canonical run ID required; no general run delete route. [Types][run-wire], [adapter][target-backend], [recovery implementation][cloud-recovery]",
+      "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
+      "typeClosure": "`RunDiscardWorkspaceParams {runId}` \u2192 `RunDiscardWorkspaceResult {runId, discarded}`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L66"
+      }
+    },
+    {
+      "id": "http:GET /.well-known/zeroshot-native-v2",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 16,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "No auth required; nonempty body falls through to 404. [transport.rs:L260-L275][http-21]",
+      "typeClosure": "Empty body -> 200 `TargetDiscoveryDocument`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L119"
+      }
+    },
+    {
+      "id": "http:POST /native-v2/run",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 19,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Direct identity, hosted control bearer, or private capability bearer. Malformed request/ID gives 400 `request.invalid`; admission invalid gives 400 `run.rejected`. [transport.rs:L308-L323][http-22] [transport.rs:L433-L456][http-23] [transport_http.rs:L257-L261][http-24]",
+      "typeClosure": "`TargetRunRequest`; canonical UUIDv7 `runId` -> 200 `TargetRunReceipt`; `Cache-Control: no-store`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L120"
+      }
+    },
+    {
+      "id": "http:POST /native-v2/oecp-session",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 17,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Same control auth. Direct result omits bearer; private result carries capability; hosted authority issues an OECP-purpose bearer. [transport.rs:L325-L379][http-25]",
+      "typeClosure": "`TargetOecpSessionRequest` (`{}` or optional canonical UUIDv7 `runId`) -> 200 `TargetOecpSession`; no-store",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L121"
+      }
+    },
+    {
+      "id": "http:GET /native-v2/oecp",
+      "transport": "WebSocket upgrade",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Direct identity, hosted OECP-purpose bearer, or private capability. Wrong method/path on an upgrade receives 404. OECP methods/framing are inventoried above. [transport.rs:L227-L257][http-26] [transport.rs:L426-L456][http-27]",
+      "typeClosure": "HTTP upgrade; OECP follows -> Successful WebSocket handshake",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L122"
+      }
+    },
+    {
+      "id": "http:POST /native-v2/private-bootstrap",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 39,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Private constructor only; cryptographic bootstrap envelope, not OAuth. Invalid envelope 400; closed bootstrap or nonprivate server 404. [transport.rs:L291-L305][http-28]",
+      "typeClosure": "Strict `TargetPrivateBootstrapRequest {nonce,ciphertext}` -> 204 empty",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L123"
+      }
+    },
+    {
+      "id": "http:GET /native-v2/operator-diagnostics/{runId}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 40,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Private capability only. Nonprivate server 404; malformed body/ID 400. [transport.rs:L278-L289][http-29] [transport.rs:L460-L468][http-30]",
+      "typeClosure": "Empty body; canonical UUIDv7 path suffix -> 200 `TargetOperatorDiagnostics`; no-store",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L124"
+      }
+    },
+    {
+      "id": "http:POST /native-v2/history/definition",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 40,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Private capability only, using already-owned history service. [transport_history.rs:L9-L80][http-31]",
+      "typeClosure": "Strict camelCase `{runId}`; max 4096 bytes -> 200 `RunDefinition`; no-store",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L125"
+      }
+    },
+    {
+      "id": "http:POST /native-v2/history/page",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 40,
+      "status": "unimplemented",
+      "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
+      "authenticationPrerequisites": "Private capability only; history-specific problems retained. [transport_history.rs:L9-L85][http-32]",
+      "typeClosure": "Strict camelCase `{runId, after?}` (`Cursor`) max 4096 bytes -> 200 `HistoryPage`; no-store",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L126"
+      }
+    },
+    {
+      "id": "discovered:GET hosted_runs.list",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 29,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET, no body -> `HostedRunListResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L184"
+      }
+    },
+    {
+      "id": "discovered:GET hosted_runs.status",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 29,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{run_id}` -> `HostedRunStatusResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L185"
+      }
+    },
+    {
+      "id": "discovered:GET hosted_runs.watch",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 29,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{run_id}`, optional `from_cursor` -> NDJSON `HostedRunStreamFrame<HostedRunWatchEventNotification>`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L186"
+      }
+    },
+    {
+      "id": "discovered:GET hosted_runs.logs",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 29,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{run_id}`, optional `from_cursor`, `execution` -> NDJSON `HostedRunStreamFrame<RunLogEventNotification>`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L187"
+      }
+    },
+    {
+      "id": "discovered:POST hosted_runs.force",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 29,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `{}` at `{run_id}` route -> `HostedRunForceResult` = status result",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L188"
+      }
+    },
+    {
+      "id": "discovered:POST hosted_workspace_recovery.resume",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 30,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunResumeParams` at `{run_id}` -> `RunResumeResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L189"
+      }
+    },
+    {
+      "id": "discovered:POST hosted_workspace_recovery.checkpoints",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 30,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunCheckpointsParams` at `{run_id}` -> `RunCheckpointsResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L190"
+      }
+    },
+    {
+      "id": "discovered:POST hosted_workspace_recovery.discard_workspace",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 30,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunDiscardWorkspaceParams` at `{run_id}` -> `RunDiscardWorkspaceResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L191"
+      }
+    },
+    {
+      "id": "discovered:POST connections.list",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 31,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `ConnectionListRequest` -> `ConnectionListResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L192"
+      }
+    },
+    {
+      "id": "discovered:POST connections.set",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 31,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `ConnectionSetRequest` -> `ConnectionMutationResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L193"
+      }
+    },
+    {
+      "id": "discovered:POST connections.delete",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 31,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `ConnectionDeleteRequest` -> `ConnectionDeleteResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L194"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.list",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileListRequest` -> `RunProfileListResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L195"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.show",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileSelector` -> `RunProfile`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L196"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.set",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileSetRequest` -> `RunProfileMutationResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L197"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.delete",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileSelector` -> `RunProfileDeleteResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L198"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.default",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileDefaultRequest` -> `RunProfileDefaultResult`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L199"
+      }
+    },
+    {
+      "id": "discovered:POST run_profiles.run",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 32,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `RunProfileRunRequest` -> `RunSubmitResult` (`{runId}`)",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L200"
+      }
+    },
+    {
+      "id": "discovered:POST merge_plans.create",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 33,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `MergePlanSubmitRequest` -> `MergePlan`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L201"
+      }
+    },
+    {
+      "id": "discovered:GET merge_plans.status",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 33,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{plan_id}` -> `MergePlan`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L202"
+      }
+    },
+    {
+      "id": "discovered:POST merge_plans.force",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 33,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "POST `{}` at `{plan_id}` -> `MergePlan`",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L203"
+      }
+    },
+    {
+      "id": "discovered:GET run_history.list",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET optional `after` = canonical UUIDv7 RunId -> `RunHistoryList`; max 4 MiB / 50 entries",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L204"
+      }
+    },
+    {
+      "id": "discovered:GET run_history.detail",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{run_id}` -> `RunDefinition`; max 8 MiB",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L205"
+      }
+    },
+    {
+      "id": "discovered:GET run_history.page",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
+      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
+      "typeClosure": "GET `{run_id}`, `after` cursor -> `HistoryPage`; max 8 MiB",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L206"
+      }
+    },
+    {
+      "id": "http:GET /",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L258"
+      }
+    },
+    {
+      "id": "http:HEAD /",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L258"
+      }
+    },
+    {
+      "id": "http:GET /ui",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L258"
+      }
+    },
+    {
+      "id": "http:HEAD /ui",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L258"
+      }
+    },
+    {
+      "id": "http:GET /ui/",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L259"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L259"
+      }
+    },
+    {
+      "id": "http:GET /ui/{*asset}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L259"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/{*asset}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L259"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/bootstrap",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "`{version:1,templates,workers,runtimeSchema,workspace:{kind:\"local\"\\|\"target\",id}}`; Browser catalog; runtime schema generated live via `schema_for!(RuntimePlan)`. [profile_ui.rs:L42-L63][http-161] [profile_ui.rs:L100-L104][http-162] [workspace.rs:L43-L50][http-163]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L260"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/bootstrap",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "`{version:1,templates,workers,runtimeSchema,workspace:{kind:\"local\"\\|\"target\",id}}`; Browser catalog; runtime schema generated live via `schema_for!(RuntimePlan)`. [profile_ui.rs:L42-L63][http-161] [profile_ui.rs:L100-L104][http-162] [workspace.rs:L43-L50][http-163]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L260"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/profiles",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 37,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "No body \u2192 `RunProfileListResult`, user scope only; Browser local profile store, not hosted management extension. [profile_ui.rs:L106-L114][http-164]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L261"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/profiles",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 37,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "No body \u2192 `RunProfileListResult`, user scope only; Browser local profile store, not hosted management extension. [profile_ui.rs:L106-L114][http-164]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L261"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/profiles/{name}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 37,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L262"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/profiles/{name}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 37,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Profile name \u2192 `{profile:RunProfile,revision:string}`; User scope only. [profile_ui.rs:L115-L128][http-165] [profile_ui.rs:L214-L216][http-166]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L262"
+      }
+    },
+    {
+      "id": "http:POST /ui/api/profiles",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 37,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Strict `{name,graph,runtime,expectedRevision?}`, exact `X-Zeroshot-Workspace` header; \u2192 `{profile,revision}` after admission+CAS. 409 `workspace_changed` or `profile_conflict`; no set-default or remote scope field. [profile_ui.rs:L129-L142][http-167] [profile_ui.rs:L161-L200][http-168]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L263"
+      }
+    },
+    {
+      "id": "http:POST /ui/api/validate",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Strict `{graph:GraphSpec,runtime:RuntimePlan}`; \u2192 `{valid:true}`, native profile admission. [profile_ui.rs:L129-L150][http-169] [workspace.rs:L67-L79][http-170]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L264"
+      }
+    },
+    {
+      "id": "http:POST /ui/api/authoring",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Strict `{graph:GraphSpec,runtime:Value,action}`. action tagged `kind`: `failure_reason {terminal,reason}`, `complete {owner}`, `protect {node}`; \u2192 draft `{graph,runtime}`, no save/run. [profile_ui.rs:L151-L155][http-171] [outcomes.rs:L20-L49][http-172] [workspace.rs:L53-L57][http-173]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L265"
+      }
+    },
+    {
+      "id": "http:POST /ui/api/data",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 36,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Strict `{graph:Value,runtime:Value,action}`; action/source types below; \u2192 draft `{graph,runtime}`, no save/run. [profile_ui.rs:L156-L159][http-174] [data.rs:L12-L85][http-175]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L266"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/runs",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Browser BFF; local or configured-target history. [runs.rs:L622-L635][http-176]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L267"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/runs",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Browser BFF; local or configured-target history. [runs.rs:L622-L635][http-176]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L267"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/runs/{id}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Browser BFF. [runs.rs:L637-L642][http-177]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L268"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/runs/{id}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Browser BFF. [runs.rs:L637-L642][http-177]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L268"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/runs/{id}/history",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Browser BFF. [runs.rs:L644-L652][http-178]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L269"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/runs/{id}/history",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Browser BFF. [runs.rs:L644-L652][http-178]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L269"
+      }
+    },
+    {
+      "id": "http:GET /ui/api/runs/{id}/events",
+      "transport": "SSE",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after`, or one `Last-Event-ID` header taking precedence; SSE `history` events with id=`page.nextCursor` and whole page JSON; `history_error` with `{code,message}`; 15-second keepalive. [runs.rs:L654-L699][http-179]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L270"
+      }
+    },
+    {
+      "id": "http:HEAD /ui/api/runs/{id}/events",
+      "transport": "SSE",
+      "bindingOwnerIssue": 38,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after`, or one `Last-Event-ID` header taking precedence; SSE `history` events with id=`page.nextCursor` and whole page JSON; `history_error` with `{code,message}`; 15-second keepalive. [runs.rs:L654-L699][http-179]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L270"
+      }
+    },
+    {
+      "id": "http:GET /native-v2/run-history",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L271"
+      }
+    },
+    {
+      "id": "http:HEAD /native-v2/run-history",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` UUIDv7 \u2192 `RunHistoryList`; Direct target+UI only; advertised list template `/native-v2/run-history{?after}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L27-L29][http-181] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L271"
+      }
+    },
+    {
+      "id": "http:GET /native-v2/run-history/{id}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L272"
+      }
+    },
+    {
+      "id": "http:HEAD /native-v2/run-history/{id}",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "UUIDv7 \u2192 `RunDefinition`; Direct target+UI only; advertised template variable `{run_id}`. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L272"
+      }
+    },
+    {
+      "id": "http:GET /native-v2/run-history/{id}/page",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L273"
+      }
+    },
+    {
+      "id": "http:HEAD /native-v2/run-history/{id}/page",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 35,
+      "status": "unimplemented",
+      "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
+      "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
+      "typeClosure": "Optional `after` cursor \u2192 `HistoryPage`; Direct target+UI only; advertised page suffix `{?after}`. No advertised SSE route. [profile_ui.rs:L83-L90][http-180] [server.rs:L74-L84][http-182]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L273"
+      }
+    },
+    {
+      "id": "discovered:GET oauth.metadata",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 28,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
+      "authenticationPrerequisites": "Unauthenticated",
+      "typeClosure": "Unauthenticated GET discovered `metadataUrl`, `Accept: application/json` -> `OAuthMetadataWire` above. [controller_authority.rs:L142-L155][http-119] [controller_authority.rs:L421-L449][http-120]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L216"
+      }
+    },
+    {
+      "id": "discovered:POST oauth.begin_device_authorization",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 28,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
+      "authenticationPrerequisites": "Unauthenticated form",
+      "typeClosure": "Unauthenticated POST form `{client_id}` to discovered device endpoint -> Strict snake_case `DeviceCodeWire {device_code,user_code,verification_uri,verification_uri_complete?,expires_in,interval}`. [controller_authority.rs:L197-L204][http-121] [contract.rs:L128-L137][http-122]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L217"
+      }
+    },
+    {
+      "id": "discovered:POST oauth.poll_device_token",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 28,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
+      "authenticationPrerequisites": "Unauthenticated form with device material",
+      "typeClosure": "Unauthenticated POST form `{grant_type,device_code,client_id,device_token,device_label:\"zeroshot-cli\",audience:\"controller\"}` -> Strict snake_case `TokenWire` on any 2xx; on non-success strict `{error}` only. Supported poll errors: `authorization_pending`, `slow_down` (+5 seconds up to 300), `access_denied`, `expired_token`; unknown response errors fail. [controller_authority.rs:L38-L41][http-123] [controller_authority.rs:L226-L285][http-124]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L218"
+      }
+    },
+    {
+      "id": "discovered:POST oauth.refresh_access",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 28,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
+      "authenticationPrerequisites": "Unauthenticated form with refresh token",
+      "typeClosure": "Unauthenticated POST form `{grant_type:\"refresh_token\",client_id,refresh_token,audience}` -> Strict `TokenWire {access_token,refresh_token,token_type,expires_in,refresh_expires_in,scope}`. Verifies session then persists rotated refresh token before caching access token. [controller_authority.rs:L288-L325][http-125] [contract.rs:L139-L148][http-126]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L219"
+      }
+    },
+    {
+      "id": "discovered:GET oauth.verify_login_session",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 28,
+      "status": "unimplemented",
+      "supportPrerequisites": "Validated same-origin OAuth discovery descriptors.",
+      "authenticationPrerequisites": "OAuth access bearer",
+      "typeClosure": "Bearer GET discovered login route; `Accept: application/json`, `Cache-Control: no-store` -> Strict snake_case `{kind:\"openengine.target-session/v1\",organization_id}`; nonempty org ID max 256 bytes. [controller_authority.rs:L328-L362][http-127] [contract.rs:L156-L161][http-128]",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L220"
+      }
+    },
+    {
+      "id": "oecp-notification:event",
+      "transport": "OECP",
+      "bindingOwnerIssue": 20,
+      "status": "unimplemented",
+      "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
+      "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
+      "typeClosure": "Body is selected by the established subscription, not by another method name. Six bodies listed next.",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L74"
+      }
+    },
+    {
+      "id": "oecp-notification:subscription/closed",
+      "transport": "OECP",
+      "bindingOwnerIssue": 20,
+      "status": "unimplemented",
+      "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
+      "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
+      "typeClosure": "`subscriptionId`, `reason`, and, for durable subscriptions, optional `lastDeliveredCursor`. Reasons are exact strings `done`, `SLOW_CONSUMER`, `SOURCE_UNAVAILABLE`. Closing is terminal for that subscription, not evidence of run success.",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L75"
+      }
+    },
+    {
+      "id": "oecp-notification:subscription/cancel",
+      "transport": "OECP",
+      "bindingOwnerIssue": 20,
+      "status": "unimplemented",
+      "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
+      "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
+      "typeClosure": "`{subscriptionId}`. Notification, no response. Removes/wakes only that connection's matching subscription; unknown ID is a no-op. Ends observation only.",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L76"
+      }
+    },
+    {
+      "id": "oecp-notification:$/cancelRequest",
+      "transport": "OECP",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
+      "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
+      "typeClosure": "`{id: RequestId}`. WebSocket binding requests cooperative cancellation of an in-flight unary operation; unknown/completed ID is ignored, no response or rollback claim. It is not an established-subscription cancel and not a force-stop. The NDJSON binding does not implement this interception.",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L77"
+      }
+    },
+    {
+      "id": "callback:POST connectionResolver.endpoint",
+      "transport": "HTTP",
+      "bindingOwnerIssue": 34,
+      "status": "unimplemented",
+      "supportPrerequisites": "Caller-provided host endpoint; no same-target-origin assumption.",
+      "authenticationPrerequisites": "Run-scoped callback bearer.",
+      "typeClosure": "ConnectionResolveRequest -> ConnectionResolveResult; TargetConnectionResolver",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#L246"
+      }
+    },
+    {
+      "id": "metadata:oauth.revocationEndpoint",
+      "transport": "metadata/schema",
+      "bindingOwnerIssue": 28,
+      "status": "advertised-only",
+      "supportPrerequisites": "No native operation is inferred.",
+      "authenticationPrerequisites": "Not applicable",
+      "typeClosure": "Advertised URL only; no specified outgoing method",
+      "evidence": {
+        "status": "pinned source only",
+        "inventory": "native-inventory.md"
+      }
+    },
+    {
+      "id": "metadata:connections.resolve",
+      "transport": "metadata/schema",
+      "bindingOwnerIssue": 34,
+      "status": "advertised-only",
+      "supportPrerequisites": "No native operation is inferred.",
+      "authenticationPrerequisites": "Not applicable",
+      "typeClosure": "Validated route declaration; host resolver callback owns actual callable contract",
+      "evidence": {
+        "status": "pinned source only",
+        "inventory": "native-inventory.md"
+      }
+    },
+    {
+      "id": "schema:compiled-ir",
+      "transport": "metadata/schema",
+      "bindingOwnerIssue": 14,
+      "status": "schema-data",
+      "supportPrerequisites": "No native operation is inferred.",
+      "authenticationPrerequisites": "Not applicable",
+      "typeClosure": "CompiledGraphIr and dependency closure; schema data, no routed compiler",
+      "evidence": {
+        "status": "pinned source only",
+        "inventory": "native-inventory.md"
+      }
+    },
+    {
+      "id": "binding:websocket",
+      "transport": "websocket",
+      "bindingOwnerIssue": 18,
+      "status": "unimplemented",
+      "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
+      "authenticationPrerequisites": "Native session and endpoint-specific direct/hosted/private authority",
+      "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
+      }
+    },
+    {
+      "id": "binding:ndjson-streams",
+      "transport": "ndjson-streams",
+      "bindingOwnerIssue": 25,
+      "status": "unimplemented",
+      "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
+      "authenticationPrerequisites": "Caller supplied streams and enclosing identity",
+      "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
+      }
+    },
+    {
+      "id": "binding:unix-controller",
+      "transport": "unix-controller",
+      "bindingOwnerIssue": 25,
+      "status": "unimplemented",
+      "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
+      "authenticationPrerequisites": "Existing controller endpoint, filesystem/socket access",
+      "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
+      }
+    },
+    {
+      "id": "binding:windows-controller",
+      "transport": "windows-controller",
+      "bindingOwnerIssue": 26,
+      "status": "unimplemented",
+      "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
+      "authenticationPrerequisites": "Existing native named pipe and native current-user/SYSTEM security validation",
+      "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
+      "evidence": {
+        "status": "source-inventoried; no .NET binding or native conformance evidence",
+        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
+      }
+    }
+  ]
+}

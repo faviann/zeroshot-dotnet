@@ -1,0 +1,1364 @@
+[
+  {
+    "name": "missing input",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "outer credentials",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      },
+      "githubToken": "must-not-be-retained"
+    }
+  },
+  {
+    "name": "unknown submission field",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture",
+        "secret": "must-not-be-retained"
+      }
+    }
+  },
+  {
+    "name": "noncanonical run identity",
+    "value": {
+      "runId": "018F5E78-7F95-7C22-8D98-3F15AF20C991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "non-v7 identity",
+    "value": {
+      "runId": "018f5e78-7f95-4c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "invalid tagged runtime",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "future_harness",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "provider belongs to another harness",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "anthropic",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "unknown payload field",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null",
+            "x": 0
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "reserved authored fail reason",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "fail",
+            "name": "fail",
+            "reason": "runtime_failed"
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "zero attempts",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work",
+            "worker": "agent.worker@1",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 0,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "unsafe attempts",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work",
+            "worker": "agent.worker@1",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 9007199254740992,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "fractional attempts",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work",
+            "worker": "agent.worker@1",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 1.5,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "invalid field path",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work",
+            "worker": "agent.worker@1",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 1,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "empty sequence",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "seq",
+            "name": "all",
+            "state": {
+              "kind": "null"
+            },
+            "children": [],
+            "promotedStatePaths": [
+              [
+                "result"
+              ]
+            ]
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "duplicate enum labels",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "enum",
+            "values": [
+              "yes",
+              "yes"
+            ]
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "strict null defaults",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "work": {
+              "kind": "agent",
+              "model": "ok",
+              "sessionScope": null
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "invalid branch",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "branch..next",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "long repo component",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/repo",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "model controls",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "work": {
+              "kind": "agent",
+              "model": "oops\n"
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "oversized node key",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+              "kind": "agent",
+              "model": "ok"
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "duplicate connection names",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "work": {
+              "kind": "agent",
+              "model": "ok",
+              "connections": {
+                "a": [
+                  "TOKEN"
+                ],
+                "b": [
+                  "TOKEN"
+                ]
+              }
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "empty connection declaration",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "work": {
+              "kind": "agent",
+              "model": "ok",
+              "connections": {
+                "a": []
+              }
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "too many declared fields",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {
+            "work": {
+              "kind": "agent",
+              "model": "ok",
+              "connections": {
+                "a": [
+                  "A0",
+                  "A1",
+                  "A2",
+                  "A3",
+                  "A4",
+                  "A5",
+                  "A6",
+                  "A7",
+                  "A8",
+                  "A9",
+                  "A10",
+                  "A11",
+                  "A12",
+                  "A13",
+                  "A14",
+                  "A15",
+                  "A16",
+                  "A17",
+                  "A18",
+                  "A19",
+                  "A20",
+                  "A21",
+                  "A22",
+                  "A23",
+                  "A24",
+                  "A25",
+                  "A26",
+                  "A27",
+                  "A28",
+                  "A29",
+                  "A30",
+                  "A31",
+                  "A32"
+                ],
+                "b": [
+                  "B0",
+                  "B1",
+                  "B2",
+                  "B3",
+                  "B4",
+                  "B5",
+                  "B6",
+                  "B7",
+                  "B8",
+                  "B9",
+                  "B10",
+                  "B11",
+                  "B12",
+                  "B13",
+                  "B14",
+                  "B15",
+                  "B16",
+                  "B17",
+                  "B18",
+                  "B19",
+                  "B20",
+                  "B21",
+                  "B22",
+                  "B23",
+                  "B24",
+                  "B25",
+                  "B26",
+                  "B27",
+                  "B28",
+                  "B29",
+                  "B30",
+                  "B31"
+                ]
+              }
+            }
+          }
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "node identifier final LF",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work\n",
+            "worker": "agent.worker@1",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 1,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "worker ref final LF",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "step",
+            "name": "work",
+            "worker": "agent@1\n",
+            "instructions": "Authored 🔑 content\nDo the work.",
+            "input": {
+              "kind": "null"
+            },
+            "output": {
+              "kind": "null"
+            },
+            "inputBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "source": "state",
+                  "path": [
+                    "value"
+                  ]
+                }
+              }
+            ],
+            "writeBindings": [
+              {
+                "target": [
+                  "x"
+                ],
+                "value": {
+                  "node": "work",
+                  "channel": "out",
+                  "path": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "attempts": 1,
+            "timeoutMs": 1.0
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture"
+      }
+    }
+  },
+  {
+    "name": "oversized environment name",
+    "value": {
+      "runId": "018f5e78-7f95-7c22-8d98-3f15af20c991",
+      "submission": {
+        "title": "test",
+        "graph": {
+          "profile": "openengine.graph.full/v1",
+          "initialInput": {
+            "kind": "null"
+          },
+          "policy": {
+            "policy": "policy.native-v2@1",
+            "default": "deny"
+          },
+          "root": {
+            "kind": "succeed",
+            "name": "done",
+            "output": {
+              "kind": "null"
+            },
+            "bindings": []
+          }
+        },
+        "initialInput": null,
+        "runtime": {
+          "harness": "codex",
+          "provider": "openai",
+          "size": "small",
+          "nodes": {}
+        },
+        "source": {
+          "repository": "acme/project",
+          "branch": "main",
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "submissionKey": "debug-fixture",
+        "environment": {
+          "variables": {
+            "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX": "value"
+          }
+        }
+      }
+    }
+  }
+]

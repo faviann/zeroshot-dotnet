@@ -3,6 +3,7 @@ bin/
 obj/
 TestResults/
 coverage/
+artifacts/
 
 # Local tooling and editor state
 .vs/

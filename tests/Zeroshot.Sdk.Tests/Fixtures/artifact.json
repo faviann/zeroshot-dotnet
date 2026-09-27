@@ -1,0 +1,17 @@
+{
+  "artifactId": "artifact-opaque",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "byteLength": 9007199254740991,
+  "mediaType": "not required to be MIME",
+  "typeId": "data@1",
+  "producer": {
+    "node": "work",
+    "worker": "agent@1"
+  },
+  "lineage": {
+    "generation": 0,
+    "runId": "generic-opaque",
+    "attempt": 1
+  },
+  "redaction": "restricted"
+}

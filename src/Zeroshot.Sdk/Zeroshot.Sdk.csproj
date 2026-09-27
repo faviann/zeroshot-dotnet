@@ -1,9 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>Zeroshot.Client</AssemblyName>
+    <RootNamespace>Zeroshot</RootNamespace>
+    <PackageId>Zeroshot.Client</PackageId>
+    <Version>0.1.0-preview.1</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Native Zeroshot 10.9.0 execution contracts and exact prepared submissions.</Description>
   </PropertyGroup>
-
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
+    <EmbeddedResource Include="Schemas/*.json" />
+    <None Include="../../docs/contracts/README.md" Pack="true" PackagePath="/" />
+    <None Include="Schemas/NATIVE-LICENSE" Pack="true" PackagePath="licenses/" />
+  </ItemGroup>
 </Project>
