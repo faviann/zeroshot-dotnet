@@ -33,9 +33,9 @@
 </head>
 <body>
 <main>
-  <div class="label">Disposable API sketch · one example</div>
+  <div class="label">Accepted API design · one example</div>
   <h1>Submit a run.<br>Get its result.</h1>
-  <p class="intro">Assume you already have the target configuration and a request containing your prepared graph, runtime and source. This is the ordinary code we’re reviewing.</p>
+  <p class="intro">Assume you already have the target configuration and a request containing your prepared graph, runtime and source. This is the ordinary calling style selected for the SDK.</p>
   <pre><code>using Zeroshot;
 
 await using var zeroshot = new ZeroshotClient(options);
@@ -63,10 +63,10 @@ var result = await run.WaitAsync();</code></pre>
   </details>
   <details>
     <summary>Reference material for later</summary>
-    <p>The longer draft includes direct native calls, retained requests, CLI commands and resource settings. Those are separate review steps; they do not need to be reviewed to answer the question above.</p>
+    <p>The full reference records the accepted direct native calls, retained requests, CLI commands and resource settings. Each topic has its own expandable section.</p>
     <p><a href="reference.html">Open the detailed prototype</a> · <a href="README.md">Read the full calling sketch</a></p>
   </details>
-  <footer>Package: Zeroshot.Client · Entry point: Zeroshot.ZeroshotClient · CLI: zeroshot-dotnet<br>This is an interface proposal. The buttons show a scripted explanation and make no native calls.</footer>
+  <footer>Package: Zeroshot.Client · Entry point: Zeroshot.ZeroshotClient · CLI: zeroshot-dotnet<br>This is a design sketch awaiting implementation. The buttons show a scripted explanation and make no native calls.</footer>
 </main>
 <script>
   const stages = [

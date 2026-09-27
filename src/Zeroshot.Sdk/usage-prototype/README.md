@@ -1,20 +1,20 @@
-# .NET usage prototype — draft for discussion
+# .NET usage prototype — accepted design
 
 Start with [one ordinary run](index.html). This document is the background reference; its sections can be reviewed separately.
 
-Review status: the ordinary calling style, advanced preparation/submission-attempt helpers, simple SDK observation streams, CLI foreground/detach behavior, optional run file, readable-text/explicit-JSON output modes and distinct failure/timeout/unknown-effect exit codes were accepted in the [live review record](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561). Other proposed details remain open.
+The calling style, names, configuration, CLI behavior and finite defaults were accepted through live review. The [resolution](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561) records the decision; this artifact supplies the examples and coverage sketch.
 
-Naming review: the user proposed `Zeroshot.Client`, root namespace `Zeroshot`, `ZeroshotClient` and `Zeroshot.Native.NativeClient`. After discussing coexistence with native tooling, the user selected `zeroshot-dotnet` for the CLI. The rest of this draft remains open for feedback.
+The selected names are `Zeroshot.Client`, root namespace `Zeroshot`, `ZeroshotClient` and `Zeroshot.Native.NativeClient`. The command is `zeroshot-dotnet` so it can coexist with native tooling.
 
-**Disposable design sketch.** These C# APIs and CLI commands are proposed, not implemented. No request is sent by this artifact. The browser walkthrough simulates the already selected lifecycle so that the calls, results and evidence can be reviewed together. It is not a conformance witness.
+**Disposable design sketch.** These C# APIs and CLI commands are selected for implementation. This artifact makes no requests; the browser walkthrough simulates the lifecycle. It provides no implementation or native conformance evidence.
 
 Question: what concrete C# interface and small command-line interface make the exhaustive native client, ordinary SDK workflows and durable-consumer path clear?
 
-The settled inputs are [Define the .NET run lifecycle and failure contract](https://github.com/faviann/zeroshot-dotnet-sdk/issues/6#issuecomment-5851998854), [the complete native interface inventory](https://github.com/faviann/zeroshot-dotnet-sdk/blob/3c64d3ba39ddd8599b748e5938cba35bc1026e11/docs/research/complete-native-http-oecp-interface.md), [Choose .NET platform support and distribution](https://github.com/faviann/zeroshot-dotnet-sdk/issues/5#issuecomment-5851567384), and the pinned [Python Client and Run](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/client.py). The names, options and defaults below are proposals awaiting human feedback. The linked decisions continue to govern behavior.
+The settled inputs are [Define the .NET run lifecycle and failure contract](https://github.com/faviann/zeroshot-dotnet-sdk/issues/6#issuecomment-5851998854), [the complete native interface inventory](https://github.com/faviann/zeroshot-dotnet-sdk/blob/3c64d3ba39ddd8599b748e5938cba35bc1026e11/docs/research/complete-native-http-oecp-interface.md), [Choose .NET platform support and distribution](https://github.com/faviann/zeroshot-dotnet-sdk/issues/5#issuecomment-5851567384), and the pinned [Python Client and Run](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/sdks/python/src/zeroshot/client.py). The linked decisions continue to govern behavior.
 
 ## 1. Names and object model
 
-| Item | Proposal |
+| Item | Selected name |
 | --- | --- |
 | Published package / assembly | `Zeroshot.Client` / `Zeroshot.Client.dll`; only one library package |
 | Ordinary interface | `Zeroshot.ZeroshotClient`, `Run`, `RunRequest`, `RunResult` |
@@ -149,9 +149,9 @@ SubmissionAttempt replay = await sdk.SubmitAttemptAsync(
     retained, credentials: freshRunCredentials, cancellationToken: ct);
 ```
 
-The proposed retained representation is UTF-8 JSON containing only the native `{runId, submission}` fields. Export returns a defensive copy. Import validates UTF-8 and wire shape but retains the exact bytes, including whitespace and property order; it never serializes them afresh. Authentication, provider secrets, connection resolver and GitHub token are supplied separately for each send. Arbitrary authored input/assets may themselves be sensitive, so credential-free does not mean safe to log.
+The retained representation is UTF-8 JSON containing only the native `{runId, submission}` fields. Export returns a defensive copy. Import validates UTF-8 and wire shape but retains the exact bytes, including whitespace and property order; it never serializes them afresh. Authentication, provider secrets, connection resolver and GitHub token are supplied separately for each send. Arbitrary authored input/assets may themselves be sensitive, so credential-free does not mean safe to log.
 
-`PreparedSubmission` lives with the lower client's submission types. Direct consumers can create one from `(RunId, RunSubmission)` without constructing an SDK `ZeroshotClient`; SDK `Prepare` adapts the convenient `RunRequest` to that helper. The native HTTP operation also accepts a typed `TargetRunRequest` when byte retention is unnecessary.
+`PreparedSubmission` lives with the lower client's submission types. Direct consumers use `PreparedSubmission.Create(RunId, RunSubmission)` without constructing an SDK `ZeroshotClient`. The SDK exposes the pure `RunRequest.Prepare()` helper; `sdk.Prepare(request)` forwards to it. `RunRequest.ParseUtf8(bytes).Prepare()` therefore supports local CLI preparation without a target or binding. The native HTTP operation also accepts a typed `TargetRunRequest` when byte retention is unnecessary.
 
 The explicit attempt API returns operational failures/cancellation as evidence; invalid arguments and disposed resources still throw normal .NET exceptions. Ordinary `SubmitAsync` calls this same operation, returns an acknowledged `Run`, or throws `SubmissionException`. Cancellation uses `SubmissionCanceledException : OperationCanceledException` with the same `Attempt` and the caller's token. `run.Submission` and exceptions preserve both run IDs, outcome, target, caller binding where present, retained request, safe correlation data and bounded native error facts. A valid acknowledgement wins over a racing cancellation or cleanup failure.
 
@@ -305,9 +305,9 @@ Native `RunStatusResult`, watch notifications, hosted status and history records
 
 ## 7. Coverage map for named lower-client bindings
 
-This table is a proposed public grouping of the existing inventory, not proof of implementation. Each listed operation gets its named typed request/result/error mapping; generated models must also preserve the shared graph/runtime/worker/artifact/recovery/history type closure documented by the inventory.
+This table records the selected public grouping of the existing inventory. Each listed operation requires its named typed request/result/error mapping; models must also preserve the shared graph/runtime/worker/artifact/recovery/history type closure documented by the inventory. Coverage is a requirement for implementation, not evidence already supplied by this sketch.
 
-| Surface | Proposed members | Native contract |
+| Surface | Selected members | Native contract |
 | --- | --- | --- |
 | OECP connection | `InitializeAsync` | `initialize` |
 | OECP `Cluster` | `PlanAsync`, `ApplyAsync`, `UpdateAsync`, `StopAsync`, `RetryAsync`, `ResubmitAsync`, `DeleteAsync`, `GetAsync`, `WatchAsync`, `LogsAsync`, `AttachAgentAsync` | `plan`, `apply`, `update`, `stop`, `retry`, `resubmit`, `delete`, `get`, `watch`, `logs`, `agent/attach` |
@@ -335,20 +335,20 @@ This table is a proposed public grouping of the existing inventory, not proof of
 
 Absent native contracts remain absent: no guessed revocation body, interactive attachment input, native process manager, remote template compiler, general run deletion, submission-key lookup, or automatic hosting/provisioning. Broader client bindings do not expand the initial SDK/CLI workflows.
 
-## 8. Proposed finite resource defaults
+## 8. Accepted finite resource defaults
 
-These are configurable .NET defaults, not claims about native limits. Smaller operation-specific native limits remain enforced; raising a client limit cannot raise a server limit. Byte units are binary: 1 KiB = 1,024 bytes, 1 MiB = 1,048,576 bytes.
+These are .NET defaults, configurable except where marked fixed. Smaller operation-specific native limits remain enforced; raising a client limit cannot raise a server limit. Byte units are binary: 1 KiB = 1,024 bytes, 1 MiB = 1,048,576 bytes.
 
-| Option | Proposed default | Control / meaning |
+| Option | Accepted default | Control / meaning |
 | --- | --- | --- |
 | `ConnectTimeout` | 10 seconds | DNS/connect/TLS phase; bounded by the enclosing request/setup deadline |
 | `RequestTimeout` | 30 seconds | Complete unary HTTP/OECP operation, including dispatch admission and reading the response |
-| `SubscriptionOpenTimeout` | 30 seconds | Session acquisition, connect/initialize and subscription establishment as one budget |
+| `SubscriptionOpenTimeout` | 30 seconds | SDK session acquisition, connect/initialize and subscription establishment share one budget; lower calls remain explicit and individually bounded |
 | `CleanupTimeout` | 5 seconds | Bounded detach/owned-resource cleanup; no force request |
 | `WaitTimeout` | `null` (indefinite) | Optional per-workflow `TimeSpan`; finite wait includes every observation/recovery phase |
 | `StreamRecovery` | `EstablishedInterruptions` | SDK durable watch/log only; lower client and attachment never auto-resume |
 | `RecoveryDelay` | 250 milliseconds | Cancellable delay before one eligible reopen; repeated established interruptions may recover while observation remains active |
-| `ReadRetries` | 0 | No separate automatic unary-read retry in this preview |
+| Unary read retries | 0, fixed for this preview | No separate automatic unary-read retry; durable SDK stream recovery is a different policy |
 | Mutation retries | 0, fixed | Not configurable into hidden mutation replay |
 | WebSocket keepalive | Ping every 30 seconds; pong deadline 15 seconds | Transport liveness only; no native run idle deadline. Disable only with an explicit transport option |
 | NDJSON / stream idle deadline | None | No invented ping protocol or quiet-run failure; cancellation/disposal still works |
@@ -389,7 +389,7 @@ await using var sdk = new ZeroshotClient(new ZeroshotClientOptions
 
 ## 9. Small CLI grammar
 
-Proposed common configuration: `--config target.json` with explicit origin, caller binding, credential-source references and optional transport/observation limits. No target registry, implicit worktree selection or background database. For a one-off, `--target URL --native-binding binding.json` supplies the same context. An explicit saved run reference supplies its target/binding; conflicting explicit options fail rather than retarget it.
+The accepted CLI input model uses `--config target.json` for explicit origin, caller binding, credential environment-variable names and optional transport/observation limits; `--request request.json` supplies the separate work definition. No target registry, implicit worktree selection or background database is introduced. An explicit saved run reference supplies its target/binding; accompanying configuration must match rather than retarget it. The minimal initial grammar uses these files instead of also introducing a parallel target/binding flag set.
 
 ```json
 {
@@ -400,18 +400,28 @@ Proposed common configuration: `--config target.json` with explicit origin, call
     "release": "10.9.0",
     "sourceRevision": "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"
   },
-  "credentials": { "targetBearerEnvironment": "ZEROSHOT_TARGET_TOKEN" },
+  "credentials": {
+    "targetBearerEnvironment": "ZEROSHOT_TARGET_TOKEN",
+    "githubTokenEnvironment": "ZEROSHOT_GITHUB_TOKEN",
+    "connections": {
+      "openai": { "OPENAI_API_KEY": "ZEROSHOT_OPENAI_KEY" }
+    }
+  },
   "transport": { "requestTimeout": "30s", "maxBufferedBytesTotal": 33554432 },
   "observation": { "recovery": "established-interruptions", "recoveryDelay": "250ms" }
 }
 ```
 
-Target bearer configuration is omitted for a target with no bearer requirement. Run credential inputs use `--credentials-file credentials.json` or an explicitly named environment reference map; neither is copied into request/run files or printed by default. No secret literal command-line flags. Request JSON contains the `RunRequest` fields from the C# example; prepared JSON is the exact exported `{runId,submission}` representation.
+Target bearer configuration is omitted for a target with no bearer requirement. Every configured credential value above is the name of a process environment variable, never the secret value. In the `connections` map, the outer key must match the prepared asset's native connection key; the inner key is the native requested field and its value names the caller's environment variable. The example does not infer connection requirements from a provider name. Optional `connectionResolver` configuration supplies the native endpoint, keys and optional source connection, with `bearerEnvironment` replacing the secret bearer value.
+
+The CLI resolves only the credential sources required by the operation at send time. For example, status does not require provider credentials used only to submit work. A missing configured variable needed by the operation fails locally before dispatch. Credential values are never copied into request/run files or default diagnostics, and the CLI offers no secret literal flags or secret-value credential file. C# callers supply typed credentials or a credential source separately and are not required to use environment variables. These choices do not add a credential store or automatic authentication-refresh resend.
+
+Request JSON contains title, graph, runtime, initial input and exact source, with the optional environment and identity fields of `RunRequest`. Prepared JSON is the exact exported `{runId,submission}` representation. The SDK owns both request parsing/validation and local preparation; the CLI supplies file bytes and performs explicit file I/O.
 
 | Command | SDK calls | Result |
 | --- | --- | --- |
-| `prepare --request request.json --out prepared.json` | Local request parser + shared preparation helper | Fix identity and write credential-free request; no target I/O/binding required |
-| `run --request request.json` | `SubmitAsync` then `Run.WaitAsync` | Submit and wait; `--detach` returns after acknowledgement |
+| `prepare --request request.json --out prepared.json` | `RunRequest.ParseUtf8(bytes).Prepare()` | Fix identity and write credential-free request; no target I/O/binding required |
+| `run --request request.json` | `SubmitAsync` then `Run.WaitAsync` | Submit and wait with optional `--timeout 10m`; `--detach` returns after acknowledgement |
 | `run --prepared prepared.json` | Import + `SubmitAsync(prepared)` then optional wait | Explicit send/replay of fixed bytes/identities; no regenerated IDs |
 | `status RUN_ID` | `GetRun(...).StatusAsync` | Current status and available terminal data |
 | `wait RUN_ID` | `GetRun(...).WaitAsync` | Terminal result; optional `--timeout 10m` |
@@ -423,7 +433,7 @@ Target bearer configuration is omitted for a target with no bearer requirement. 
 
 Every known-run command may replace the positional ID with `--run-file run.json`. `run` can write `--save-request prepared.json` before sending and `--save-run run.json` after acknowledgement. An existing output file is refused unless its explicit `--overwrite` flag is supplied; writing failures before dispatch are not-sent, and writing failures after acknowledgement report that acknowledgement. Neither writing a run file nor printing stdout is a promise of consumer transactionality or fsync durability. Callers needing that guarantee use their own store through the SDK.
 
-The accepted run file is a serialized `RunReference`. Its proposed concrete representation is:
+The run file is a serialized `RunReference`:
 
 ```json
 {
@@ -438,12 +448,12 @@ The accepted run file is a serialized `RunReference`. Its proposed concrete repr
 }
 ```
 
-Only the acknowledged run ID is saved by `--save-run`; an uncertain submission does not produce a confirmed run reference. The file identifies the run and contains neither credentials nor run history. `--run-file` does not submit work. A target requiring authentication also receives its credential source through `--config` or the explicit credential-source options. When configuration accompanies a run file, the target and binding must agree. The SDK owns reference serialization/validation; the CLI owns the requested file reads/writes.
+Only the acknowledged run ID is saved by `--save-run`; an uncertain submission does not produce a confirmed run reference. The file identifies the run and contains neither credentials nor run history. `--run-file` does not submit work. A target requiring authentication also receives its credential environment-variable names through `--config`. When configuration accompanies a run file, the target and binding must agree. The SDK owns reference serialization/validation; the CLI owns the requested file reads/writes.
 
 `watch`/`logs` accept `--checkpoint checkpoint.json` as an alternative to `--after`; scope mismatch fails locally. They output cursors but never automatically advance a consumer processing checkpoint. `--recovery none` disables SDK recovery; default is `established-interruptions`. Shared resource controls are in the configuration file; `--request-timeout 45s` overrides the unary timeout. Durations accept `ms`, `s`, `m`, `h`, require an explicit unit, and use `infinite` only for a wait budget. Byte limits are integer bytes in configuration. CLI parsing/formatting and explicit file reads/writes stay in the CLI; request preparation, replay, waiting, recovery and failure classification stay in the libraries.
 
 ```bash
-# All commands here are proposed interfaces, not available in the current scaffold.
+# These commands describe the accepted interface; the current scaffold does not implement them.
 zeroshot-dotnet prepare --request request.json --out prepared.json
 zeroshot-dotnet run --config target.json --prepared prepared.json --detach --save-run run.json --json
 # stdout, one JSON object:
@@ -466,7 +476,22 @@ Without `--json`, print concise human status/result summaries and explicitly req
 
 In JSON mode errors go to stderr as one versioned `kind:error` record, including category, operation, safe target/run identifiers, mutation outcome where applicable and last delivered cursor when available. No raw request, input, output, token or remote message is included in default diagnostics. Explicit successful status/result/log commands intentionally output the content requested. Partial stream stdout remains valid; final exit/stderr communicates interruption. Broken stdout ends observation and releases resources without sending force; it preserves any captured mutation acknowledgement in stderr when possible.
 
-| Exit code | Proposed meaning |
+All machine records carry `schema: "zeroshot-dotnet/cli/v1"` and `kind`. The selected shapes are:
+
+| Kind | Fields beyond schema/kind |
+| --- | --- |
+| `prepared` | `proposedRunId`, `path`; confirms the requested file write, with no request body in this receipt |
+| `submission` | `runId` (acknowledged), `proposedRunId`, `runIdMatches`, `outcome` |
+| `status` | `runId`, `data` containing the native status including available terminal data |
+| `result` | `runId`, `status`, `output` or `failureReason`, available native `metadata`, `evidence`; `null` output remains valid |
+| `watch`, `log` | `runId`, native `data`, available `cursor` and scoped `checkpoint`; log execution/timestamp remain native values |
+| `attachment` | `runId`, `execution`, native `data`; no replay cursor |
+| `force` | `runId`, `outcome`, acknowledged native `status` when available |
+| `error` | `category`, `operation`, safe `target`/`runId` when known; available mutation `attempt`, `lastDeliveredCursor` and safe observation context |
+
+An error's mutation `attempt` includes acknowledged/proposed identities and outcome when available, including an acknowledgement followed by wait or file-write failure. It excludes the retained request and secrets. A normal stream close ends stdout without a fabricated result record.
+
+| Exit code | Meaning |
 | --- | --- |
 | `0` | Successful command; acknowledged detached/request-only mutation; successful terminal result for completion commands |
 | `1` | Operational/transport/protocol/resource/incomplete-observation error, including known native rejection |
@@ -478,11 +503,11 @@ In JSON mode errors go to stderr as one versioned `kind:error` record, including
 
 `status` exits 0 if it successfully reports even a failed run. `watch`/`logs`/`attach` exit 0 on a normal native close, independent of run success. Cancellation after possible mutation dispatch with no acknowledged outcome exits 5, so ambiguity remains visible; its error category also records cancellation. A captured acknowledgement followed by Ctrl+C remains acknowledged, exit 130. Other classification precedence is: invalid local invocation before dispatch → 2; uncertain mutation → 5; acknowledged mutation followed by wait timeout → 4; observed failed terminal → 3; read/call failure → 1.
 
-The native terminology comes from its `run`, `status`, `watch`, `logs`, `attach`, and `force-stop` commands. Separate `prepare`/`wait`, explicit files, machine envelopes and richer exit codes are deliberate .NET proposals. Native 10.9.0 uses exit 1 broadly for errors, exits 0 for Ctrl+C detachment, and reports a failed run as a nonzero exit only for foreground `run`; its `status`/`watch`/`force-stop` behavior is not the richer proposed contract above.
+The native terminology comes from its `run`, `status`, `watch`, `logs`, `attach`, and `force-stop` commands. Separate `prepare`/`wait`, explicit files, machine envelopes and richer exit codes are deliberate .NET choices. Native 10.9.0 uses exit 1 broadly for errors, exits 0 for Ctrl+C detachment, and reports a failed run as a nonzero exit only for foreground `run`; the .NET contract above deliberately differs.
 
 ## 10. Restore, build and local installation
 
-These examples describe the proposed first preview after implementation and publication. No package was published and no tool was installed in this session. Only `Zeroshot.Client` will be published to the selected GitHub feed. The CLI is built from the matching repository revision. The current source project is still named `src/Zeroshot.Sdk`; that existing directory name is not a public namespace promise and is not changed by this prototype.
+These examples describe the selected first preview after implementation and publication. No package was published and no tool was installed in this session. Only `Zeroshot.Client` will be published to the selected GitHub feed. The CLI is built from the matching repository revision. The current source project is still named `src/Zeroshot.Sdk`; that existing directory name is not a public namespace promise and is not changed by this prototype.
 
 The following `nuget.config` contains feed locations and package mapping, not credentials:
 
@@ -559,13 +584,8 @@ Sources: [create a .NET tool](https://learn.microsoft.com/en-us/dotnet/core/tool
 
 The existing release decision still requires package/CLI checks on all six selected OS/architecture combinations and a Linux x64 controlled native 10.9.0 conformance witness. This prototype does not provide any of that evidence. CLI-only and asset-preparation capabilities are not being implemented by a usage sketch.
 
-## 11. Remaining review
+## 11. Handoff
 
-The [live review record](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561) holds the accepted choices. Review the remaining pieces as small contextual examples:
+The [resolution](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561) holds the accepted choices. No usage decision remains open in this ticket. [Define Broodling adoption and the first implementation handoff](https://github.com/faviann/zeroshot-dotnet-sdk/issues/8) is the next map decision: it will settle implementation order, consumer adoption and acceptance evidence.
 
-- Request/configuration input and credential-source conventions.
-- Concrete direct-client operation grouping and connection/ownership signatures.
-- Configurable timeout, recovery and finite resource defaults.
-- Final consistency review of command/signature/output details against the accepted usage model.
-
-This ticket remains open until live review is complete. The map's adoption/handoff decision is a separate session; this draft does not settle it.
+The artifact was checked against the pinned interface inventory and settled lifecycle; its embedded JavaScript was checked for syntax. These checks do not compile the illustrative C# or validate an implemented SDK, CLI or native endpoint.
