@@ -42,7 +42,8 @@ internal static class NativeRoutes
 
     // Native compile_run_id_route_segments (history.rs and hosted_runs.rs): literal segments, at most one
     // whole {run_id} segment and exactly the operation's query suffix, if any. Returns the path template.
-    internal static string RunIdPath(string template, bool requiresRunId, string? query)
+    // Merge plans (merge_plans.rs compile_route) apply the same rules to {plan_id}.
+    internal static string RunIdPath(string template, bool requiresRunId, string? query, string variable = "{run_id}")
     {
         if (string.IsNullOrEmpty(template) || template.Length > 2048 || !template.StartsWith('/') ||
             template.StartsWith("//", StringComparison.Ordinal) || template.IndexOfAny(['\\', '#']) >= 0 ||
@@ -51,20 +52,24 @@ internal static class NativeRoutes
         var path = query is not null && template.EndsWith(query, StringComparison.Ordinal) ? template[..^query.Length] : template;
         var segments = path.Split('/').Skip(1).ToArray();
         if ((path != template) != (query is not null) || path.Contains('?') ||
-            segments.Count(segment => segment == "{run_id}") != (requiresRunId ? 1 : 0) ||
-            !segments.All(segment => segment == "{run_id}" || IsLiteralSegment(segment)))
+            segments.Count(segment => segment == variable) != (requiresRunId ? 1 : 0) ||
+            !segments.All(segment => segment == variable || IsLiteralSegment(segment)))
             throw Invalid();
         return path;
     }
 
-    // Segments append to the capability base path. The run ID is one percent-encoded segment and
-    // present query values are form-encoded in the template's order.
     internal static Uri RunIdRoute(Uri baseUrl, string template, string? runId, string? query,
         params (string Name, string? Value)[] values)
+        => VariableRoute(baseUrl, template, "{run_id}", runId, query, values);
+
+    // Segments append to the capability base path. The variable's value is one percent-encoded segment and
+    // present query values are form-encoded in the template's order.
+    internal static Uri VariableRoute(Uri baseUrl, string template, string variable, string? value, string? query,
+        (string Name, string? Value)[] values)
     {
-        var path = RunIdPath(template, runId is not null, query);
+        var path = RunIdPath(template, value is not null, query, variable);
         var prefix = baseUrl.AbsoluteUri.EndsWith('/') ? baseUrl.AbsoluteUri[..^1] : baseUrl.AbsoluteUri;
-        var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", EscapeSegment(runId), StringComparison.Ordinal)));
+        var url = SameOriginUrl(baseUrl, prefix + (value is null ? path : path.Replace(variable, EscapeSegment(value), StringComparison.Ordinal)));
         var form = FormEncode(values.Where(pair => pair.Value is not null).Select(pair => (pair.Name, pair.Value!)));
         return form.Length == 0 ? url
             : new Uri(url.OriginalString + "?" + form, new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });

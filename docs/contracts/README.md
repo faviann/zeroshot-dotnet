@@ -57,6 +57,11 @@ on validated hosted discovery; watch and logs deliver NDJSON frames through the 
 bounded observation queue. See [hosted run lifecycle](../http/README.md#hosted-run-lifecycle).
 These bindings have controlled-peer evidence only.
 
+`Contracts/MergePlans.cs` maps the hosted merge-plan submit request, plan and member-run
+status records. `NativeClient.MergePlans` binds create/status/force on validated hosted
+discovery; see [hosted merge plans](../http/README.md#hosted-merge-plans). These bindings
+have controlled-authority evidence only.
+
 `Contracts/OAuth.cs` maps hosted OAuth metadata, device authorization, token and
 login-session records. `NativeClient.OAuth` binds the five individual native calls on
 validated hosted discovery; see [hosted OAuth operations](../http/README.md#hosted-oauth-operations).

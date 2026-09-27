@@ -47,6 +47,13 @@ internal static class WireValidation
                 Validate(value.GetProperty("source"), typeof(ResolvedSource));
                 if (run.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
             }
+            if (result is MergePlanSubmitRequest plan)
+            {
+                // Native MAX_MERGE_PLAN_RUNS; dependency-graph checks stay with the host.
+                if (plan.Runs.Length is < 1 or > MergePlanSubmitRequest.MaxRuns) throw new JsonException();
+                if (plan.Connections is not null) StaticConnectionValues.ValidateRun(plan.Connections);
+                if (plan.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
+            }
             if (result is DeviceAuthorization authorization) authorization.Validate();
             if (result is OAuthTokens tokens) tokens.Validate();
             if (result is TargetLoginSession session) session.Validate();

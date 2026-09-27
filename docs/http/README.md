@@ -424,6 +424,69 @@ Results must fit in 64 KiB (or the smaller configured limit).
 peers. Stock native 10.9.0 only consumes these routes and serves none, so the native
 witness cannot exercise them. Live hosted interoperability is unverified.
 
+## Hosted merge plans
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var access = new TargetControlCredentials(TargetAuthentication.HostedOauth, currentAccessToken);
+var created = await native.MergePlans.CreateAsync(discovery, new MergePlanSubmitRequest
+{
+    SubmissionKey = submissionKey, Title = title, ExpiresAt = "2026-09-28T00:00:00Z",
+    Source = new MergePlanSource { Repository = repository, Branch = branch },
+    Profile = new RunProfileSelector { Scope = RunProfileScope.Org, Name = new RunProfileName("software-change") },
+    Runs = [buildRun, integrateRun with { Needs = [new RunProfileName("build")] }]
+}, access);
+if (created.Outcome == NativeAttemptOutcome.Unknown) { /* the plan may or may not exist */ }
+var plan = await native.MergePlans.StatusAsync(discovery, created.Response!.PlanId, access);
+var forced = await native.MergePlans.ForceAsync(discovery, plan.PlanId, access);
+```
+
+`NativeClient.MergePlans` binds the three native hosted merge-plan operations. `CreateAsync`
+POSTs one `MergePlanSubmitRequest`, `StatusAsync` GETs the plan with
+`Accept: application/json`, and `ForceAsync` POSTs `{}` to the plan's force route. Every
+call sends `Cache-Control: no-store` and the caller's current hosted OAuth access bearer,
+exactly once. Native's own client resends a merge-plan request once after an auth
+rejection; this binding does not, and has no rediscovery, token refresh, polling, watch,
+retry-in-place or merge execution.
+
+The hosted gate is the one used by connection records, profiles and hosted runs. Discovery must also
+carry a `merge_plans` extension of kind `zeroshot.merge-plans/v1` with a same-origin
+`baseUrl`, so the bearer only reaches that origin. Route templates have literal segments:
+`create` has no variable, and `status` and `force` have exactly one whole `{plan_id}`
+segment and no query, the rules hosted runs apply to `{run_id}`. Native compiles all three
+before any operation. The plan ID is opaque and is inserted as one path segment,
+percent-encoded as native's `url` crate does.
+A `.` or `..` ID, or one containing tab, CR or LF, is refused because native would drop or
+rewrite that segment; an empty ID is sent as an empty segment, as native sends it. Invalid use throws `ArgumentException` or
+`JsonException` without dispatch.
+
+`MergePlanSubmitRequest` is native's HTTP submit shape, not the native CLI's
+`zeroshot.merge-plan/v1` manifest. It carries 1-64 runs, the limit native's CLI enforces
+as a protocol constant. Each run's `Needs` is sent verbatim, and a null list omits the
+field. Dependency-graph checks, the `expiresAt` deadline and initial-input validation
+belong to the host. A null `Environment`, `Connections` or `GithubToken` omits the field.
+An empty `RuntimeEnvironment` explicitly selects the base environment. Connection values
+use the static-value bounds shared with submission.
+
+`MergePlan` and `MergePlanRunStatus` are strict. `MergePlanState` and `MergePlanRunState`
+have exactly native's six and ten values. `sourceRevision`, `readyAt`, `queueExpiresAt`,
+`terminalAt`, `waitingReason` and `errorCode` must each be present, and each may be null;
+a missing field is malformed. A status or force reply for a different `planId` is
+foreign data and is also malformed.
+
+`StatusAsync` returns the plan or throws `NativeHttpException`. `CreateAsync` and
+`ForceAsync` return `NativeAttempt<MergePlan>` with the hosted classification: `Rejected`
+only for a valid `TargetHttpProblem` with 400 `invalid_request`, 401 `unauthorized`, 403
+`forbidden` or 404 `not_found`. Every other received failure, lost reply, malformed or
+foreign result is `Unknown`. An acknowledged force returns the plan as reported, which
+need not be terminal. Results may be up to 1 MiB (or the smaller configured limit),
+native's merge-plan bound.
+
+`HttpMergePlanTests.cs` covers the three operations against controlled hosted
+authorities. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct
+targets, so the native witness cannot exercise them. Live hosted interoperability is
+unverified.
+
 ## Hosted OAuth operations
 
 ```csharp
