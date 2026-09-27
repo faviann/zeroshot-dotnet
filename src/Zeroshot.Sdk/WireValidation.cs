@@ -18,6 +18,12 @@ internal static class WireValidation
     internal static object? Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
+        if (typeof(DashboardContract).IsAssignableFrom(type))
+        {
+            var dashboard = JsonSerializer.Deserialize(value, type, NativeJson.Options) as DashboardContract ?? throw new JsonException();
+            dashboard.Validate(value);
+            return dashboard;
+        }
         if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
         {
             // Required fields, nullability, exact field names and per-type extension strictness.
