@@ -354,6 +354,76 @@ the GitHub token, bearers and remote problem text. Explicit property access and
 Stock native 10.9.0 only consumes these routes and serves none, so the native
 witness cannot exercise them. Live hosted interoperability is unverified.
 
+## Hosted run lifecycle
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var access = new TargetControlCredentials(TargetAuthentication.HostedOauth, currentAccessToken);
+var runs = await native.HostedRuns.ListAsync(discovery, access);
+var status = await native.HostedRuns.StatusAsync(discovery, runId, access);   // may be QueuedHostedRunStatus
+await using var watch = await native.HostedRuns.WatchAsync(discovery, new RunWatchParams { RunId = runId, FromCursor = checkpoint }, access);
+await foreach (var record in watch.ReadAllAsync()) { /* record.Cursor */ }
+var closed = await watch.Completion;                 // evidence, not run success
+var force = await native.HostedRuns.ForceAsync(discovery, runId, access);
+if (force.Outcome == NativeAttemptOutcome.Unknown) { /* force may or may not have been recorded */ }
+```
+
+`NativeClient.HostedRuns` binds the five hosted lifecycle operations: list, status,
+watch, logs and force. Each is one request to the route advertised by the explicitly
+supplied discovery, with the caller's current hosted OAuth access bearer. There is no
+rediscovery, token refresh, stream reopen, waiting or retry; the SDK's recovery and
+wait defaults do not apply here.
+
+Before sending anything, the binding applies the hosted gate used by connection
+records and profiles. Discovery must also carry a `hosted_runs` extension of kind
+`zeroshot.hosted-runs/v1` with a same-origin `base_url`. All five templates are
+compiled first, as native does: list has no variables; status and force have exactly
+one whole `{run_id}` segment; watch ends in `{?from_cursor}` and logs in
+`{?from_cursor,execution}`. Segments are appended to the base path. The run ID is
+percent-encoded as one path segment with native's encode set (so `run/1` is sent as
+`run%2F1`), and a present cursor or execution is form-encoded in the query. Native
+would silently skip a `.` or `..` segment and strip tab, CR and LF, so such run IDs
+throw `ArgumentException` instead of addressing another route.
+
+`HostedRunStatusResult` is the OECP status shape except that `status` is a
+`HostedRunStatus`: either the host-only strict `{"phase":"queued"}`
+(`QueuedHostedRunStatus`) or a native `RunStatus` (`TargetHostedRunStatus`). Neither
+queued nor stopping is terminal. `workspaceRecovery` keeps its omission. The list
+wraps these results, and force returns the same shape. Watch records are
+`HostedRunWatchEventNotification`, which has no `workspaceRecovery`; a record that
+carries one is malformed. Log records are the native `RunLogEventNotification`.
+Status and force results must name the requested run.
+
+`WatchAsync` and `LogsAsync` take the OECP `RunWatchParams` and `RunLogsParams` and
+return a `HostedRunStream<T>`. Queue admission happens before dispatch. Any 2xx
+response starts the stream, as in native, and a refusal is a `NativeHttpException`.
+Frames are NDJSON: one strict `{"type":"event","event":...}` or
+`{"type":"closed","reason":...}` per LF, with one preceding CR removed. Each frame is
+at most 64 KiB, or the smaller configured message limit, and an empty line is
+malformed. Each record must name the requested run, keep the first record's
+`subscriptionId` (and, for watch, its `source`) and, for filtered logs, the requested
+execution. Only records handed to the caller advance `LastDeliveredCursor`.
+
+`Completion` preserves the received close. A `closed` frame ends the stream as
+`ServerClosed`: `done` has no failure, while `SLOW_CONSUMER` and `SOURCE_UNAVAILABLE`
+carry those failure kinds. EOF without a `closed` frame, including inside a partial
+frame, is `UnexpectedDisconnect`; native's follow loop reconnects there, and it never
+completes the stream. Malformed or foreign frames fail with `Protocol`, oversized frames
+with `SizeLimit`, and queue overflow with its resource-limit kind. Records validated
+before the failure still drain. Disposal and cancellation close only that response, as
+for dashboard run events.
+
+`ForceAsync` sends one `POST {}` and returns `NativeAttempt<HostedRunStatusResult>`
+with the classification used by connection records and profiles: `Rejected` only for a
+valid problem with 400 `invalid_request`, 401 `unauthorized`, 403 `forbidden` or 404
+`not_found`. A lost reply, another problem, a malformed or foreign result, or
+cancellation after dispatch is `Unknown`. `NotSent` means nothing was dispatched.
+Results must fit in 64 KiB (or the smaller configured limit).
+
+`HttpHostedRunTests.cs` covers every route and failure mode against controlled hosted
+peers. Stock native 10.9.0 only consumes these routes and serves none, so the native
+witness cannot exercise them. Live hosted interoperability is unverified.
+
 ## Hosted OAuth operations
 
 ```csharp

@@ -40,33 +40,52 @@ internal static class NativeRoutes
         return SameOriginUrl(baseUrl, prefix + template);
     }
 
-    // Native contract/history.rs compile_route: literal segments, at most one whole {run_id}
-    // segment and an optional {?after} suffix. Returns the path template without the query.
-    internal static string RunHistoryPath(string template, bool requiresRunId, bool allowsAfter)
+    // Native compile_run_id_route_segments (history.rs and hosted_runs.rs): literal segments, at most one
+    // whole {run_id} segment and exactly the operation's query suffix, if any. Returns the path template.
+    internal static string RunIdPath(string template, bool requiresRunId, string? query)
     {
         if (string.IsNullOrEmpty(template) || template.Length > 2048 || !template.StartsWith('/') ||
             template.StartsWith("//", StringComparison.Ordinal) || template.IndexOfAny(['\\', '#']) >= 0 ||
             template.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
             throw Invalid();
-        var path = template.EndsWith("{?after}", StringComparison.Ordinal) ? template[..^"{?after}".Length] : template;
+        var path = query is not null && template.EndsWith(query, StringComparison.Ordinal) ? template[..^query.Length] : template;
         var segments = path.Split('/').Skip(1).ToArray();
-        if ((path != template) != allowsAfter || path.Contains('?') ||
+        if ((path != template) != (query is not null) || path.Contains('?') ||
             segments.Count(segment => segment == "{run_id}") != (requiresRunId ? 1 : 0) ||
             !segments.All(segment => segment == "{run_id}" || IsLiteralSegment(segment)))
             throw Invalid();
         return path;
     }
 
-    // Segments append to the capability base path.
-    internal static Uri RunHistoryRoute(Uri baseUrl, string template, string? runId, string? after, bool allowsAfter)
+    // Segments append to the capability base path. The run ID is one percent-encoded segment and
+    // present query values are form-encoded in the template's order.
+    internal static Uri RunIdRoute(Uri baseUrl, string template, string? runId, string? query,
+        params (string Name, string? Value)[] values)
     {
-        var path = RunHistoryPath(template, runId is not null, allowsAfter);
+        var path = RunIdPath(template, runId is not null, query);
         var prefix = baseUrl.AbsoluteUri.EndsWith('/') ? baseUrl.AbsoluteUri[..^1] : baseUrl.AbsoluteUri;
-        var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", runId, StringComparison.Ordinal)));
-        if (after is null) return url;
-        // Native appends the pair with application/x-www-form-urlencoded byte serialization.
-        return new Uri(url.OriginalString + "?" + FormEncode([("after", after)]),
-            new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
+        var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", EscapeSegment(runId), StringComparison.Ordinal)));
+        var form = FormEncode(values.Where(pair => pair.Value is not null).Select(pair => (pair.Name, pair.Value!)));
+        return form.Length == 0 ? url
+            : new Uri(url.OriginalString + "?" + form, new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
+    }
+
+    /// <summary>
+    /// Whether native's url path-segment setter sends <paramref name="value"/> unchanged: it skips <c>.</c>
+    /// and <c>..</c> segments and strips tab, CR and LF.
+    /// </summary>
+    internal static bool IsAddressableSegment(string value)
+        => value is not ("." or "..") && value.IndexOfAny(['\t', '\r', '\n']) < 0;
+
+    // The url crate's special-scheme path-segment percent-encode set, with uppercase hex.
+    private static string EscapeSegment(string value)
+    {
+        var escaped = new StringBuilder();
+        foreach (var b in Encoding.UTF8.GetBytes(value))
+            escaped.Append(b is < 0x20 or >= 0x7F or (byte)' ' or (byte)'"' or (byte)'#' or (byte)'<' or (byte)'>' or
+                (byte)'?' or (byte)'`' or (byte)'{' or (byte)'}' or (byte)'/' or (byte)'%' or (byte)'\\'
+                ? $"%{b:X2}" : ((char)b).ToString());
+        return escaped.ToString();
     }
 
     // The WHATWG application/x-www-form-urlencoded byte serializer used by native's url/reqwest forms.

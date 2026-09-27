@@ -3,7 +3,6 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
-using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
@@ -85,36 +84,18 @@ public sealed partial class NativeClient
             (HttpStatusCode.UnsupportedMediaType, "json_required") or
             (HttpStatusCode.ServiceUnavailable, "server_stopping");
 
-    internal async Task<DashboardRunEvents> OpenRunEventsAsync(OperationDescriptor operation, Uri requestUri, Cursor start,
+    internal Task<DashboardRunEvents> OpenRunEventsAsync(OperationDescriptor operation, Uri requestUri, Cursor start,
         Cursor? lastEventId, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
-        // Admission precedes dispatch; the opening token also cancels this observation later.
-        ObservationQueue<DashboardRunEvent, Cursor> queue;
-        try { queue = Observations.Open<DashboardRunEvent, Cursor>(cancellationToken); }
-        catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
-        try
-        {
-            var (response, body) = await ExecuteHttpAsync(operation, HttpMethod.Get, requestUri, null, null, async (response, context) =>
-            {
-                if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentType?.MediaType != "text/event-stream")
-                    throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode);
-                return (response, await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false));
-            }, cancellationToken, configure: request =>
+        => OpenStreamAsync<DashboardRunEvent, DashboardRunEvents>(operation, requestUri, null,
+            response => response.StatusCode == HttpStatusCode.OK && response.Content.Headers.ContentType?.MediaType == "text/event-stream",
+            request =>
             {
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
                 if (lastEventId is not null) request.Headers.TryAddWithoutValidation("Last-Event-ID", lastEventId.Value);
-            }, keepResponse: true).ConfigureAwait(false);
+            },
             // Native pages stay within 8 MiB; the configured message ceiling can only lower it.
-            return new DashboardRunEvents(queue, response, body, start, Math.Min(limits.MessageBytes, 8 * 1024 * 1024));
-        }
-        catch
-        {
-            queue.Dispose();
-            queue.Complete();
-            throw;
-        }
-    }
+            (queue, response, body) => new DashboardRunEvents(queue, response, body, start, Math.Min(limits.MessageBytes, 8 * 1024 * 1024)),
+            cancellationToken);
 }
 
 /// <summary>
@@ -293,14 +274,15 @@ public sealed class NativeDashboardClient
     private Uri RunsUri(RunId? after)
     {
         if (after is not null) NativeHistoryClient.RequireRunId(after, nameof(after));
-        return NativeRoutes.RunHistoryRoute(client.Origin, RunsPath, null, after?.Value, allowsAfter: true);
+        return NativeRoutes.RunIdRoute(client.Origin, RunsPath, null, NativeHistoryClient.AfterQuery, ("after", after?.Value));
     }
 
     private Uri RunUri(string template, RunId runId, Cursor? after)
     {
         NativeHistoryClient.RequireRunId(runId, nameof(runId));
         if (after is not null) RequireCursor(after, nameof(after));
-        return NativeRoutes.RunHistoryRoute(client.Origin, template, runId.Value, after?.Value, allowsAfter: template != RunPath);
+        return NativeRoutes.RunIdRoute(client.Origin, template, runId.Value, template != RunPath ? NativeHistoryClient.AfterQuery : null,
+            ("after", after?.Value));
     }
 
     private static void RequireCursor(Cursor cursor, string name)

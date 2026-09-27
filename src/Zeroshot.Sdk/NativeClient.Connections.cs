@@ -47,18 +47,23 @@ public sealed partial class NativeClient
     // Validates a hosted management call and returns its body. Invalid use throws before any request is sent.
     private byte[] PrepareHostedCall(TargetDiscoveryDocument discovery, TargetHttpContract request, TargetControlCredentials credentials)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateHostedUse(discovery, credentials);
+        return NativeJson.SerializeUtf8(request);
+    }
+
+    // The hosted gate shared by every host-owned operation. Invalid use throws before any request is sent.
+    private void ValidateHostedUse(TargetDiscoveryDocument discovery, TargetControlCredentials credentials)
+    {
         ValidateHttpUse();
         ArgumentNullException.ThrowIfNull(discovery);
-        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(credentials);
-        var body = NativeJson.SerializeUtf8(request);
         // No remote descriptor may influence credential-bearing dispatch until validated.
         _ = NativeJson.SerializeUtf8(discovery);
         // Native refuses direct targets; only hosted OAuth discovery can carry these capabilities.
         if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
             discovery.Authentication != TargetAuthentication.HostedOauth || credentials.Authentication != TargetAuthentication.HostedOauth)
-            throw new ArgumentException("Hosted management requires hosted OAuth discovery and matching credentials.");
-        return body;
+            throw new ArgumentException("Hosted operations require hosted OAuth discovery and matching credentials.");
     }
 
     // Native's status-derived default codes (default_http_error_code in contract/http_error.rs), which native

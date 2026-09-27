@@ -30,6 +30,11 @@ internal static class WireValidation
             if (type == typeof(RunProfile) || type == typeof(RunProfileSetRequest)) CheckProfile(value);
             if (type == typeof(RunProfileMutationResult) && value.ValueKind == JsonValueKind.Object &&
                 value.TryGetProperty("profile", out var profile)) CheckProfile(profile);
+            if (type == typeof(HostedRunStatusResult)) CheckHosted(value, typeof(RunStatusResult));
+            if (type == typeof(HostedRunWatchEventNotification)) CheckHosted(value, typeof(RunWatchEventNotification));
+            if (type == typeof(HostedRunListResult) && value.ValueKind == JsonValueKind.Object &&
+                value.TryGetProperty("runs", out var runs) && runs.ValueKind == JsonValueKind.Array)
+                foreach (var entry in runs.EnumerateArray()) CheckHosted(entry, typeof(RunStatusResult));
             // Required fields, nullability, exact field names and per-type extension strictness.
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
             if (result is TargetHttpProblem problem) problem.Validate();
@@ -77,6 +82,22 @@ internal static class WireValidation
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
         return null;
+    }
+
+    // A hosted record is its pinned OECP shape, except that the status may be the host-only queued phase.
+    // Queued is validated as another phase; its own exact shape is the typed converter's.
+    private static void CheckHosted(JsonElement value, Type shape)
+    {
+        if (value.ValueKind == JsonValueKind.Object && value.TryGetProperty("status", out var status) &&
+            status.ValueKind == JsonValueKind.Object && status.TryGetProperty("phase", out var phase) &&
+            phase.ValueKind == JsonValueKind.String && phase.GetString() == "queued")
+        {
+            var projected = JsonNode.Parse(value.GetRawText())!.AsObject();
+            projected["status"] = new JsonObject { ["phase"] = "admitted" };
+            using var document = JsonDocument.Parse(projected.ToJsonString());
+            Validate(document.RootElement, shape);
+        }
+        else Validate(value, shape);
     }
 
     // Missing or misplaced members are left to typed decoding, which reports them.

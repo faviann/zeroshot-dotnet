@@ -156,6 +156,37 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.MediaType)),
             cancellationToken, configure: configure);
 
+    /// <summary>
+    /// Opens one streaming GET whose response becomes a bounded observation. Queue admission precedes dispatch,
+    /// and the opening token also cancels the observation later. A refusal before the stream starts is a
+    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response.
+    /// </summary>
+    internal async Task<TStream> OpenStreamAsync<TRecord, TStream>(OperationDescriptor operation, Uri requestUri,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure,
+        Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, TStream> create, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        ObservationQueue<TRecord, Cursor> queue;
+        try { queue = Observations.Open<TRecord, Cursor>(cancellationToken); }
+        catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
+        try
+        {
+            var (response, body) = await ExecuteHttpAsync(operation, HttpMethod.Get, requestUri, null, credentials, async (response, context) =>
+            {
+                if (!admits(response))
+                    throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode);
+                return (response, await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false));
+            }, cancellationToken, configure: configure, keepResponse: true).ConfigureAwait(false);
+            return create(queue, response, body);
+        }
+        catch
+        {
+            queue.Dispose();
+            queue.Complete();
+            throw;
+        }
+    }
+
     /// <summary>Per-request header hook for operations whose native caller sends Cache-Control: no-store.</summary>
     internal static void NoStore(HttpRequestMessage request) => request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
 
@@ -266,7 +297,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
         Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken,
         Action<HttpRequestMessage>? configure = null,
-        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null) where T : class
+        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null, Action<T>? validate = null) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
@@ -277,7 +308,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         try
         {
             await (readSuccess is null
-                ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, _ => { }, cancellationToken,
+                ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, validate ?? (_ => { }), cancellationToken,
                     onDispatch: OnDispatch, onResponse: Capture, configure: configure)
                 : ExecuteHttpAsync(operation, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
                 {
