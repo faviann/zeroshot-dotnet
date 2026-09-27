@@ -606,79 +606,91 @@
       "id": "discovered:POST run_profiles.list",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileListRequest` -> `RunProfileListResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileListRequest {scope: user|org}` -> any 2xx `RunProfileListResult {profiles: RunProfileSummary[]}`; summary `{id, name, scope, isDefault}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L195"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L195",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.ListAsync"
     },
     {
       "id": "discovered:POST run_profiles.show",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileSelector` -> `RunProfile`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileSelector {scope, name}` -> any 2xx `RunProfile {id, name, scope, graph: GraphSpec, runtime: RuntimePlan, isDefault}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L196"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L196",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.ShowAsync"
     },
     {
       "id": "discovered:POST run_profiles.set",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileSetRequest` -> `RunProfileMutationResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileSetRequest {name, scope, graph, runtime, setDefault}` (setDefault false by default) -> any 2xx `RunProfileMutationResult {profile: RunProfile}`; `NativeAttempt<RunProfileMutationResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L197"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L197",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.SetAsync"
     },
     {
       "id": "discovered:POST run_profiles.delete",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileSelector` -> `RunProfileDeleteResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileSelector {scope, name}` -> any 2xx `RunProfileDeleteResult {deleted}`; 64 KiB response; `NativeAttempt<RunProfileDeleteResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L198"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L198",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.DeleteAsync"
     },
     {
       "id": "discovered:POST run_profiles.default",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileDefaultRequest` -> `RunProfileDefaultResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileDefaultRequest {scope, name?}` (omitted name clears the default) -> any 2xx `RunProfileDefaultResult {scope, name: RunProfileName|null}` (missing name reads as null, as native); 64 KiB response; `NativeAttempt<RunProfileDefaultResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L199"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L199",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.DefaultAsync"
     },
     {
       "id": "discovered:POST run_profiles.run",
       "transport": "HTTP",
       "bindingOwnerIssue": 32,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunProfileRunRequest` -> `RunSubmitResult` (`{runId}`)",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a `zeroshot.run-profiles/v1` capability: same-origin baseUrl; list/show/set/delete/default/run bounded literal templates, all compiled before any operation. Direct and private targets, absent capability and invalid descriptors throw before dispatch. [contract/profiles.rs:L17-L35][http-76] [profiles.rs:L46-L63][http-86]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
+      "typeClosure": "POST `RunProfileRunRequest {runId, profile: RunProfileSelector, title, initialInput, source: ResolvedSource, submissionKey, environment?, connections, githubToken?}` (omitted environment permits the host default, `{}` selects the base environment; connections required, static-value bounds) -> any 2xx `TargetRunReceipt {runId}`, which may differ from the proposed runId; 64 KiB response; `NativeAttempt<TargetRunReceipt>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L200"
-      }
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "inventory": "native-inventory.md#L200",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
+      },
+      "binding": "NativeClient.Profiles.RunAsync"
     },
     {
       "id": "discovered:POST merge_plans.create",

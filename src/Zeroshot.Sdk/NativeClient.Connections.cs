@@ -21,7 +21,7 @@ public sealed partial class NativeClient
     {
         var (routes, body) = PrepareConnectionCall(discovery, request, credentials);
         var (correlationId, outcome, response, failure) = await AttemptAsync<T>(operation, route(routes), body, credentials,
-            IsConnectionRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
+            IsHostedRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
         return new NativeAttempt<T>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
@@ -29,17 +29,7 @@ public sealed partial class NativeClient
     private ((Uri List, Uri Set, Uri Delete) Routes, byte[] Body) PrepareConnectionCall(TargetDiscoveryDocument discovery,
         TargetHttpContract request, TargetControlCredentials credentials)
     {
-        ValidateHttpUse();
-        ArgumentNullException.ThrowIfNull(discovery);
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(credentials);
-        var body = NativeJson.SerializeUtf8(request);
-        // No remote descriptor may influence credential-bearing dispatch until validated.
-        _ = NativeJson.SerializeUtf8(discovery);
-        // Native refuses direct targets; only hosted OAuth discovery can carry this capability.
-        if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
-            discovery.Authentication != TargetAuthentication.HostedOauth || credentials.Authentication != TargetAuthentication.HostedOauth)
-            throw new ArgumentException("Connection management requires hosted OAuth discovery and matching credentials.");
+        var body = PrepareHostedCall(discovery, request, credentials);
         var wire = discovery.Extensions.Connections
             ?? throw new ArgumentException("The target does not advertise connection management.");
         var kinds = wire.DynamicKinds;
@@ -54,10 +44,27 @@ public sealed partial class NativeClient
             NativeRoutes.CompileLiteralRoute(baseUrl, wire.RouteTemplates.Delete)), body);
     }
 
+    // Validates a hosted management call and returns its body. Invalid use throws before any request is sent.
+    private byte[] PrepareHostedCall(TargetDiscoveryDocument discovery, TargetHttpContract request, TargetControlCredentials credentials)
+    {
+        ValidateHttpUse();
+        ArgumentNullException.ThrowIfNull(discovery);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(credentials);
+        var body = NativeJson.SerializeUtf8(request);
+        // No remote descriptor may influence credential-bearing dispatch until validated.
+        _ = NativeJson.SerializeUtf8(discovery);
+        // Native refuses direct targets; only hosted OAuth discovery can carry these capabilities.
+        if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
+            discovery.Authentication != TargetAuthentication.HostedOauth || credentials.Authentication != TargetAuthentication.HostedOauth)
+            throw new ArgumentException("Hosted management requires hosted OAuth discovery and matching credentials.");
+        return body;
+    }
+
     // Native's status-derived default codes (default_http_error_code in contract/http_error.rs), which native
     // itself uses only when a response has no parseable problem. A hosted server's own codes are not pinned
-    // and native serves no connection routes; every other received failure leaves the effect unknown.
-    private static bool IsConnectionRefusal(HttpStatusCode? status, string code) =>
+    // and native serves no connection or profile routes; every other received failure leaves the effect unknown.
+    private static bool IsHostedRefusal(HttpStatusCode? status, string code) =>
         (status, code) is
             (HttpStatusCode.BadRequest, "invalid_request") or
             (HttpStatusCode.Unauthorized, "unauthorized") or

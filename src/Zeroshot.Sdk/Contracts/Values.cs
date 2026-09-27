@@ -149,6 +149,12 @@ public sealed record ConnectionKey : NativeString
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
+public sealed record RunProfileName : NativeString
+{
+    public RunProfileName(string value) : base(ValueRules.Check(nameof(RunProfileName), value)) { }
+}
+
+[JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record EnvironmentVariableName : NativeString
 {
     public EnvironmentVariableName(string value) : base(ValueRules.Check(nameof(EnvironmentVariableName), value)) { }

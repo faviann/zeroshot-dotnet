@@ -16,14 +16,7 @@ public record TargetRunCredentials : TargetHttpContract
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GithubToken { get; init; }
 
-    internal void Validate()
-    {
-        foreach (var (key, values) in Connections)
-        {
-            _ = new ConnectionKey(key);
-            StaticConnectionValues.Validate(values);
-        }
-    }
+    internal void Validate() => StaticConnectionValues.ValidateRun(Connections);
 }
 
 /// <summary>The complete fixed target HTTP envelope; no identity or content is generated at send time.</summary>

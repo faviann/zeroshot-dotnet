@@ -38,6 +38,11 @@ and results. `NativeClient.Connections` binds list/set/delete on validated hoste
 discovery; see [hosted connection records](../http/README.md#hosted-connection-records).
 These bindings have controlled-authority evidence only.
 
+`Contracts/Profiles.cs` maps hosted run-profile requests, profiles, selectors and
+results. `NativeClient.Profiles` binds list/show/set/delete/default/run on
+validated hosted discovery; see [hosted run profiles](../http/README.md#hosted-run-profiles).
+These bindings have controlled-authority evidence only.
+
 `Contracts/Dashboard.cs` adds the browser bootstrap catalog, validation document and
 authoring/data draft actions from native `profile_ui`; see
 [dashboard routes](../dashboard/README.md). They reuse the generated graph, runtime and

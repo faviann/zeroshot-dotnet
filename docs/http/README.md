@@ -283,6 +283,75 @@ authorities. Stock native 10.9.0 only consumes these routes and serves none, so
 the native witness cannot exercise them. Live hosted interoperability is
 unverified.
 
+## Hosted run profiles
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var access = new TargetControlCredentials(TargetAuthentication.HostedOauth, currentAccessToken);
+var profiles = await native.Profiles.ListAsync(discovery, new RunProfileListRequest { Scope = RunProfileScope.Org }, access);
+var set = await native.Profiles.SetAsync(discovery, new RunProfileSetRequest
+{
+    Name = new RunProfileName("review"), Scope = RunProfileScope.Org, Graph = graph, Runtime = runtime, SetDefault = true
+}, access);
+var run = await native.Profiles.RunAsync(discovery, new RunProfileRunRequest
+{
+    RunId = proposedRunId, Profile = new RunProfileSelector { Scope = RunProfileScope.Org, Name = new RunProfileName("review") },
+    Title = title, InitialInput = input, Source = source, SubmissionKey = submissionKey,
+    Connections = freshConnectionValues
+}, access);
+if (run.Outcome == NativeAttemptOutcome.Unknown) { /* the run may or may not exist */ }
+```
+
+`NativeClient.Profiles` binds the six native hosted run-profile operations: list,
+show, set, delete, default and run. Each call makes one JSON POST to the route
+advertised by the explicitly supplied discovery, with `Accept: application/json`,
+`Cache-Control: no-store` and the caller's current hosted OAuth access bearer. There
+is no rediscovery, token refresh, retry, local profile store, template compilation
+or profile workflow.
+
+Before sending anything, the binding applies the hosted gate used by connection
+records: `hosted_oauth` discovery with kind `zeroshot.native-v2-target/v2` and
+audience `controller`, and matching `HostedOauth` credentials. Discovery must carry a
+`run_profiles` extension of kind `zeroshot.run-profiles/v1` with a same-origin
+`baseUrl`. All six templates must be bounded literal routes, since native compiles
+all six before any operation. A wrong target, absent capability, invalid descriptor
+or invalid request throws `ArgumentException` or `JsonException` without dispatch.
+
+Requests and results are strict camelCase records. `RunProfileScope` is `user` or
+`org`, and `RunProfileName` matches `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`. `RunProfile`
+carries the complete `GraphSpec` and `RuntimePlan`, which are validated against the
+pinned schema in both directions. Summaries omit graph and runtime.
+`RunProfileSetRequest.SetDefault` defaults to false. `RunProfileDefaultRequest` with
+a null `Name` omits the field, which clears the scope's default.
+`RunProfileDefaultResult.Name` is null when the scope has no default; as in native,
+a missing `name` also reads as null.
+
+`RunProfileRunRequest` fixes the proposed run ID, selector, title, initial input,
+resolved source and submission key exactly as supplied. A null `Environment` omits
+the field so the host may apply its default, while an empty `RuntimeEnvironment`
+explicitly selects the base environment. `Connections` is required on every run,
+may be empty, and uses the static-value bounds shared with submission. Profile runs
+have no connection resolver. `GithubToken` is optional. The acknowledged
+`TargetRunReceipt.RunId` can differ from the proposed one because of native
+deduplication; comparing them is the caller's job.
+
+`ListAsync` and `ShowAsync` return the result or throw `NativeHttpException`.
+`SetAsync`, `DeleteAsync`, `DefaultAsync` and `RunAsync` return the shared
+`NativeAttempt<T>` with the same classification as connection records: `Rejected`
+only for a valid `TargetHttpProblem` with 400 `invalid_request`, 401
+`unauthorized`, 403 `forbidden` or 404 `not_found`. Every other received failure,
+including malformed results, is `Unknown`. `NotSent` means nothing was dispatched.
+Delete, default and run results must fit in 64 KiB. List, show and set results
+carry profiles and use the transport response ceiling.
+
+Default formatting of requests, attempts and exceptions omits connection values,
+the GitHub token, bearers and remote problem text. Explicit property access and
+`NativeJson` serialization reveal them.
+
+`HttpProfileTests.cs` covers every operation against controlled hosted authorities.
+Stock native 10.9.0 only consumes these routes and serves none, so the native
+witness cannot exercise them. Live hosted interoperability is unverified.
+
 ## Run history
 
 ```csharp

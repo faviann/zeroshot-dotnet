@@ -26,12 +26,22 @@ internal static class WireValidation
         }
         if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
         {
+            // Nested pinned-schema definitions validate first: typed decoding cannot classify every malformed runtime.
+            if (type == typeof(RunProfile) || type == typeof(RunProfileSetRequest)) CheckProfile(value);
+            if (type == typeof(RunProfileMutationResult) && value.ValueKind == JsonValueKind.Object &&
+                value.TryGetProperty("profile", out var profile)) CheckProfile(profile);
             // Required fields, nullability, exact field names and per-type extension strictness.
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
             if (result is TargetHttpProblem problem) problem.Validate();
             if (result is TargetRunCredentials credentials) credentials.Validate();
             if (result is ConnectionSetRequest connection) StaticConnectionValues.Validate(connection.Values);
             if (result is TargetPrivateBootstrapRequest bootstrap) bootstrap.Validate();
+            if (result is RunProfileRunRequest run)
+            {
+                StaticConnectionValues.ValidateRun(run.Connections);
+                Validate(value.GetProperty("source"), typeof(ResolvedSource));
+                if (run.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
+            }
             if (result is TargetRunRequest request)
             {
                 TargetRunRequest.ValidateRunId(request.RunId);
@@ -62,6 +72,14 @@ internal static class WireValidation
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
         return null;
+    }
+
+    // Missing or misplaced members are left to typed decoding, which reports them.
+    private static void CheckProfile(JsonElement profile)
+    {
+        if (profile.ValueKind != JsonValueKind.Object) return;
+        if (profile.TryGetProperty("graph", out var graph)) Validate(graph, typeof(GraphSpec));
+        if (profile.TryGetProperty("runtime", out var runtime)) Validate(runtime, typeof(RuntimePlan));
     }
 
     private static void CheckDiscovery(JsonElement value, Type type)
