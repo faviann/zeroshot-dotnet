@@ -53,8 +53,8 @@ var result = await run.WaitAsync();</code></pre>
     <p id="state">Simulated state: client configured · no submission · no result</p>
   </div>
 
-  <p class="question">Does <code>SubmitAsync</code> → <code>Run</code> → <code>WaitAsync</code> feel natural to use?</p>
-  <p class="intro">My recommendation is to keep these names. The returned run gives you something to inspect now or return to later.</p>
+  <p class="question">Accepted: <code>SubmitAsync</code> → <code>Run</code> → <code>WaitAsync</code>.</p>
+  <p class="intro">The returned run gives you something to inspect now or return to later. This ordinary calling style has been accepted in live review.</p>
 
   <details>
     <summary>One-call convenience</summary>

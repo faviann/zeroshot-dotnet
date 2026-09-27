@@ -2,6 +2,8 @@
 
 Start with [one ordinary run](index.html). This document is the background reference; its sections can be reviewed separately.
 
+Review status: the ordinary calling style, advanced preparation/submission-attempt helpers, simple SDK observation streams, CLI foreground/detach behavior, optional run file, readable-text/explicit-JSON output modes and distinct failure/timeout/unknown-effect exit codes were accepted in the [live review record](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561). Other proposed details remain open.
+
 Naming review: the user proposed `Zeroshot.Client`, root namespace `Zeroshot`, `ZeroshotClient` and `Zeroshot.Native.NativeClient`. After discussing coexistence with native tooling, the user selected `zeroshot-dotnet` for the CLI. The rest of this draft remains open for feedback.
 
 **Disposable design sketch.** These C# APIs and CLI commands are proposed, not implemented. No request is sent by this artifact. The browser walkthrough simulates the already selected lifecycle so that the calls, results and evidence can be reviewed together. It is not a conformance witness.
@@ -183,18 +185,13 @@ await foreach (RunLogRecord record in run.LogsAsync(
     await store.CommitCheckpointAsync(record.Checkpoint, ct);
 }
 
-// Explicit subscription object when inspection/control beyond await foreach is useful.
-await using RunObservation<RunLogRecord> logs = await run.OpenLogsAsync(
-    new LogOptions { Execution = executionId, After = logCheckpoint?.Cursor }, ct);
-await foreach (RunLogRecord record in logs.ReadAllAsync(ct))
-    await ProcessLogAsync(record, ct);
-ObservationEnd end = await logs.Completion; // Close origin/reason and delivered cursor.
-
 await foreach (RunAttachmentEvent output in run.AttachAsync(executionId, ct))
     Show(output); // working / output / settled; no cursor and no input channel.
 ```
 
-The simpler `WatchAsync` / `LogsAsync` enumerable owns and disposes its subscription when enumeration ends or is abandoned. The explicit `OpenWatchAsync` / `OpenLogsAsync` / `OpenAttachmentAsync` methods expose an asynchronously disposable, single-reader observation; enumeration failure and `Completion` preserve the same final context. Merely constructing an enumerable does not open a connection. Re-enumeration opens a new observation from its original requested cursor.
+The SDK exposes `WatchAsync`, `LogsAsync` and `AttachAsync` as asynchronous enumerables. Each enumeration owns and disposes its observation when enumeration ends, is cancelled or is abandoned through normal enumerator disposal. Merely constructing an enumerable does not open a connection. Re-enumeration opens a new observation from its original request and cursor where applicable. Records preserve their native identity and available cursor; observation exceptions preserve failure/close origin and available validated context, including the last caller-delivered cursor for durable streams. Normal completion ends enumeration without claiming a successful run.
+
+The SDK does not add `OpenWatchAsync`, `OpenLogsAsync`, `OpenAttachmentAsync` or a separate public observation object. Consumers needing exact establishment/closure inspection and explicit subscription control use the lower client's `NativeSubscription<TEstablishment,TEvent>`. Both surfaces use the same underlying native-operation implementation; lower subscriptions retain their direct, non-recovering behavior.
 
 `HistoryCheckpoint` binds the opaque cursor to target, run, watch/log kind and execution filter; `record.Checkpoint` supplies that context. Passing a bare cursor is allowed for native-like usage; choosing and persisting the matching checkpoint is the caller's responsibility. A convenience `WatchAsync(checkpoint, ...)` / `LogsAsync(checkpoint, ...)` overload validates scope before dispatch. `LastDeliveredCursor` advances only as records are handed to the caller, not when received or buffered. Retaining a checkpoint after processing remains a consumer action; automatic recovery does not commit it.
 
@@ -213,7 +210,7 @@ if (attempt.Outcome == MutationOutcome.Acknowledged)
     await run.WaitAsync(timeout: TimeSpan.FromMinutes(2), cancellationToken: ct);
 ```
 
-`ForceStopException` and `ForceStopCanceledException : OperationCanceledException` preserve attempt evidence for the ordinary helper. A timeout or failure during its subsequent wait also retains `ForceAcknowledgement`; the separate wait above does not magically inherit an earlier independent call. An acknowledged `stopping` status means the request was acknowledged, not that the run is terminal. Lost replies can leave the effect unknown. Timeouts, Ctrl+C, disposing a `RunObservation`, disposing a `ZeroshotClient`, or losing a connection do not send force.
+`ForceStopException` and `ForceStopCanceledException : OperationCanceledException` preserve attempt evidence for the ordinary helper. A timeout or failure during its subsequent wait also retains `ForceAcknowledgement`; the separate wait above does not magically inherit an earlier independent call. An acknowledged `stopping` status means the request was acknowledged, not that the run is terminal. Lost replies can leave the effect unknown. Timeouts, Ctrl+C, disposing an observation enumerator, disposing a `ZeroshotClient`, or losing a connection do not send force.
 
 ## 6. Independently usable native client
 
@@ -426,6 +423,23 @@ Target bearer configuration is omitted for a target with no bearer requirement. 
 
 Every known-run command may replace the positional ID with `--run-file run.json`. `run` can write `--save-request prepared.json` before sending and `--save-run run.json` after acknowledgement. An existing output file is refused unless its explicit `--overwrite` flag is supplied; writing failures before dispatch are not-sent, and writing failures after acknowledgement report that acknowledgement. Neither writing a run file nor printing stdout is a promise of consumer transactionality or fsync durability. Callers needing that guarantee use their own store through the SDK.
 
+The accepted run file is a serialized `RunReference`. Its proposed concrete representation is:
+
+```json
+{
+  "schema": "zeroshot-dotnet/run-reference/v1",
+  "target": "https://target.example/",
+  "runId": "019f6ba6-7c00-7000-8000-000000000001",
+  "nativeBinding": {
+    "provenance": "caller-supplied",
+    "release": "10.9.0",
+    "sourceRevision": "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"
+  }
+}
+```
+
+Only the acknowledged run ID is saved by `--save-run`; an uncertain submission does not produce a confirmed run reference. The file identifies the run and contains neither credentials nor run history. `--run-file` does not submit work. A target requiring authentication also receives its credential source through `--config` or the explicit credential-source options. When configuration accompanies a run file, the target and binding must agree. The SDK owns reference serialization/validation; the CLI owns the requested file reads/writes.
+
 `watch`/`logs` accept `--checkpoint checkpoint.json` as an alternative to `--after`; scope mismatch fails locally. They output cursors but never automatically advance a consumer processing checkpoint. `--recovery none` disables SDK recovery; default is `established-interruptions`. Shared resource controls are in the configuration file; `--request-timeout 45s` overrides the unary timeout. Durations accept `ms`, `s`, `m`, `h`, require an explicit unit, and use `infinite` only for a wait budget. Byte limits are integer bytes in configuration. CLI parsing/formatting and explicit file reads/writes stay in the CLI; request preparation, replay, waiting, recovery and failure classification stay in the libraries.
 
 ```bash
@@ -545,11 +559,13 @@ Sources: [create a .NET tool](https://learn.microsoft.com/en-us/dotnet/core/tool
 
 The existing release decision still requires package/CLI checks on all six selected OS/architecture combinations and a Linux x64 controlled native 10.9.0 conformance witness. This prototype does not provide any of that evidence. CLI-only and asset-preparation capabilities are not being implemented by a usage sketch.
 
-## 11. Questions for this prototype review
+## 11. Remaining review
 
-1. **API shape:** retain the compact `SubmitAsync` / `RunAsync` / `GetRun` ordinary surface and explicit `Prepare` / `SubmitAttemptAsync` advanced path, with systematic native groups and typed contracts underneath?
-2. **Observation surface:** keep both the simple asynchronous enumerables and explicit disposable observation objects, plus optional versioned `RunReference` / `HistoryCheckpoint` files? The extra objects expose close/checkpoint evidence without making ordinary callers manage it.
-3. **CLI shape:** use prepared/request JSON files, native-like run verbs and explicit target configuration, rather than offering a second graph/runtime authoring interface? Are the proposed completion-aware exit codes useful?
-4. **Default controls:** adopt the values in the resource table as initial adjustable .NET defaults, especially 30-second unary requests, indefinite cancellable waits, 250-millisecond recovery delay, and 16 observations with 32 MiB aggregate queued records?
+The [live review record](https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561) holds the accepted choices. Review the remaining pieces as small contextual examples:
 
-The next round depends on feedback to these questions. This ticket remains open until live review is complete. The map's final adoption/handoff decision is a separate session; this draft does not settle it.
+- Request/configuration input and credential-source conventions.
+- Concrete direct-client operation grouping and connection/ownership signatures.
+- Configurable timeout, recovery and finite resource defaults.
+- Final consistency review of command/signature/output details against the accepted usage model.
+
+This ticket remains open until live review is complete. The map's adoption/handoff decision is a separate session; this draft does not settle it.
