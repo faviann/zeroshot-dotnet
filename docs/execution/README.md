@@ -76,11 +76,11 @@ native, six-platform, or production HTTP/OECP adapter conformance claim.
 
 ## Observation delivery
 
-Each `NativeClient` owns one `ObservationDelivery`. Forthcoming OECP (#21), hosted
-NDJSON and dashboard SSE bindings must open their generic
+Each `NativeClient` owns one `ObservationDelivery`. OECP run watch/log subscriptions,
+and future hosted NDJSON and dashboard SSE bindings, open their generic
 `ObservationQueue<TRecord,TPosition>` through that owner, so all streams share
-the same admission and aggregate byte budget. This is an internal seam; public
-`NativeSubscription` and wire observation bindings remain unimplemented.
+the same admission and aggregate byte budget. The public `NativeSubscription`
+uses this internal seam; see [OECP subscriptions](../oecp/README.md#one-watch-or-log-subscription).
 
 `TransportOptions` exposes these positive, configurable limits (binary units):
 
@@ -149,4 +149,6 @@ record types, exact byte recovery, slow and abandoned consumers, cancellation,
 disposal, producer settlement, ordered draining, cursor separation and a real
 `NativeClient` control request while observation and ordinary request capacity
 are congested. These tests establish internal delivery behavior, not native
-wire interoperability or implemented OECP/NDJSON/SSE observation support.
+wire interoperability by themselves. Separate OECP subscription fixtures and the
+stock-native witness cover the implemented watch/log binding; NDJSON/SSE bindings
+remain unimplemented.

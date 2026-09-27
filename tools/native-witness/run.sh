@@ -10,15 +10,31 @@ readonly archive=zeroshot-v10.9.0-x86_64-unknown-linux-musl.tar.gz
 readonly archive_sha256=ca7305a0a165f3909481ccfcccce367d3bc2c40a9ab65760f6d6cad2a38d002d
 readonly executable_sha256=f39952b98652301db58a89c4132a0476ae4ec570749b5945cc5200c2d22fad94
 native_pid=''
-cleanup() {
+native_target_pid=''
+native_control=()
+stop_native() {
   if [[ -n $native_pid ]]; then
-    kill "$native_pid" 2>/dev/null || true
+    # Release a waiting test hook before stopping its target, including failure cleanup.
+    if [[ -n $native_target_pid ]]; then touch "$witness_dir/observation-release"; fi
+    "${native_control[@]}" kill -TERM "${native_target_pid:-$native_pid}" 2>/dev/null || true
+    for ((attempt=0; attempt<100; attempt++)); do
+      kill -0 "$native_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    if kill -0 "$native_pid" 2>/dev/null; then
+      "${native_control[@]}" kill -KILL "${native_target_pid:-$native_pid}" 2>/dev/null || true
+    fi
     wait "$native_pid" 2>/dev/null || true
+    native_pid=''
+    native_target_pid=''
   fi
+}
+cleanup() {
+  stop_native
   echo "Witness artifacts: $witness_dir"
 }
 trap cleanup EXIT
-mkdir -p "$witness_dir"/{bin,state,assets,consumer,submission-consumer,feed,packages,config,profile-state}
+mkdir -p "$witness_dir"/{bin,state,assets,consumer,submission-consumer,observation-consumer,feed,packages,config,profile-state}
 # A caller may cache the unmodified release archive; its digest is always checked.
 if [[ -n ${ZEROSHOT_WITNESS_ARCHIVE:-} ]]; then
   cp -- "$ZEROSHOT_WITNESS_ARCHIVE" "$witness_dir/$archive"
@@ -110,5 +126,62 @@ dotnet restore "$witness_dir/submission-consumer/SubmissionConsumer.csproj" --pa
 dotnet run --project "$witness_dir/submission-consumer/SubmissionConsumer.csproj" -c Release --no-restore -- \
   "$origin" "$witness_dir/assets" "$witness_dir" > "$witness_dir/submission.json"
 sha256sum "$witness_dir/complete-retained.json" >> "$witness_dir/provenance.txt"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals\n' | tee "$witness_dir/result.txt"
+
+# Keep the existing admission witnesses above in their original target. This separate
+# target needs native's root-owned preparation boundary but no provider or checkout.
+stop_native
+if (( EUID != 0 )); then
+  sudo -n true || { echo 'Observation witness requires root or passwordless sudo for native setup hooks.' >&2; exit 1; }
+  native_control=(sudo -n --)
+fi
+python3 - "$witness_dir" "$source_revision" <<'PY'
+import json, pathlib, shlex, sys
+directory = pathlib.Path(sys.argv[1])
+request = json.loads((directory / 'request.json').read_text())
+request['runId'] = '0195af77-2100-7000-8000-000000000001'
+submission = request['submission']
+submission['title'] = 'Native watch and logs witness'
+submission['submissionKey'] = 'native-observation-witness'
+submission['source'] = {'repository': 'the-open-engine/zeroshot', 'branch': 'main', 'revision': sys.argv[2]}
+gate = shlex.quote(str(directory / 'observation-release'))
+submission['environment'] = {'setup': (
+    'printf "history-ready\\n"; '
+    f'for ((attempt=0; attempt<600; attempt++)); do if [[ -f {gate} ]]; then '
+    'printf "live-after-subscription\\n"; exit 1; fi; sleep 0.1; done; exit 2'
+)}
+(directory / 'observation-request.json').write_text(json.dumps(request, separators=(',', ':')) + '\n')
+PY
+sha256sum "$witness_dir/observation-request.json" >> "$witness_dir/provenance.txt"
+printf 'observationAsset=no-worker graph; root-owned bounded setup hook; real history/live preparation logs and environment_setup_failed terminal; no checkout/provider execution\n' >> "$witness_dir/provenance.txt"
+start_observation_target() {
+  local phase=$1
+  rm -f -- "$witness_dir/observation-native.pid"
+  "${native_control[@]}" env -i PATH=/usr/bin:/bin /bin/sh -c \
+    'printf "%s\n" "$$" > "$1"; shift; exec "$@"' native-witness \
+    "$witness_dir/observation-native.pid" "$witness_dir/bin/zeroshot" target serve \
+    --listen "127.0.0.1:$port" --public-origin "$origin" --storage "$witness_dir/observation-state" \
+    > "$witness_dir/observation-native-$phase.log" 2>&1 &
+  native_pid=$!
+  local ready=false
+  for ((attempt=0; attempt<100; attempt++)); do
+    if [[ -s "$witness_dir/observation-native.pid" ]]; then native_target_pid=$(cat "$witness_dir/observation-native.pid"); fi
+    kill -0 "$native_pid" 2>/dev/null || { cat "$witness_dir/observation-native-$phase.log" >&2; exit 1; }
+    if rg --quiet 'Zeroshot direct target listening on' "$witness_dir/observation-native-$phase.log"; then ready=true; break; fi
+    sleep 0.1
+  done
+  [[ $ready == true && $native_target_pid =~ ^[0-9]+$ ]] || { echo 'Native observation listener was not ready.' >&2; exit 1; }
+  printf 'observationTargetPhase=%s pid=%s storage=%s\n' "$phase" "$native_target_pid" "$witness_dir/observation-state" >> "$witness_dir/provenance.txt"
+}
+cp "$repo_dir/examples/ObservationConsumer/"*.cs* "$witness_dir/observation-consumer/"
+dotnet restore "$witness_dir/observation-consumer/ObservationConsumer.csproj" --packages "$witness_dir/packages" \
+  --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/observation-restore.log"
+dotnet build "$witness_dir/observation-consumer/ObservationConsumer.csproj" -c Release --no-restore > "$witness_dir/observation-build.log"
+start_observation_target live
+dotnet run --project "$witness_dir/observation-consumer/ObservationConsumer.csproj" -c Release --no-build --no-restore -- \
+  "$origin" "$witness_dir" live > "$witness_dir/observation-before-restart.json"
+stop_native
+start_observation_target restarted
+dotnet run --project "$witness_dir/observation-consumer/ObservationConsumer.csproj" -c Release --no-build --no-restore -- \
+  "$origin" "$witness_dir" restarted > "$witness_dir/observation-after-restart.json"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"

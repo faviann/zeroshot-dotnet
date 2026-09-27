@@ -233,27 +233,35 @@
       "id": "oecp:run/watch",
       "transport": "OECP",
       "bindingOwnerIssue": 21,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Durable status projections, resume exclusively after cursor. Event body includes `cursor` and status, but **does not contain `workspaceRecovery`**, unlike status/force/list results. [Observation types][observation]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunWatchParams {runId, fromCursor?}` \u2192 `RunWatchResult {subscriptionId, runId, atCursor}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L60"
-      }
+        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "inventory": "native-inventory.md#L60",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
+      },
+      "binding": "OecpConnection.Runs.WatchAsync"
     },
     {
       "id": "oecp:run/logs",
       "transport": "OECP",
       "bindingOwnerIssue": 21,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Retained safe log replay then live records; optional exact opaque execution selector accepts active or settled execution. Without the optional fields, returns all retained safe logs. [Observation types][observation]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunLogsParams {runId, fromCursor?, execution?}` \u2192 `RunLogsResult {subscriptionId, runId, atCursor}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L61"
-      }
+        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "inventory": "native-inventory.md#L61",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
+      },
+      "binding": "OecpConnection.Runs.LogsAsync"
     },
     {
       "id": "oecp:run/attach",
@@ -1217,40 +1225,55 @@
       "id": "oecp-notification:event",
       "transport": "OECP",
       "bindingOwnerIssue": 20,
-      "status": "unimplemented",
+      "status": "partially implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "Body is selected by the established subscription, not by another method name. Six bodies listed next.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L74"
-      }
+        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "inventory": "native-inventory.md#L74",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
+      },
+      "binding": "NativeSubscription<TEstablishment,TEvent>.ReadAllAsync",
+      "implementedByIssue": 21
     },
     {
       "id": "oecp-notification:subscription/closed",
       "transport": "OECP",
       "bindingOwnerIssue": 20,
-      "status": "unimplemented",
+      "status": "partially implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "`subscriptionId`, `reason`, and, for durable subscriptions, optional `lastDeliveredCursor`. Reasons are exact strings `done`, `SLOW_CONSUMER`, `SOURCE_UNAVAILABLE`. Closing is terminal for that subscription, not evidence of run success.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L75"
-      }
+        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "inventory": "native-inventory.md#L75",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
+      },
+      "binding": "NativeSubscription<TEstablishment,TEvent>.Completion",
+      "implementedByIssue": 21
     },
     {
       "id": "oecp-notification:subscription/cancel",
       "transport": "OECP",
       "bindingOwnerIssue": 20,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "`{subscriptionId}`. Notification, no response. Removes/wakes only that connection's matching subscription; unknown ID is a no-op. Ends observation only.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L76"
-      }
+        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "inventory": "native-inventory.md#L76",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
+      },
+      "binding": "NativeSubscription<TEstablishment,TEvent>.DisposeAsync",
+      "implementedByIssue": 21
     },
     {
       "id": "oecp-notification:$/cancelRequest",

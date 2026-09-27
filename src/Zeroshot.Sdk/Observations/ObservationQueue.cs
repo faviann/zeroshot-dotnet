@@ -24,6 +24,7 @@ internal sealed class ObservationQueue<T, TPosition>(ObservationDelivery owner) 
     // One bounded signal, no callbacks or transport work run by the queue. A binding
     // observes it, stops its producer and calls Complete after its cleanup settles.
     internal Task StopRequested => stop.Task;
+    internal Exception? StopFailure { get { lock (owner.Gate) return error; } }
     internal TPosition? LastReceivedPosition { get { lock (owner.Gate) return receivedPosition; } }
     internal TPosition? LastBufferedPosition { get { lock (owner.Gate) return bufferedPosition; } }
     internal TPosition? LastDeliveredPosition { get { lock (owner.Gate) return deliveredPosition; } }

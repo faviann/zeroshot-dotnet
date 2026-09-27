@@ -247,23 +247,23 @@ public sealed class OecpTests
         await peer.Finished;
     }
 
-    private static async Task<JsonElement> Read(WebSocket socket)
+    internal static async Task<JsonElement> Read(WebSocket socket)
     {
         using var bytes = new MemoryStream(); var buffer = new byte[4096];
         WebSocketReceiveResult frame;
         do { frame = await socket.ReceiveAsync(buffer, CancellationToken.None); if (frame.MessageType == WebSocketMessageType.Close) throw new InvalidOperationException("Unexpected close"); bytes.Write(buffer, 0, frame.Count); } while (!frame.EndOfMessage);
         using var doc = JsonDocument.Parse(bytes.ToArray()); return doc.RootElement.Clone();
     }
-    private static Task Reply(WebSocket socket, JsonElement request, string result, bool fragmented = false)
+    internal static Task Reply(WebSocket socket, JsonElement request, string result, bool fragmented = false)
         => Send(socket, $$"""{"jsonrpc":"2.0","id":{{request.GetProperty("id")}},"result":{{result}}} """, fragmented);
-    private static async Task Send(WebSocket socket, string value, bool fragmented = false)
+    internal static async Task Send(WebSocket socket, string value, bool fragmented = false)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
         if (fragmented) { await socket.SendAsync(bytes.AsMemory(0, 7), WebSocketMessageType.Text, false, CancellationToken.None); await socket.SendAsync(bytes.AsMemory(7), WebSocketMessageType.Text, true, CancellationToken.None); }
         else await socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
-    private sealed class Peer : IAsyncDisposable
+    internal sealed class Peer : IAsyncDisposable
     {
         private readonly TcpListener listener = new(IPAddress.Loopback, 0);
         private WebSocket? serverSocket;
