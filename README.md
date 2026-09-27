@@ -4,7 +4,7 @@
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
 definitions, local wire validation, immutable credential-free prepared submissions,
 [bounded HTTP discovery, session acquisition and direct submission attempts](docs/http/README.md), and
-[WebSocket OECP inspection](docs/oecp/README.md) of existing targets. An
+[WebSocket OECP inspection and bounded watch/log subscriptions](docs/oecp/README.md) of existing targets. An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).
@@ -28,7 +28,8 @@ explicit serialization/export remains the caller's responsibility.
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
 | `examples/DiscoveryConsumer` | Packed-library discovery/session and native OECP inspection witness. |
 | `examples/SubmissionConsumer` | Packed-library complete-asset admission, normalization and replay witness. |
-| `tools/native-witness/run.sh` | Stock-native Linux x64 HTTP submission/discovery/session and OECP inspection witness. |
+| `examples/ObservationConsumer` | Packed-library watch/log replay, live records and target-restart witness. |
+| `tools/native-witness/run.sh` | Stock-native Linux x64 HTTP/OECP inspection, submission and observation witness. |
 
 Install a .NET 10 SDK, then run:
 

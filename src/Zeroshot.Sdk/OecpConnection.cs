@@ -3,11 +3,12 @@ using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
+using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
-/// <summary>One owned WebSocket, multiplexing bounded unary OECP calls. No retries, subscription recovery or native stop.</summary>
-public sealed class OecpConnection : IDisposable, IAsyncDisposable
+/// <summary>One owned WebSocket, multiplexing bounded OECP calls and subscriptions. No retries, recovery or native stop.</summary>
+public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
 {
     public const string ProtocolVersion = "openengine.cluster/v1";
     private readonly ClientWebSocket socket;
@@ -20,6 +21,8 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
     private readonly CancellationTokenSource lifetime = new();
     private readonly object gate = new();
     private readonly Dictionary<long, Pending> pending = [];
+    private readonly Dictionary<SubscriptionId, IOecpSubscription> subscriptions = [];
+    private readonly ObservationDelivery observations;
     private readonly TaskCompletionSource<OecpConnectionFailure?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private long nextId;
     private bool closed;
@@ -30,10 +33,11 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
     public Task<OecpConnectionFailure?> Completion => completion.Task;
 
     internal OecpConnection(ClientWebSocket socket, HttpMessageInvoker invoker, IDisposable lease,
-        OperationExecutor executor, OperationLimits limits, Action<OecpConnection> released)
+        OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released)
     {
         this.socket = socket; this.invoker = invoker; this.lease = lease; this.executor = executor;
         this.limits = limits; this.released = released;
+        this.observations = observations;
         Cluster = new(this); Runs = new(this);
     }
 
@@ -71,11 +75,21 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
         catch (OperationCancelled error) { throw new OecpOperationCanceledException(error, state.Facts); }
     }
 
-    internal async Task<T> CallAsync<T>(string method, byte[] parameters, Action<T>? validate, CancellationToken cancellationToken, OecpRequest? request = null)
+    internal async Task<T> CallAsync<T>(string method, byte[] parameters, Action<T>? validate, CancellationToken cancellationToken, OecpRequest? request = null,
+        Action<T>? register = null)
     {
         request ??= CreateRequest();
         var id = request.Claim(this);
         var state = new Pending(new RequestId(id));
+        // Establishment must register on the receive loop before it can read the next
+        // notification. The caller continuation cannot provide that ordering.
+        if (register is not null) state.BeforeResponse = response =>
+        {
+            if (!response.TryGetProperty("result", out var wireResult)) return;
+            var result = NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(wireResult.GetRawText()));
+            validate?.Invoke(result);
+            register(result);
+        };
         var bytes = RequestBytes(method, id, parameters);
         JsonRpcError? rpcError = null;
         try
@@ -116,6 +130,16 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
                 finally { lock (gate) pending.Remove(id); }
             }, cleanup: async token =>
             {
+                if (register is not null)
+                {
+                    // Cleanup may race the send continuation. Any started establishment
+                    // can allocate a remote stream, even before SendCompleted is published.
+                    // Sharing SendAsync's gate makes this decision atomic with its token
+                    // check and SendStarted update; a later send sees the cancelled token.
+                    lock (gate)
+                        if (state.SendStarted && !state.ResponseReceived) Close(NativeOecpFailureKind.Transport);
+                    return;
+                }
                 // An abandoned read does not stop a run. The native WebSocket binding accepts
                 // this cooperative notification; late replies keep their original ID and are ignored.
                 if (state.SendCompleted && !state.ResponseReceived)
@@ -178,9 +202,10 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
                 using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 128 });
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Select(p => p.Name).Distinct().Count() != root.EnumerateObject().Count() ||
-                    !root.TryGetProperty("jsonrpc", out var version) || version.ValueKind != JsonValueKind.String || version.GetString() != "2.0" ||
-                    !root.TryGetProperty("id", out var wireId) || root.TryGetProperty("result", out _) == root.TryGetProperty("error", out _))
+                    !root.TryGetProperty("jsonrpc", out var version) || version.ValueKind != JsonValueKind.String || version.GetString() != "2.0")
                     throw new JsonException();
+                if (root.TryGetProperty("method", out _)) { ReceiveNotification(root, bytes.Length); continue; }
+                if (!root.TryGetProperty("id", out var wireId) || root.TryGetProperty("result", out _) == root.TryGetProperty("error", out _)) throw new JsonException();
                 var id = NativeJson.DeserializeUtf8<RequestId>(Encoding.UTF8.GetBytes(wireId.GetRawText()));
                 lock (gate)
                 {
@@ -189,6 +214,7 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
                     {
                         if (!state.SendStarted || state.ResponseReceived) throw new JsonException();
                         state.ResponseReceived = true;
+                        state.BeforeResponse?.Invoke(root);
                         state.Response.TrySetResult(root.Clone());
                     }
                     // Retired local IDs may be legitimate replies after cancellation; no unbounded tombstone table.
@@ -208,6 +234,8 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
             closed = true;
             foreach (var call in pending.Values) call.Response.TrySetException(new ConnectionInterrupted(failure ?? NativeOecpFailureKind.Transport));
             pending.Clear();
+            foreach (var subscription in subscriptions.Values) subscription.Disconnected(failure);
+            subscriptions.Clear();
         }
         lifetime.Cancel();
         socket.Abort(); socket.Dispose(); invoker.Dispose(); lease.Dispose(); released(this);
@@ -249,6 +277,7 @@ public sealed class OecpConnection : IDisposable, IAsyncDisposable
         public volatile bool SendStarted;
         public volatile bool SendCompleted;
         public volatile bool ResponseReceived;
+        public Action<JsonElement>? BeforeResponse;
         public TaskCompletionSource<JsonElement> Response { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public OecpDispatchFacts Facts => new(id, SendStarted, SendCompleted, ResponseReceived);
     }
@@ -264,7 +293,7 @@ public sealed class OecpClusterClient
         => connection.CallAsync<GetResult>("get", NativeJson.SerializeUtf8(parameters ?? new()), null, cancellationToken, request);
 }
 
-public sealed class OecpRunsClient
+public sealed partial class OecpRunsClient
 {
     private readonly OecpConnection connection;
     internal OecpRunsClient(OecpConnection connection) => this.connection = connection;

@@ -1,4 +1,4 @@
-# WebSocket OECP inspection
+# WebSocket OECP inspection and subscriptions
 
 The lower client connects to an existing acquired session and makes individual,
 bounded calls. It does not start native processes or retry failed operations.
@@ -30,7 +30,8 @@ explicitly. Request IDs use native signed 64-bit integers or strings; this bindi
 allocates positive integer IDs. Retired local IDs are ignored so a delayed response
 after cancellation cannot complete another call. No ID is reused on a connection.
 `Completion` exposes a connection-wide failure even when no unary call is pending;
-explicit disposal completes it with null. There are no subscription bindings yet.
+explicit disposal completes it with null. Run watch and log subscriptions share
+this receive loop and the native client's observation budget.
 
 Liveness uses .NET's WebSocket PING/PONG implementation: 30 s ping interval and
 15 s pong timeout, independently configurable as `WebSocketPingInterval` and
@@ -92,3 +93,76 @@ status, unsupported protocol rejection and empty cluster get. Its recorded nativ
 terminal failure is inspection evidence, not a provider execution claim. Live
 hosted/private authorities and populated recovery metadata remain unverified;
 controlled peers and source-backed fixtures cover those shapes.
+
+## One watch or log subscription
+
+```csharp
+await using var watch = await oecp.Runs.WatchAsync(
+    new RunWatchParams { RunId = runId, FromCursor = lastDeliveredCursor },
+    expectedSource, cancellationToken);
+var establishment = watch.Establishment;
+await foreach (var record in watch.ReadAllAsync(cancellationToken))
+{
+    // Full status, title, source, size and opaque cursor are available here.
+    Inspect(record);
+}
+var close = await watch.Completion;
+var callerCursor = watch.LastDeliveredCursor;
+var serverCursor = close.ServerClose?.LastDeliveredCursor;
+```
+
+`Runs.LogsAsync(new RunLogsParams { RunId = runId, FromCursor = cursor,
+Execution = execution }, cancellationToken)` returns a separate complete log
+contract: subscription/run IDs, cursor, producer timestamp, optional execution,
+and level/target/message. Omitting the execution selector includes run-wide system
+logs; supplying one requires exact equality, including rejecting records without
+an execution. Log text follows native UTF-8 byte and control-character bounds.
+Watch records preserve all status variants and terminal metadata; they have no
+workspace recovery field. `NativeJson` validates both complete native contracts.
+
+Establishment is registered in the receive loop before the next notification can
+arrive. The result must identify the requested run and echo a supplied `FromCursor`.
+That cursor is an exclusive starting position, not a current-history watermark.
+Cursors remain opaque; the client never parses, orders or increments them.
+Watch source identity must match `expectedSource` when supplied, or remain equal
+to the first validated source. Active subscription records with malformed shapes
+or foreign run/source/execution identities fail that subscription without delivery.
+Unknown subscription IDs are ignored, including legitimate frames still in flight
+after local detach. No retired-ID table is retained.
+
+`NativeSubscription<TEstablishment,TEvent>` has one reader. `Completion` records
+server closure, local disposal/cancellation, local failure or unexpected disconnect.
+The original `subscription/closed` body preserves `done`, `SLOW_CONSUMER` and
+`SOURCE_UNAVAILABLE`, including the server's cursor. The caller cursor advances
+only when enumeration hands over a record and can continue advancing as buffered
+records drain after completion. It is never replaced by the server cursor or the
+establishment cursor. Neither `done` nor EOF proves successful native execution.
+After validated buffered records drain, incomplete server closes, local overflow,
+protocol failure and disconnect throw `NativeSubscriptionException` with safe typed
+metadata. An unexpected disconnect has no fabricated server-close body.
+
+All connections share the existing client observation limits: 16 subscriptions,
+256 queued records and 8 MiB encoded record bytes per stream, 32 MiB aggregate.
+Both record and byte limits apply. The event's complete encoded frame is charged;
+there is no second adapter queue and no task per record. Overflow ends only its
+stream, retains already validated records for draining and uses reserved control
+capacity to detach. No record is silently dropped from an active healthy stream.
+
+Disposal, breaking enumeration, or either the opening or enumeration token cancels
+local observation and discards undelivered records. Cleanup sends the native
+`subscription/cancel` notification through the existing connection under the finite
+cleanup budget. It has no acknowledgement and never sends native stop. Failed
+cleanup aborts the connection to release remote observation ownership; multiplexed
+callers share that connection-wide failure exposure. Cancellation of a dispatched
+establishment without a response also closes its connection because the remote
+subscription ID is still unknown. No operation here automatically reopens or waits
+for native execution to finish.
+
+`SubscriptionTests` and `SubscriptionContractTests` exercise immediate events,
+complete projections, exact identity/selector checks, opaque cursors, close reasons,
+detached stragglers, cancellation and byte/record congestion with usable control
+capacity. The packed `ObservationConsumer` in the stock Linux witness proves
+history replay and genuinely new watch/log records after establishment, then exact
+run/source and exclusive replay after restarting the target with retained storage.
+Native environment hooks generate the records and an intentional setup failure;
+this is observation evidence and makes no provider execution claim.

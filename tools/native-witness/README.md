@@ -1,7 +1,9 @@
 # Stock native Linux x64 witness
 
 Run `tools/native-witness/run.sh` from any directory on Linux x64 with .NET 10,
-Bash, Python 3, curl, tar, sha256sum, shuf and ripgrep. It downloads the pinned official stock
+Bash, Python 3, curl, tar, sha256sum, shuf and ripgrep. The observation phase also
+requires root or passwordless `sudo`, because stock native owns setup hooks and
+isolated runtime identities as root. It downloads the pinned official stock
 release, verifies the archive and extracted executable, and launches a loopback
 native target with fresh state and asset directories and a
 scrubbed environment. A test-owned no-worker graph is admitted with a fixed run/source
@@ -13,8 +15,8 @@ directory and prints its path on success or failure. It terminates the native
 process on exit and retains artifacts for inspection. The port is chosen randomly;
 `ZEROSHOT_WITNESS_PORT` can select an available unprivileged port. A bind collision
 fails explicitly. `ZEROSHOT_WITNESS_ARCHIVE` can supply a cached archive, which still
-must pass the pinned checksum check. Python is used only to extract/compare test
-assets; consumers and the client library do not depend on it.
+must pass the pinned checksum check. Python prepares and compares test assets;
+consumers and the client library do not depend on it.
 
 Pinned provenance:
 
@@ -61,10 +63,40 @@ asset/retained hashes. These are admission/replay proofs, not provider or forge
 execution. The fake gateway points to a closed numeric loopback port; no external
 provider or forge authority is supplied.
 
+A third packed-package consumer exercises `Runs.WatchAsync` and `Runs.LogsAsync`
+against a separate target with fresh observation storage. The original target is
+stopped first. Only this target runs with root privileges and a scrubbed environment.
+The admitted no-worker graph has a test-owned setup hook that prints `history-ready`,
+waits for a release file, prints `live-after-subscription`, and exits with status 1.
+The hook has a 60-second bound and runs before source checkout. Native captures its
+output, appends real preparation logs to its own ledger, and records the terminal
+`environment_setup_failed` status. The witness never edits the ledger or injects
+observation events. Its source is the pinned native repository/revision; that exact
+source identity is checked without claiming a checkout or provider execution.
+
+The consumer first observes the setup's waiting point and retains its opaque cursor.
+It then establishes fresh watch/log subscriptions, reads preexisting log history,
+checks exact run/source status, and releases the hook only after both subscriptions
+are acknowledged. It verifies the subsequent live log records and live terminal
+watch event, distinct cursors, and authoritative `done` closes with delivery positions.
+After completion it replays logs exclusively after the retained history cursor and
+replays the terminal watch history. Requests from each stream's final cursor must
+return no records. Cursors are reused verbatim and are never parsed or incremented.
+
+The shell stops that target, starts the same executable against the same observation
+storage, and launches a new packed consumer process. It verifies the exact run/source
+and terminal cursor, then repeats both history and exclusive-boundary checks. This
+proves terminal observation survives an actual target restart; it does not claim
+automatic reconnect, uninterrupted execution, or provider success. Consumer phases
+have a 30-second budget. Cleanup releases any waiting hook and terminates the target.
+
 It retains provenance, request bytes and hash, receipt, native logs, raw discovery/
 session data, response headers, complete/readmitted asset bytes and hashes, exact
-retained submission bytes, package/restore logs and both consumer outputs. Later
-binding issues extend this harness. Live hosted/private authorities, provider success
+retained submission bytes, package/restore logs and all consumer outputs. Observation
+evidence includes `observation-request.json`, original `observation-logs.json` and
+`observation-watch.json` records, `observation-live.json` establishment and delivery
+evidence, `observation-before-restart.json`, `observation-after-restart.json`, and
+native logs/PIDs for both target starts. Live hosted/private authorities, provider success
 and populated workspace recovery remain unverified. Hosted/private contracts currently use source-backed controlled
 HTTP peers; HTTPS acquisition uses a temporary trusted certificate in deterministic
 tests, and WSS scheme/authority/port rules are tested without dialing WebSockets.
@@ -73,3 +105,11 @@ The wire and dispatch authorities are
 [`native_v2_target.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/crates/openengine-cluster-protocol/src/native_v2_target.rs),
 [`transport.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target_authority/transport.rs),
 and [`serve.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target/serve.rs).
+
+The preparation witness uses stock
+[`preparation.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_cloud/preparation.rs)
+for ledger-owned `SafeLog` records,
+[`allocator.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_hosting/allocator.rs)
+for setup-before-checkout ordering, and
+[`environment.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_hosting/environment.rs)
+for hook execution and output capture.

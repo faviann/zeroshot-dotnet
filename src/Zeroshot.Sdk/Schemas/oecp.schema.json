@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection closure; shared definitions come from contracts.schema.json. TokenCount is native inline inputTokens schema.",
+  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection and run subscription closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
   "$defs": {
     "ActiveExecution": {
       "additionalProperties": false,
@@ -223,6 +223,32 @@
       ],
       "type": "string"
     },
+    "LogRecord": {
+      "additionalProperties": false,
+      "description": "The closed public log record shape: a level, a bounded target, and a bounded (possibly\nredacted) message. No raw bytes, reasoning, tools, credentials, env, or provider/session IDs\nare representable.",
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "message": {
+          "maxLength": 16384,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "target",
+        "message"
+      ],
+      "type": "object"
+    },
     "OperationalStatus": {
       "additionalProperties": false,
       "properties": {
@@ -298,6 +324,95 @@
       },
       "required": [
         "runs"
+      ],
+      "type": "object"
+    },
+    "RunLogEventNotification": {
+      "additionalProperties": false,
+      "description": "One durable, reconnectable safe log record. Run-wide system records have no execution;\nexecution output carries the stable opaque selector used by status and attach.",
+      "properties": {
+        "cursor": {
+          "type": "string"
+        },
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "record": {
+          "$ref": "#/$defs/LogRecord"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Producer-captured Unix epoch milliseconds, preserved unchanged by durable replay.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "cursor",
+        "timestamp",
+        "record"
+      ],
+      "type": "object"
+    },
+    "RunLogsParams": {
+      "additionalProperties": false,
+      "description": "Establishes durable run log replay followed by live delivery.\n\nAn optional execution filter selects one active or settled execution using the exact opaque\nreference advertised by status. `fromCursor` is exclusive, with the same reconnect semantics\nas [`RunWatchParams`]. Omitting both fields after `runId` replays the run's complete retained\nsafe log history.",
+      "properties": {
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fromCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunLogsResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "atCursor"
       ],
       "type": "object"
     },
@@ -447,6 +562,85 @@
       ],
       "type": "object"
     },
+    "RunWatchEventNotification": {
+      "additionalProperties": false,
+      "description": "One durable public status projection. `cursor` is stable run history, not a connection-local\nsequence; clients resume strictly after it.",
+      "properties": {
+        "cursor": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/RunSize"
+        },
+        "source": {
+          "$ref": "#/$defs/ResolvedSource"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        },
+        "subscriptionId": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "title",
+        "source",
+        "size",
+        "cursor",
+        "status"
+      ],
+      "type": "object"
+    },
+    "RunWatchParams": {
+      "additionalProperties": false,
+      "description": "Establishes a durable run watch.\n\n`fromCursor` is exclusive. Reconnecting with the last delivered cursor therefore returns each\nlater watch record once, with no replayed boundary record and no skipped later record.",
+      "properties": {
+        "fromCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunWatchResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "atCursor"
+      ],
+      "type": "object"
+    },
     "ServerCapabilities": {
       "additionalProperties": false,
       "properties": {
@@ -487,6 +681,58 @@
         "force"
       ],
       "type": "string"
+    },
+    "SubscriptionCancelParams": {
+      "additionalProperties": false,
+      "description": "Wire body of the generic `subscription/cancel` client notification.",
+      "properties": {
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId"
+      ],
+      "type": "object"
+    },
+    "SubscriptionCloseReason": {
+      "oneOf": [
+        {
+          "enum": [
+            "done",
+            "SLOW_CONSUMER"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "SOURCE_UNAVAILABLE",
+          "description": "The source could not read the remaining history; delivered events are retained, but the\nstream is incomplete. This is not a successful end or a request to reconnect indefinitely.",
+          "type": "string"
+        }
+      ]
+    },
+    "SubscriptionClosedNotification": {
+      "additionalProperties": false,
+      "description": "Wire body of the terminal `subscription/closed` server notification.",
+      "properties": {
+        "lastDeliveredCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/SubscriptionCloseReason"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "reason"
+      ],
+      "type": "object"
     },
     "TerminalResult": {
       "description": "Authoritative terminal value for backends that can durably reconstruct a completed graph.\n\nThis is additive to [`GetResult`]: backends that do not yet expose terminal values leave the\noptional field absent, including when their status is already `finished`.",
@@ -573,6 +819,11 @@
         "complete"
       ],
       "type": "object"
+    },
+    "UnixTimestampMillis": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
     },
     "WorkspaceRecovery": {
       "additionalProperties": false,
