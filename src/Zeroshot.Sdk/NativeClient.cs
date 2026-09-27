@@ -257,7 +257,7 @@ public sealed class NativeTargetClient
 {
     internal const string DiscoveryPath = "/.well-known/zeroshot-native-v2";
     internal static readonly OperationDescriptor DiscoveryOperation = new("target.discover", OperationTransport.Http);
-    internal static readonly OperationDescriptor SessionOperation = new("target.createOecpSession", OperationTransport.Http,
+    internal static readonly OperationDescriptor SessionOperation = new("target.createOecpSession", OperationTransport.Http, isControl: true,
         requestBytes: 4 * 1024 * 1024, responseBytes: 64 * 1024);
     private readonly NativeClient client;
     internal NativeTargetClient(NativeClient client) => this.client = client;

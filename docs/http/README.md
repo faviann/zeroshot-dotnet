@@ -31,7 +31,8 @@ or assert that any capability is supported by the target.
 requests with four reserved control slots, eight HTTP connections per origin,
 4 MiB request / 8 MiB response / 64 KiB error-body bounds. All settings are positive
 and finite; reserved slots must leave ordinary capacity. Discovery consumes ordinary
-request capacity. It has no body, so its encoded request-body size is zero. Size
+request capacity; session acquisition can use the reserved control slots. Discovery
+has no body, so its encoded request-body size is zero. Size
 checks count received bytes independently of Content-Length, including a one-byte
 overflow probe; they do not truncate a discovery document. Error bodies use the
 smaller response/error ceiling. The default transport uses HTTP/1.1 and registers

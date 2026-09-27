@@ -231,6 +231,79 @@ public sealed class HttpSessionTests
     }
 
     [Test]
+    public async Task UnicodeRefusalDetailsUseNativeCompactUtf8Bounds()
+    {
+        foreach (var (count, suffix, valid) in new[] { (6000, "", true), (15357, "x", true), (15357, "xx", false) })
+        {
+            // {"text":""} is 11 native bytes; an emoji is four UTF-8 bytes.
+            // The latter two cases are exactly 61440 and 61441 serialized detail bytes.
+            var text = string.Concat(Enumerable.Repeat("😀", count)) + suffix;
+            var body = "{\"code\":\"refused\",\"message\":\"request refused\",\"details\":{\"text\":\"" + text + "\"}}";
+            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body, HttpStatusCode.Forbidden)));
+            using var http = new HttpClient(handler);
+            using var client = NativeClient.ForHttp(Options(), http);
+            var failure = await Failure(client.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.HttpStatus);
+            Check(failure.StatusCode == HttpStatusCode.Forbidden && (failure.Problem is not null) == valid);
+            if (valid) Check(failure.Problem!.Details!.Value.GetProperty("text").GetString() == text);
+            Check(!failure.ToString().Contains("😀"));
+        }
+    }
+
+    [Test]
+    public void DetailSizeUsesDecodedValuesIncludingKeysNestedStringsAndNumbers()
+    {
+        // Pinned serde_json 1.0.150 serializes this mixed object to 113 UTF-8 bytes.
+        // Whitespace, escaped surrogate pairs and padded exponents are wire spellings,
+        // not extra bytes in its reserialized Value. Pad to either side of 60 KiB.
+        const string details = """{"😀":["\ud83d\ude00","\u2028","\u0001","\b","\"","\\", true,false,null,1.0,1e+000020,0.000001,-0,18446744073709551615],"pad":""}""";
+        foreach (var extra in new[] { 0, 1 })
+        {
+            var padded = details.Replace("\"pad\":\"\"", "\"pad\":\"" + new string('x', 61440 - 113 + extra) + "\"");
+            var bytes = Encoding.UTF8.GetBytes("{\"code\":\"refused\",\"message\":\"request refused\",\"details\":" + padded + "}");
+            try
+            {
+                var problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes);
+                Check(extra == 0);
+                // NativeJson's explicit export may use .NET escaping; validation still
+                // measures the decoded native value on the subsequent round trip.
+                _ = NativeJson.DeserializeUtf8<TargetHttpProblem>(NativeJson.SerializeUtf8(problem));
+            }
+            catch (JsonException) when (extra == 1) { }
+        }
+    }
+
+    [Test]
+    public async Task SessionAcquisitionRemainsAvailableWhenOrdinaryRequestsAreSaturated()
+    {
+        var entered = 0;
+        var discoveriesStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new Handler(async (request, cancellationToken) =>
+        {
+            if (request.Method == HttpMethod.Post) return Reply(request, Result());
+            if (Interlocked.Increment(ref entered) == 2) discoveriesStarted.TrySetResult();
+            await release.Task.WaitAsync(cancellationToken);
+            return Reply(request, Encoding.UTF8.GetString(NativeJson.SerializeUtf8(Discovery())));
+        });
+        using var http = new HttpClient(handler);
+        using var client = NativeClient.ForHttp(Options(new() { MaxConcurrentRequests = 3, ReservedControlRequests = 1 }), http);
+        var first = client.Target.DiscoverAsync();
+        var second = client.Target.DiscoverAsync();
+        try
+        {
+            await discoveriesStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Failure(client.Target.DiscoverAsync(), NativeHttpFailureKind.Capacity);
+            var session = await client.Target.CreateOecpSessionAsync(Discovery());
+            Check(session.Endpoint == "wss://target.example/native-v2/oecp" && handler.Calls == 3);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await Task.WhenAll(first, second);
+        }
+    }
+
+    [Test]
     public async Task SessionResponseRequestAndErrorBoundsAreEnforced()
     {
         foreach (var (status, transport, body) in new[]
