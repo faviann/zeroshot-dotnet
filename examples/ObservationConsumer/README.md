@@ -9,7 +9,9 @@ preexisting history and new watch/log records, and retains exact events and opaq
 cursors. Both `live` and `restarted` verify history replay, exclusive cursor boundaries,
 server completion, and exact run/source identity. It also reads run history while
 the run is admitted and not terminal, the retained terminal event after completion,
-and the identical retained page after the restart. The hook intentionally fails before
+and the identical retained page after the restart. A dashboard SSE observation opened
+before the release streams the active run's pages through the terminal event while a
+sibling observation is disposed alone. The hook intentionally fails before
 checkout or provider execution; all observation records come from native itself.
 
 The consumer connects to an existing target and has a 30-second budget. Only the

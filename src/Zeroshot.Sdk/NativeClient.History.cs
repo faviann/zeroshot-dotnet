@@ -112,7 +112,7 @@ public sealed class NativeHistoryClient
         return Route(discovery, credentials, d => d.Page, runId.Value, after.Value, allowsAfter: true);
     }
 
-    private static void RequireRunId(RunId runId, string name)
+    internal static void RequireRunId(RunId runId, string name)
     {
         ArgumentNullException.ThrowIfNull(runId, name);
         if (!TargetRunRequest.IsCanonicalRunId(runId.Value))

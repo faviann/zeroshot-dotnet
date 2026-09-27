@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
+using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
@@ -59,6 +61,37 @@ public sealed partial class NativeClient
         var body = request is null ? null : NativeJson.SerializeUtf8(request);
         return ExecuteJsonAsync<T>(operation, new Uri(Origin, path), body, null, _ => { }, cancellationToken);
     }
+
+    internal async Task<DashboardRunEvents> OpenRunEventsAsync(OperationDescriptor operation, Uri requestUri, Cursor start,
+        Cursor? lastEventId, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        // Admission precedes dispatch; the opening token also cancels this observation later.
+        ObservationQueue<DashboardRunEvent, Cursor> queue;
+        try { queue = Observations.Open<DashboardRunEvent, Cursor>(cancellationToken); }
+        catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
+        try
+        {
+            var (response, body) = await ExecuteHttpAsync(operation, HttpMethod.Get, requestUri, null, null, async (response, context) =>
+            {
+                if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentType?.MediaType != "text/event-stream")
+                    throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode);
+                return (response, await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false));
+            }, cancellationToken, configure: request =>
+            {
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+                if (lastEventId is not null) request.Headers.TryAddWithoutValidation("Last-Event-ID", lastEventId.Value);
+            }, keepResponse: true).ConfigureAwait(false);
+            // Native pages stay within 8 MiB; the configured message ceiling can only lower it.
+            return new DashboardRunEvents(queue, response, body, start, Math.Min(limits.MessageBytes, 8 * 1024 * 1024));
+        }
+        catch
+        {
+            queue.Dispose();
+            queue.Complete();
+            throw;
+        }
+    }
 }
 
 /// <summary>
@@ -82,12 +115,29 @@ public sealed class NativeDashboardClient
     internal static readonly OperationDescriptor ValidateOperation = Browser("dashboard.validate", MaxDraftRequestBytes);
     internal static readonly OperationDescriptor AuthoringOperation = Browser("dashboard.authoring", MaxDraftRequestBytes);
     internal static readonly OperationDescriptor DataOperation = Browser("dashboard.data", MaxDraftRequestBytes);
+    // Native serves these with the run-history handlers behind the discovered direct-target routes.
+    internal static readonly OperationDescriptor ListRunsOperation = History("dashboard.listRuns", 4);
+    internal static readonly OperationDescriptor HeadRunsOperation = History("dashboard.headRuns", 4);
+    internal static readonly OperationDescriptor GetRunOperation = History("dashboard.getRun", 8);
+    internal static readonly OperationDescriptor HeadRunOperation = History("dashboard.headRun", 8);
+    internal static readonly OperationDescriptor GetHistoryOperation = History("dashboard.getHistory", 8);
+    internal static readonly OperationDescriptor HeadHistoryOperation = History("dashboard.headHistory", 8);
+    internal static readonly OperationDescriptor RunEventsOperation = History("dashboard.runEvents", 8);
+    internal static readonly OperationDescriptor HeadRunEventsOperation = History("dashboard.headRunEvents", 8);
+    private const string RunsPath = "/ui/api/runs{?after}";
+    private const string RunPath = "/ui/api/runs/{run_id}";
+    private const string HistoryPath = "/ui/api/runs/{run_id}/history{?after}";
+    private const string EventsPath = "/ui/api/runs/{run_id}/events{?after}";
+    private static readonly Cursor InitialCursor = new("v2:0");
     private const string BootstrapPath = "/ui/api/bootstrap";
     private readonly NativeClient client;
     internal NativeDashboardClient(NativeClient client) => this.client = client;
 
     private static OperationDescriptor Browser(string name, int? requestBytes = null)
         => new(name, OperationTransport.Http, requestBytes: requestBytes, uiRouter: true);
+    private static OperationDescriptor History(string name, int responseMebibytes)
+        => new(name, OperationTransport.Http, responseBytes: responseMebibytes * 1024 * 1024, problemBytes: 64 * 1024,
+            uiRouter: true, historyProblems: true);
 
     /// <summary>`GET /`: native redirects to `/ui/`.</summary>
     public Task<DashboardRedirect> GetRootAsync(CancellationToken cancellationToken = default)
@@ -137,6 +187,61 @@ public sealed class NativeDashboardClient
     {
         ArgumentNullException.ThrowIfNull(request);
         return client.DashboardJsonAsync<DashboardDataDraft>(DataOperation, "/ui/api/data", request, cancellationToken);
+    }
+
+    /// <summary>`GET /ui/api/runs`: one run list page, optionally strictly after a canonical UUIDv7 run ID.</summary>
+    public Task<RunHistoryList> ListRunsAsync(RunId? after = null, CancellationToken cancellationToken = default)
+        => client.ExecuteJsonAsync<RunHistoryList>(ListRunsOperation, RunsUri(after), null, null,
+            list => RunHistoryRules.List(list, after), cancellationToken);
+    public Task<NativeHeadResult> HeadRunsAsync(RunId? after = null, CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadRunsOperation, RunsUri(after), null, cancellationToken);
+
+    /// <summary>`GET /ui/api/runs/{id}`: the admitted run definition.</summary>
+    public Task<RunDefinition> GetRunAsync(RunId runId, CancellationToken cancellationToken = default)
+        => client.ExecuteJsonAsync<RunDefinition>(GetRunOperation, RunUri(RunPath, runId, null), null, null,
+            definition => RunHistoryRules.Definition(definition, runId), cancellationToken);
+    public Task<NativeHeadResult> HeadRunAsync(RunId runId, CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadRunOperation, RunUri(RunPath, runId, null), null, cancellationToken);
+
+    /// <summary>`GET /ui/api/runs/{id}/history`: one page strictly after <paramref name="after"/>, or from <c>v2:0</c>.</summary>
+    public Task<HistoryPage> GetHistoryAsync(RunId runId, Cursor? after = null, CancellationToken cancellationToken = default)
+        => client.ExecuteJsonAsync<HistoryPage>(GetHistoryOperation, RunUri(HistoryPath, runId, after), null, null,
+            page => RunHistoryRules.Page(page, after ?? InitialCursor), cancellationToken);
+    public Task<NativeHeadResult> HeadHistoryAsync(RunId runId, Cursor? after = null, CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadHistoryOperation, RunUri(HistoryPath, runId, after), null, cancellationToken);
+
+    /// <summary>
+    /// `GET /ui/api/runs/{id}/events`: one bounded SSE observation of history pages. Both cursors are sent when
+    /// supplied; native resumes after <paramref name="lastEventId"/> in preference to <paramref name="after"/>.
+    /// Never reopens. A refusal before the stream starts is a <see cref="NativeHttpException"/>.
+    /// </summary>
+    public Task<DashboardRunEvents> OpenRunEventsAsync(RunId runId, Cursor? after = null, Cursor? lastEventId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = RunUri(EventsPath, runId, after);
+        if (lastEventId is not null) RequireCursor(lastEventId, nameof(lastEventId));
+        return client.OpenRunEventsAsync(RunEventsOperation, url, lastEventId ?? after ?? InitialCursor, lastEventId, cancellationToken);
+    }
+    public Task<NativeHeadResult> HeadRunEventsAsync(RunId runId, Cursor? after = null, CancellationToken cancellationToken = default)
+        => client.ExecuteHeadAsync(HeadRunEventsOperation, RunUri(EventsPath, runId, after), null, cancellationToken);
+
+    private Uri RunsUri(RunId? after)
+    {
+        if (after is not null) NativeHistoryClient.RequireRunId(after, nameof(after));
+        return NativeRoutes.RunHistoryRoute(client.Origin, RunsPath, null, after?.Value, allowsAfter: true);
+    }
+
+    private Uri RunUri(string template, RunId runId, Cursor? after)
+    {
+        NativeHistoryClient.RequireRunId(runId, nameof(runId));
+        if (after is not null) RequireCursor(after, nameof(after));
+        return NativeRoutes.RunHistoryRoute(client.Origin, template, runId.Value, after?.Value, allowsAfter: template != RunPath);
+    }
+
+    private static void RequireCursor(Cursor cursor, string name)
+    {
+        if (!RunHistoryRules.TryCanonical(cursor, out _))
+            throw new ArgumentException("A history cursor must be canonical v2:<sequence>.", name);
     }
 
     private Uri AssetUri(string assetPath)

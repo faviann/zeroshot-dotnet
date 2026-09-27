@@ -91,6 +91,15 @@ pooled connection. A consumer-owned handler injects a foreign Origin and a `text
 body to show native's typed `origin_rejected` and `json_required` refusals. The harness
 checks that the UI profile store is still empty; `dashboard.json` retains the evidence.
 
+The same consumer reads the browser run routes: the list, a finished run's definition and
+page must equal the discovered run-history binding's results, and all four run routes
+answer HEAD. One SSE observation of that run delivers its retained page and then native
+closes the stream (`ServerClosed`). A second one sends `after=v2:0` with a `Last-Event-ID`
+and native resumes after the latter. Opening events for an unknown run or a cursor ahead
+of the run gives `run_not_found` and `invalid_cursor`, and a cross-site `Sec-Fetch-Site`
+header gives `origin_rejected`. Stock native emitted no `history_error` or keepalive in
+these phases; those are fixture-only.
+
 A third packed-package consumer exercises `Runs.WatchAsync` and `Runs.LogsAsync`
 against a separate target with fresh observation storage. The original target is
 stopped first. This target runs with root privileges and a scrubbed environment.
@@ -110,6 +119,10 @@ watch event, distinct cursors, and authoritative `done` closes with delivery pos
 After completion it replays logs exclusively after the retained history cursor and
 replays the terminal watch history. Requests from each stream's final cursor must
 return no records. Cursors are reused verbatim and are never parsed or incremented.
+Before the release, the consumer also opens two dashboard SSE observations of the
+active run and disposes one; the other stays open, delivers the preexisting and live
+pages, which together equal the finished retained page, and ends with native's close
+after the terminal event.
 
 The shell stops that target, starts the same executable against the same observation
 storage, and launches a new packed consumer process. It verifies the exact run/source

@@ -95,9 +95,56 @@ Require(JsonNode.DeepEquals(JsonNode.Parse(removed.Graph.GetRawText())!["initial
 var discovery = await native.Target.DiscoverAsync();
 Require(discovery.RunPath == "/native-v2/run", "Fixed-route discovery failed after dashboard requests.");
 
+// Run history through the browser routes: the same native handlers as the discovered history capability.
+var runs = await dashboard.ListRunsAsync();
+Require(Wire(runs).ToJsonString() == Wire(await native.History.ListAsync(discovery)).ToJsonString(), "Dashboard and discovered run lists differ.");
+var run = runs.Runs.First(r => r is { HistoryAvailable: true, Phase: RunHistoryPhase.Finished }).RunId;
+var definition = await dashboard.GetRunAsync(run);
+var page = await dashboard.GetHistoryAsync(run);
+Require(Wire(definition).ToJsonString() == Wire(await native.History.DetailAsync(discovery, run)).ToJsonString() &&
+    Wire(page).ToJsonString() == Wire(await native.History.PageAsync(discovery, run)).ToJsonString() && page.Complete && page.Events.Length >= 2,
+    "Dashboard and discovered run history differ.");
+var historyHeads = new[]
+{
+    await dashboard.HeadRunsAsync(), await dashboard.HeadRunAsync(run), await dashboard.HeadHistoryAsync(run), await dashboard.HeadRunEventsAsync(run)
+};
+Require(historyHeads.All(h => h.StatusCode == HttpStatusCode.OK) && historyHeads[..3].All(h => h.MediaType == "application/json") &&
+    historyHeads[3].MediaType == "text/event-stream", "Unexpected run history HEAD.");
+
+// One SSE observation of the finished run: its retained pages, then native closes the stream.
+var streamed = new List<HistoryEventRecord>();
+NativeSubscriptionCompletion streamClose;
+int sseEvents;
+await using (var events = await dashboard.OpenRunEventsAsync(run))
+{
+    var received = new List<DashboardRunEvent>();
+    await foreach (var entry in events.ReadAllAsync()) received.Add(entry);
+    sseEvents = received.Count;
+    streamed.AddRange(received.Cast<DashboardHistoryPageEvent>().SelectMany(e => e.Page.Events));
+    streamClose = await events.Completion;
+    Require(received[^1] is DashboardHistoryPageEvent { Page: { Complete: true, Observation.State: HistoryObservationState.Complete } } &&
+        events.LastDeliveredCursor == page.NextCursor && streamClose is { Origin: NativeSubscriptionOrigin.ServerClosed, Failure: null },
+        "The finished run's event stream did not end after its complete page.");
+}
+Require(streamed.Select(e => Wire(e).ToJsonString()).SequenceEqual(page.Events.Select(e => Wire(e).ToJsonString())),
+    "Streamed history differs from the history page.");
+// Native resumes after Last-Event-ID in preference to the after query.
+Cursor resumedFrom;
+await using (var resumed = await dashboard.OpenRunEventsAsync(run, after: new Cursor("v2:0"), lastEventId: page.Events[0].Cursor))
+{
+    await using var reader = resumed.ReadAllAsync().GetAsyncEnumerator();
+    Require(await reader.MoveNextAsync() && reader.Current is DashboardHistoryPageEvent, "No resumed history page.");
+    resumedFrom = ((DashboardHistoryPageEvent)reader.Current).Page.Events[0].Cursor;
+    Require(resumedFrom == page.Events[1].Cursor, "Native did not resume after Last-Event-ID.");
+}
+var missingRun = await Problem(() => dashboard.OpenRunEventsAsync(new RunId("0195af77-1000-7000-8000-000000000099")), HttpStatusCode.NotFound, "run_not_found");
+var aheadCursor = await Problem(() => dashboard.OpenRunEventsAsync(run, lastEventId: new Cursor("v2:999")), HttpStatusCode.BadRequest, "invalid_cursor");
+
 // Native browser-boundary refusals, provoked by a consumer-owned handler the library does not offer.
 var origin403 = await Refused(request => request.Headers.TryAddWithoutValidation("Origin", "http://evil.example"),
     d => d.GetBootstrapAsync(), HttpStatusCode.Forbidden, "origin_rejected");
+var eventsOrigin403 = await Refused(request => request.Headers.TryAddWithoutValidation("Sec-Fetch-Site", "cross-site"),
+    d => d.OpenRunEventsAsync(run), HttpStatusCode.Forbidden, "origin_rejected");
 var media415 = await Refused(request => { if (request.Content is not null) request.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain"); },
     d => d.ValidateAsync(new DashboardProfileDocument { Graph = graph, Runtime = runtime }), HttpStatusCode.UnsupportedMediaType, "json_required");
 
@@ -113,7 +160,14 @@ Console.WriteLine(JsonSerializer.Serialize(new
     authoring = new { edited = Wire(authored.Graph)["root"], misplaced },
     data = new { added = added.Graph.GetProperty("initialInput"), removed = removed.Graph.GetProperty("initialInput") },
     discoveryAfterDashboard = discovery.Kind,
-    refusals = new { origin = origin403, mediaType = media415 }
+    history = new
+    {
+        runs = runs.Runs.Select(r => r.RunId.Value), run = run.Value, pageEvents = page.Events.Length,
+        heads = historyHeads.Select(h => new { status = (int)h.StatusCode, h.MediaType, h.ContentLength }),
+        stream = new { sseEvents, events = streamed.Count, close = streamClose.Origin.ToString(), resumedFrom = resumedFrom.Value },
+        refusals = new { missingRun, aheadCursor }
+    },
+    refusals = new { origin = origin403, eventsOrigin = eventsOrigin403, mediaType = media415 }
 }));
 
 static async Task<object> Problem(Func<Task> call, HttpStatusCode status, string code)

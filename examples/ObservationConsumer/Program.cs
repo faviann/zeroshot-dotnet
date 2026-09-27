@@ -56,8 +56,14 @@ if (phase == "live")
     var activePage = await native.History.PageAsync(discovery, runId, cancellationToken: token);
     Check(activePage is { Complete: true, Finished: false } && activePage.HeadCursor == history.Cursor &&
         activePage.Events.Any(entry => entry.Event is SafeLogHistoryEvent { Execution: null }), "history page while the run is active");
+    // Two dashboard SSE observations of the active run. Disposing one closes only that response.
+    await using var dashboardEvents = await native.Dashboard.OpenRunEventsAsync(runId, cancellationToken: token);
+    var dashboardTask = ReadPages(dashboardEvents, token);
+    var dropped = await native.Dashboard.OpenRunEventsAsync(runId, cancellationToken: token);
+    await dropped.DisposeAsync();
+    Check((await dropped.Completion).Origin == NativeSubscriptionOrigin.Disposed && !dashboardTask.IsCompleted, "one dashboard observation disposed alone");
     await File.WriteAllTextAsync(Path.Combine(directory, "observation-release"), "release", token);
-    await Task.WhenAll(logsTask, watchTask);
+    await Task.WhenAll(logsTask, watchTask, dashboardTask);
     var logEvents = await logsTask;
     var watchEvents = await watchTask;
     Check(logEvents.Count >= 2 && logEvents.All(entry => entry.RunId == runId && entry.Execution is null), "native preparation logs");
@@ -75,6 +81,15 @@ if (phase == "live")
     Check(finishedPage is { Complete: true, Finished: true } && finishedPage.Events[^1] is
         { Event: TerminalHistoryEvent { Result: FailedTerminalResult { Reason.Value: "environment_setup_failed" } } } terminal &&
         terminal.Cursor == watchEvents[0].Cursor, "retained terminal event in history");
+    var dashboardPages = await dashboardTask;
+    var dashboardClose = await dashboardEvents.Completion;
+    // Pages are split by native polling; together they are exactly the retained history, ending once observation is complete.
+    Check(dashboardPages.Count >= 2 && dashboardPages[0].Events.Any(entry => entry.Cursor == history.Cursor) &&
+        dashboardPages.SelectMany(p => p.Events).Select(entry => Wire(entry).GetRawText())
+            .SequenceEqual(finishedPage.Events.Select(entry => Wire(entry).GetRawText())) &&
+        dashboardPages[^1] is { Complete: true, Observation.State: HistoryObservationState.Complete } &&
+        dashboardEvents.LastDeliveredCursor == finishedPage.NextCursor && dashboardClose.Origin == NativeSubscriptionOrigin.ServerClosed,
+        "live dashboard history stream through the terminal event");
     File.WriteAllBytes(Path.Combine(directory, "observation-history.json"), NativeJson.SerializeUtf8(finishedPage));
     SaveEvents(directory, "observation-logs.json", logEvents);
     SaveEvents(directory, "observation-watch.json", watchEvents);
@@ -85,7 +100,9 @@ if (phase == "live")
         logs = Wire(logs.Establishment), watch = Wire(watch.Establishment),
         logClose = Wire(logClose), watchClose = Wire(watchClose),
         historyCursor = history.Cursor.Value, liveLogCursor = logEvents[historyIndex + 1].Cursor.Value,
-        liveWatchCursor = watchEvents[0].Cursor.Value
+        liveWatchCursor = watchEvents[0].Cursor.Value,
+        dashboardPages = dashboardPages.Select(p => new { events = p.Events.Length, next = p.NextCursor.Value, p.Complete }),
+        dashboardClose = dashboardClose.Origin.ToString()
     }));
 }
 
@@ -142,6 +159,14 @@ static async Task<List<TEvent>> Read<TEstablishment, TEvent>(NativeSubscription<
         delivered?.Invoke(entry);
     }
     return events;
+}
+
+static async Task<List<HistoryPage>> ReadPages(DashboardRunEvents events, CancellationToken token)
+{
+    var pages = new List<HistoryPage>();
+    await foreach (var entry in events.ReadAllAsync(token))
+        pages.Add(entry is DashboardHistoryPageEvent page ? page.Page : throw new InvalidOperationException("Unexpected history_error."));
+    return pages;
 }
 
 static async Task<SubscriptionClosedNotification> Done<TEstablishment, TEvent>(NativeSubscription<TEstablishment, TEvent> subscription,
