@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Sourced by run.sh after the direct-target phases. A separate private-mode target with its own
 # storage and test-generated bootstrap key and capability. After bootstrap, the same consumer admits
-# the inspection request and reads the private operator exports with that capability.
+# the inspection request, reads the private operator exports with that capability and inspects
+# the run over a private-capability OECP session.
 stop_native
 private_dir="$witness_dir/private"
 mkdir -p "$private_dir/state" "$private_dir/consumer"

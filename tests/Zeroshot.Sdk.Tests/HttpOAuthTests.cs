@@ -118,7 +118,8 @@ public sealed class HttpOAuthTests
             Discovery(OAuth with { RevocationEndpoint = "https://attacker.example/oauth/revoke" }),
             Discovery(login: Login with { Method = "POST" }),
             Discovery(login: Login with { CachePolicy = "no-cache" }),
-            Discovery(login: Login with { RouteTemplate = "//attacker.example/session" })
+            Discovery(login: Login with { RouteTemplate = "//attacker.example/session" }),
+            Discovery(login: Login with { RouteTemplate = "/login/session?device_label=x" })
         };
         using var handler = Replying("{}");
         using var client = Client(handler);

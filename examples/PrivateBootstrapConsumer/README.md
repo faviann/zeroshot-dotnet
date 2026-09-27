@@ -22,5 +22,9 @@ A cursor ahead of the run gets `invalid_cursor`. A wrong capability gets 401
 `request.unauthorized` on all three exports. The `exports` object in
 `private-bootstrap.json` retains this evidence.
 
+Finally it acquires an OECP session for the run with the same capability, then checks
+initialize, native's empty cluster get and the exact run/source status over the
+WebSocket. The `oecp` object records this evidence; the session bearer is not recorded.
+
 Run it with the target origin, its material directory and the harness's
 `request.json`.

@@ -64,6 +64,20 @@ var unauthorized = new[]
 };
 Check(unauthorized.All(error => error is { StatusCode: System.Net.HttpStatusCode.Unauthorized, Problem.Code: "request.unauthorized", HistoryProblem: null }), "wrong capability");
 
+// A private OECP session with the same capability: native issues a capability-bearing session, and the
+// run is inspectable over its WebSocket. No hosted authority or other private operation is implied.
+var session = await native.Target.CreateOecpSessionAsync(discovery, new() { RunId = runId }, operatorAuthority, token);
+Check(session.BearerToken is not null, "private session carries a bearer");
+RunStatusResult status;
+GetResult cluster;
+await using (var connection = await native.ConnectOecpAsync(session, token))
+{
+    Check((await connection.InitializeAsync(cancellationToken: token)).ProtocolVersion == OecpConnection.ProtocolVersion, "private initialize");
+    cluster = await connection.Cluster.GetAsync(cancellationToken: token);
+    status = await connection.Runs.StatusAsync(runId, inspection.Submission.Source, cancellationToken: token);
+}
+Check(cluster.Spec is null && status.RunId == runId && status.Status is FinishedRunStatus, "private OECP inspection");
+
 Console.WriteLine(JsonSerializer.Serialize(new
 {
     discovery = Wire(discovery),
@@ -79,7 +93,8 @@ Console.WriteLine(JsonSerializer.Serialize(new
         unknownDiagnostics = Wire(unknownDiagnostics),
         refusals = missing.Append(ahead).Concat(unauthorized)
             .Select(error => new { error.Operation, status = (int)error.StatusCode!, problem = Wire(error.Problem!) })
-    }
+    },
+    oecp = new { endpoint = session.Endpoint, sessionBearer = "present (not recorded)", emptyGet = Wire(cluster), status = Wire(status) }
 }));
 
 static async Task<NativeHttpException> Refused(Task task)
