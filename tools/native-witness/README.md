@@ -74,6 +74,16 @@ session on the same client. Without `Connection: close` on history requests, nat
 would route that reused connection to its UI router and return 404. `history.json`
 retains the evidence.
 
+A dashboard consumer then reads the same listener's stock browser UI mount
+through `NativeClient.Dashboard`: root and `/ui` 307 redirects (reported, not
+followed), the index and its referenced assets with HEAD length parity, a bare 404
+for a missing asset, the complete bootstrap catalog and its HEAD, native admission of
+the generated asset and a 422 for an unbound draft, and authoring/data draft edits.
+The same client then reads discovery, proving UI-routed requests do not capture a
+pooled connection. A consumer-owned handler injects a foreign Origin and a `text/plain`
+body to show native's typed `origin_rejected` and `json_required` refusals. The harness
+checks that the UI profile store is still empty; `dashboard.json` retains the evidence.
+
 A third packed-package consumer exercises `Runs.WatchAsync` and `Runs.LogsAsync`
 against a separate target with fresh observation storage. The original target is
 stopped first. This target runs with root privileges and a scrubbed environment.

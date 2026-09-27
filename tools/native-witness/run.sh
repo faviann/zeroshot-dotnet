@@ -132,6 +132,14 @@ dotnet restore "$witness_dir/history-consumer/HistoryConsumer.csproj" --packages
   --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/history-restore.log"
 dotnet run --project "$witness_dir/history-consumer/HistoryConsumer.csproj" -c Release --no-restore -- \
   "$origin" "$witness_dir" > "$witness_dir/history.json"
+# The same stock listener serves its browser UI mount. Drafts must leave the UI profile store empty.
+mkdir -p "$witness_dir/dashboard-consumer"
+cp "$repo_dir/examples/DashboardConsumer/"*.cs* "$witness_dir/dashboard-consumer/"
+dotnet restore "$witness_dir/dashboard-consumer/DashboardConsumer.csproj" --packages "$witness_dir/packages" \
+  --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$witness_dir/dashboard-restore.log"
+dotnet run --project "$witness_dir/dashboard-consumer/DashboardConsumer.csproj" -c Release --no-restore -- \
+  "$origin" "$witness_dir/assets" > "$witness_dir/dashboard.json"
+[[ $(curl --fail --silent --show-error "$origin/ui/api/profiles") == '{"profiles":[]}' ]] || { echo 'Dashboard drafts changed the profile store.' >&2; exit 1; }
 
 # Keep the existing admission witnesses above in their original target. This separate
 # target needs native's root-owned preparation boundary but no provider or checkout.
@@ -191,5 +199,5 @@ dotnet run --project "$witness_dir/observation-consumer/ObservationConsumer.cspr
   "$origin" "$witness_dir" restarted > "$witness_dir/observation-after-restart.json"
 source "$repo_dir/tools/native-witness/attachment.sh"
 source "$repo_dir/tools/native-witness/force.sh"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; run history list/detail/page/HEAD on retained runs with closed problem categories and a control request after history on the same client; history while active, at completion and after restart; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart; exact active execution attachment working/live output/settled and cursorless close, inactive GONE and unknown NOT_FOUND; one acknowledged force of an active controlled run with its native phase recorded, durable stopping history before force_stopped terminal history/status, idempotent terminal force and unknown-run NOT_FOUND rejection\n' | tee "$witness_dir/result.txt"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; dashboard 307 redirects/index/assets/bare 404 with HEAD, complete bootstrap, validate/authoring/data drafts with an unchanged profile store, fixed-route discovery after UI-routed requests, native origin_rejected and json_required refusals; run history list/detail/page/HEAD on retained runs with closed problem categories and a control request after history on the same client; history while active, at completion and after restart; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart; exact active execution attachment working/live output/settled and cursorless close, inactive GONE and unknown NOT_FOUND; one acknowledged force of an active controlled run with its native phase recorded, durable stopping history before force_stopped terminal history/status, idempotent terminal force and unknown-run NOT_FOUND rejection\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"

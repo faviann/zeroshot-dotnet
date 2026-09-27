@@ -770,131 +770,161 @@
       "id": "http:GET /",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L258"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L258",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+      },
+      "binding": "NativeClient.Dashboard.GetRootAsync"
     },
     {
       "id": "http:HEAD /",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L258"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L258",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+      },
+      "binding": "NativeClient.Dashboard.HeadRootAsync"
     },
     {
       "id": "http:GET /ui",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L258"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L258",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+      },
+      "binding": "NativeClient.Dashboard.GetUiAsync"
     },
     {
       "id": "http:HEAD /ui",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Temporary redirect to `/ui/`; Browser/static. [profile_ui.rs:L69-L71][http-159]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L258"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L258",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+      },
+      "binding": "NativeClient.Dashboard.HeadUiAsync"
     },
     {
       "id": "http:GET /ui/",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L259"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L259",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+      },
+      "binding": "NativeClient.Dashboard.GetIndexAsync"
     },
     {
       "id": "http:HEAD /ui/",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L259"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L259",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+      },
+      "binding": "NativeClient.Dashboard.HeadIndexAsync"
     },
     {
       "id": "http:GET /ui/{*asset}",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L259"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L259",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+      },
+      "binding": "NativeClient.Dashboard.GetAssetAsync"
     },
     {
       "id": "http:HEAD /ui/{*asset}",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Embedded `index.html` / matching asset; missing asset bare404; Browser/static, no JSON contract. MIME selected by extension. [server.rs:L345-L367][http-160]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L259"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L259",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+      },
+      "binding": "NativeClient.Dashboard.HeadAssetAsync"
     },
     {
       "id": "http:GET /ui/api/bootstrap",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "`{version:1,templates,workers,runtimeSchema,workspace:{kind:\"local\"\\|\"target\",id}}`; Browser catalog; runtime schema generated live via `schema_for!(RuntimePlan)`. [profile_ui.rs:L42-L63][http-161] [profile_ui.rs:L100-L104][http-162] [workspace.rs:L43-L50][http-163]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L260"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L260",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
+      },
+      "binding": "NativeClient.Dashboard.GetBootstrapAsync"
     },
     {
       "id": "http:HEAD /ui/api/bootstrap",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "`{version:1,templates,workers,runtimeSchema,workspace:{kind:\"local\"\\|\"target\",id}}`; Browser catalog; runtime schema generated live via `schema_for!(RuntimePlan)`. [profile_ui.rs:L42-L63][http-161] [profile_ui.rs:L100-L104][http-162] [workspace.rs:L43-L50][http-163]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L260"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L260",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
+      },
+      "binding": "NativeClient.Dashboard.HeadBootstrapAsync"
     },
     {
       "id": "http:GET /ui/api/profiles",
@@ -965,40 +995,49 @@
       "id": "http:POST /ui/api/validate",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Strict `{graph:GraphSpec,runtime:RuntimePlan}`; \u2192 `{valid:true}`, native profile admission. [profile_ui.rs:L129-L150][http-169] [workspace.rs:L67-L79][http-170]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L264"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L264",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete asset valid, unbound draft 422 invalid_profile, 415 json_required via consumer-owned handler"
+      },
+      "binding": "NativeClient.Dashboard.ValidateAsync"
     },
     {
       "id": "http:POST /ui/api/authoring",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Strict `{graph:GraphSpec,runtime:Value,action}`. action tagged `kind`: `failure_reason {terminal,reason}`, `complete {owner}`, `protect {node}`; \u2192 draft `{graph,runtime}`, no save/run. [profile_ui.rs:L151-L155][http-171] [outcomes.rs:L20-L49][http-172] [workspace.rs:L53-L57][http-173]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L265"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L265",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; failure-reason draft edit and misplaced edit 422"
+      },
+      "binding": "NativeClient.Dashboard.AuthorAsync"
     },
     {
       "id": "http:POST /ui/api/data",
       "transport": "HTTP",
       "bindingOwnerIssue": 36,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Native UI build, local UI or direct+UI mount; fixed target router has no implicit HEAD. HEAD has empty body.",
       "authenticationPrerequisites": "UI exact Host, optional Origin and Sec-Fetch-Site; POST JSON and workspace header where required.",
       "typeClosure": "Strict `{graph:Value,runtime:Value,action}`; action/source types below; \u2192 draft `{graph,runtime}`, no save/run. [profile_ui.rs:L156-L159][http-174] [data.rs:L12-L85][http-175]",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L266"
-      }
+        "status": "controlled HTTP peers and stock-native UI mount",
+        "inventory": "native-inventory.md#L266",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; run-input add/remove draft round trip; profile store unchanged"
+      },
+      "binding": "NativeClient.Dashboard.TransformDataAsync"
     },
     {
       "id": "http:GET /ui/api/runs",

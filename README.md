@@ -4,7 +4,8 @@
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
 definitions, local wire validation, immutable credential-free prepared submissions,
 [bounded HTTP discovery, session acquisition and direct submission attempts](docs/http/README.md), and
-[WebSocket OECP inspection, bounded watch/log/attachment subscriptions and native force attempts](docs/oecp/README.md) of existing targets. An
+[WebSocket OECP inspection, bounded watch/log/attachment subscriptions and native force attempts](docs/oecp/README.md) of existing targets, and
+[browser dashboard assets, bootstrap and draft transformations](docs/dashboard/README.md). An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).
@@ -31,6 +32,7 @@ explicit serialization/export remains the caller's responsibility.
 | `examples/ObservationConsumer` | Packed-library watch/log replay, live records and target-restart witness. |
 | `examples/AttachmentConsumer` | Packed-library exact active execution, live output, settlement and refusal witness. |
 | `examples/ForceConsumer` | Packed-library active-run force acknowledgement, terminal history and refusal witness. |
+| `examples/DashboardConsumer` | Packed-library stock UI mount static routes, bootstrap, draft transformations and browser refusals witness. |
 | `tools/native-witness/run.sh` | Stock-native Linux x64 HTTP/OECP inspection, submission and observation witness. |
 
 Install a .NET 10 SDK, then run:
