@@ -157,7 +157,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
 
     private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpMethod method, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Func<HttpResponseMessage, OperationContext, Task<T>> readSuccess,
-        CancellationToken cancellationToken, Action<Guid>? onDispatch = null, Action<HttpRequestMessage>? configure = null)
+        CancellationToken cancellationToken, Action<Guid>? onDispatch = null, Action<HttpRequestMessage>? configure = null,
+        bool redirectIsResult = false)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
@@ -201,9 +202,11 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 if (!retained) response.Dispose();
                 context.ThrowIfCancelled();
                 receivedStatus = response.StatusCode;
-                if (response.RequestMessage?.RequestUri != requestUri || (int)response.StatusCode is >= 300 and < 400)
+                // Some browser routes answer with a redirect as their result; it is reported, never followed.
+                var redirect = (int)response.StatusCode is >= 300 and < 400;
+                if (response.RequestMessage?.RequestUri != requestUri || (redirect && !redirectIsResult))
                     throw context.Failure(OperationFailureKind.Redirect, OperationStage.Response, statusCode: response.StatusCode);
-                if (!response.IsSuccessStatusCode)
+                if (!response.IsSuccessStatusCode && !redirect)
                 {
                     var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
                     var bytes = await context.ReadResponseAsync(stream, Math.Min(limits.DiagnosticBytes,

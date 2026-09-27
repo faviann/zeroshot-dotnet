@@ -37,3 +37,8 @@ caller-delivered cursors remain available independently.
 and results. `NativeClient.Connections` binds list/set/delete on validated hosted
 discovery; see [hosted connection records](../http/README.md#hosted-connection-records).
 These bindings have controlled-authority evidence only.
+
+`Contracts/Dashboard.cs` adds the browser bootstrap catalog, validation document and
+authoring/data draft actions from native `profile_ui`; see
+[dashboard routes](../dashboard/README.md). They reuse the generated graph, runtime and
+payload contracts, and `examples/DashboardConsumer` exercises them against the stock UI mount.
