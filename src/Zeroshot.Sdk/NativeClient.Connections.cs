@@ -20,7 +20,7 @@ public sealed partial class NativeClient
         TargetHttpContract request, TargetControlCredentials credentials, CancellationToken cancellationToken) where T : class
     {
         var (routes, body) = PrepareConnectionCall(discovery, request, credentials);
-        var (correlationId, outcome, response, failure) = await AttemptJsonAsync<T>(operation, route(routes), body, credentials,
+        var (correlationId, outcome, response, failure) = await AttemptAsync<T>(operation, route(routes), body, credentials,
             IsConnectionRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
         return new NativeAttempt<T>(Origin, operation.Name, correlationId, outcome, response, failure);
     }

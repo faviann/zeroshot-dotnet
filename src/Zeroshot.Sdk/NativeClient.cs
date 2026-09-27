@@ -241,21 +241,33 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null); }
     }
 
-    /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
-    private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptJsonAsync<T>(
+    /// <summary>
+    /// Sends one mutation and classifies its evidence without retrying. The response is JSON unless
+    /// <paramref name="readSuccess"/> reads the operation's own success shape.
+    /// </summary>
+    private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptAsync<T>(
         OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
         Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken,
-        Action<HttpRequestMessage>? configure = null) where T : class
+        Action<HttpRequestMessage>? configure = null,
+        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
         T? response = null;
         Exception? failure = null;
+        void OnDispatch(Guid id) { correlationId = id; Interlocked.Exchange(ref dispatched, 1); }
+        void Capture(T value) => Volatile.Write(ref response, value);
         try
         {
-            await ExecuteJsonAsync<T>(operation, requestUri, body, credentials, _ => { }, cancellationToken,
-                onDispatch: id => { correlationId = id; Interlocked.Exchange(ref dispatched, 1); },
-                onResponse: value => Volatile.Write(ref response, value), configure: configure).ConfigureAwait(false);
+            await (readSuccess is null
+                ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, _ => { }, cancellationToken,
+                    onDispatch: OnDispatch, onResponse: Capture, configure: configure)
+                : ExecuteHttpAsync(operation, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
+                {
+                    var value = await readSuccess(message, context).ConfigureAwait(false);
+                    Capture(value);
+                    return value;
+                }, cancellationToken, OnDispatch, configure)).ConfigureAwait(false);
         }
         catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
         {
@@ -268,7 +280,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             };
         }
 
-        // ExecuteJsonAsync has finished its bounded cleanup. A response already validated
+        // The request has finished its bounded cleanup. A response already validated
         // by the adapter wins a cancellation race, including cancellation during cleanup.
         var captured = Volatile.Read(ref response);
         var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged

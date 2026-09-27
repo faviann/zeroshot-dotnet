@@ -14,6 +14,13 @@ public sealed class NativeHeadResult
         => (StatusCode, ContentLength, MediaType) = (statusCode, contentLength, mediaType);
 }
 
+/// <summary>The acknowledgement of an operation whose native success response has no body.</summary>
+public sealed class EmptyResponse
+{
+    internal static readonly EmptyResponse Instance = new();
+    private EmptyResponse() { }
+}
+
 public enum NativeAttemptOutcome { Acknowledged, Rejected, NotSent, Unknown }
 
 /// <summary>Evidence from one operation, without automatic retry or consumer acceptance policy.</summary>

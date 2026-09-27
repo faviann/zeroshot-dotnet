@@ -185,3 +185,20 @@ is a rejected `NOT_FOUND` attempt. `force.json` retains the active status, the
 acknowledgement, every history record, terminal status and both follow-up attempts.
 This proves native force against a controlled execution, not physical-cessation
 guarantees, provider service behavior or hosted force routes.
+
+`private.sh` then stops that target and starts a separate private-mode target on the
+same port with fresh storage. Native selects private mode only when
+`--bootstrap-key-file` is supplied. The harness generates an isolated 32-byte
+bootstrap key and a 64-character lowercase-hex capability in `private/`; the key
+file is `0600`, and the harness checks that native unlinked it at startup. It then
+records the target PID, storage and material provenance. The sixth packed consumer,
+`PrivateBootstrapConsumer`, discovers `private_capability` with
+`privateBootstrapPath`. It prepares AES-256-GCM envelopes itself, playing the caller,
+because the client performs no bootstrap cryptography. It then sends three
+`Private.BootstrapAsync` attempts. A well-formed envelope under another key is
+`Rejected` with 400 `request.invalid` and leaves the bootstrap open. The valid
+envelope is `Acknowledged` with an empty 204. Resending it is `Rejected` with 404
+`request.not_found` because native consumed its key. `private-bootstrap.json`
+retains discovery and all three attempts. Later private-route witnesses can reuse this
+target and its capability. This phase proves no live private submission, session or
+OECP authority.

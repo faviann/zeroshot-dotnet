@@ -401,14 +401,18 @@
       "id": "http:POST /native-v2/private-bootstrap",
       "transport": "HTTP",
       "bindingOwnerIssue": 39,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Private constructor only; cryptographic bootstrap envelope, not OAuth. Invalid envelope 400; closed bootstrap or nonprivate server 404. [transport.rs:L291-L305][http-28]",
-      "typeClosure": "Strict `TargetPrivateBootstrapRequest {nonce,ciphertext}` -> 204 empty",
+      "typeClosure": "Strict `TargetPrivateBootstrapRequest {nonce,ciphertext}` (lowercase hex, 12-byte nonce, 64-byte token + 16-byte tag) -> 204 empty; NativeAttempt<EmptyResponse>; TargetHttpProblem",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L123"
-      }
+        "status": "Unauthenticated one-send binding gated on private_capability discovery with a same-origin privateBootstrapPath; envelope shape checked before dispatch; deterministic exact request, 400 request.invalid / 404 request.not_found / 408 request.timeout rejection, other contact unknown; stock native 10.9.0 private-mode target with isolated key/capability: wrong-key 400, acknowledged empty 204, then closed 404 through fresh packed-package consumer.",
+        "inventory": "native-inventory.md#L123",
+        "validation": "tests/Zeroshot.Sdk.Tests/PrivateBootstrapTests.cs; examples/PrivateBootstrapConsumer; tools/native-witness/private.sh",
+        "nativeConformance": "tools/native-witness/private.sh: stock 10.9.0 target serve --bootstrap-key-file; invalid, accepted and closed bootstrap",
+        "limitations": "A closed bootstrap and a nonprivate target are indistinguishable on the wire; mode comes from supplied discovery, so a target that changes mode after discovery reads as closed. Live private submission, session and OECP authority not claimed."
+      },
+      "binding": "NativeClient.Private.BootstrapAsync"
     },
     {
       "id": "http:GET /native-v2/operator-diagnostics/{runId}",

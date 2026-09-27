@@ -377,3 +377,50 @@ no retention period, and native advertises no history SSE route.
 `HistoryTests.cs` covers the golden records, wire-shape and contract tables, routes,
 authority, problem categories and bounds. The [native witness](../../tools/native-witness/README.md)
 reads real retained runs through the direct UI mount.
+
+## Private target bootstrap
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var envelope = new TargetPrivateBootstrapRequest { Nonce = nonceHex, Ciphertext = ciphertextHex };
+var attempt = await native.Private.BootstrapAsync(discovery, envelope);
+if (attempt.Outcome == NativeAttemptOutcome.Unknown) { /* the key may be consumed; do not resend blindly */ }
+```
+
+`Private.BootstrapAsync` sends one caller-prepared envelope to a private-mode
+target and returns `NativeAttempt<EmptyResponse>`. The client never encrypts,
+generates or stores keys or capabilities. Native `private_access.rs` defines the
+envelope: `nonce` is 12 bytes and `ciphertext` is the 64-byte token plus the
+16-byte AES-256-GCM tag, both lowercase hex. The AAD is
+`zeroshot-capsule-bootstrap-v1`, and the plaintext token is 64 lowercase-hex
+characters. The strict `{nonce,ciphertext}` request is checked for exact hex and
+lengths before sending. A malformed envelope throws `JsonException` and is never
+sent.
+
+The route is unauthenticated. The call takes no credentials and sends no
+`Authorization` header, and acceptance issues no client credential. Using the
+bootstrapped capability as `TargetControlCredentials` is a separate caller
+decision.
+
+Native answers a closed bootstrap and a nonprivate target with the same 404, so the
+target mode comes from the explicitly supplied discovery. Before any request is
+sent, discovery must be `private_capability` with a same-origin
+`privateBootstrapPath`. Other discovery throws `ArgumentException`. If the target at
+the origin changes mode after that discovery, its 404 still reads as a closed
+bootstrap.
+
+`Acknowledged` requires exactly 204 with an empty body; native then has consumed its
+key. `Rejected` covers only native's pre-effect refusals: 400 `request.invalid`
+(malformed request, or an envelope that fails authentication or token checks, which
+leaves the bootstrap open), 404 `request.not_found` (closed bootstrap) and 408
+`request.timeout`. `Failure` retains the status and `TargetHttpProblem`, which
+distinguish invalid from closed. A pre-dispatch cancellation or local admission
+failure is `NotSent`. Any other status or code, any other 2xx, a 204 body, a
+malformed problem, a lost reply, a deadline or post-dispatch cancellation is
+`Unknown`. The effect is then unknown and there is no retry.
+
+`PrivateBootstrapTests.cs` covers the exact request, refusal classification,
+unknown-effect contact and pre-dispatch refusals. The
+[native witness](../../tools/native-witness/README.md) runs a stock 10.9.0
+private-mode target with isolated key and capability material. It proves invalid,
+accepted and closed outcomes.
