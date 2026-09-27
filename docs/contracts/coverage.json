@@ -345,40 +345,52 @@
       "id": "oecp:run/checkpoints",
       "transport": "OECP",
       "bindingOwnerIssue": 24,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Requires workspace-checkpoint support. Exclusive opaque `after`; default limit 50, accepted 1\u2013100, at most 100 results. Checkpoints ordered by sequence. Target rejects unsupported capability with `INVALID_PHASE` and noncanonical run ID with `SCHEMA_VIOLATION`. [Checkpoint types][checkpoints], [adapter][target-backend]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunCheckpointsParams {runId, after?, limit?}` \u2192 `RunCheckpointsResult {runId, checkpoints, nextAfter?}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L64"
-      }
+        "status": "complete one-page read with native default/limit bounds, opaque exclusive cursor and page contract checks",
+        "inventory": "native-inventory.md#L64",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; worker entry checkpoints paged with limit 1 and default page on source and successor; noncanonical run SCHEMA_VIOLATION",
+        "limitations": "Each witnessed run has one checkpoint, so multi-page continuation is deterministic only. INVALID_PHASE capability refusal is deterministic only; hosted HTTP checkpoints and the portable controller remain unverified."
+      },
+      "binding": "OecpConnection.Runs.CheckpointsAsync"
     },
     {
       "id": "oecp:run/resume",
       "transport": "OECP",
       "bindingOwnerIssue": 24,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Requires workspace recovery, and checkpoint capability when selected. `from` omitted or `{kind:\"restart\"}` restarts graph on latest retained workspace; `{kind:\"checkpoint\",checkpointId}` restores an entry checkpoint and settled prerequisites. Admits a successor; no old provider session, secret or token usage import. Both IDs canonical UUIDv7 at target. [Types][run-wire], [checkpoints][checkpoints], [adapter][target-backend]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunResumeParams {runId, successorRunId, from?, connections?, connectionResolver?, githubToken?}` \u2192 `RunResumeResult {runId, resumedFrom}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L65"
-      }
+        "status": "complete one-send binding returning NativeAttempt<RunResumeResult> with separate fresh credentials, omitted/restart/checkpoint selection and pre-effect refusal classification",
+        "inventory": "native-inventory.md#L65",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; latest-workspace resume and checkpoint resume admitting linked successors, repeated resume INTERNAL_ERROR admitting nothing, unknown NOT_FOUND, noncanonical SCHEMA_VIOLATION, succeeded/force-stopped/discarded source INTERNAL_ERROR",
+        "limitations": "Native does not deduplicate resume and reports non-recoverable, already-resumed and conflicting successors only as INTERNAL_ERROR, which stays Unknown. No retry or reconciliation. INVALID_PHASE and IDEMPOTENCY_REUSE are deterministic only; hosted HTTP recovery and provider success remain unverified."
+      },
+      "binding": "OecpConnection.Runs.ResumeAsync"
     },
     {
       "id": "oecp:run/discard_workspace",
       "transport": "OECP",
       "bindingOwnerIssue": 24,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Requires workspace recovery; destroys retained recovery workspace, not run/history identity. Canonical run ID required; no general run delete route. [Types][run-wire], [adapter][target-backend], [recovery implementation][cloud-recovery]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunDiscardWorkspaceParams {runId}` \u2192 `RunDiscardWorkspaceResult {runId, discarded}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L66"
-      }
+        "status": "complete one-send binding returning NativeAttempt<RunDiscardWorkspaceResult> with pre-effect refusal classification",
+        "inventory": "native-inventory.md#L66",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; discard true then false with run status retained, force-stopped workspace already disposed, unknown NOT_FOUND",
+        "limitations": "Cleanup failure is INTERNAL_ERROR and stays Unknown. INVALID_PHASE is deterministic only; hosted HTTP discard remains unverified."
+      },
+      "binding": "OecpConnection.Runs.DiscardWorkspaceAsync"
     },
     {
       "id": "http:GET /.well-known/zeroshot-native-v2",

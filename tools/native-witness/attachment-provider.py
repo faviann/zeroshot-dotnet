@@ -11,6 +11,9 @@ if sys.argv[1:] == ["--version"]:
 
 directory = pathlib.Path(pathlib.Path("/usr/local/bin/witness-directory").read_text())
 sys.stdin.read()
+# The recovery witness needs a graph failure after checkout, which retains the workspace.
+if (directory / "attachment-fail").exists():
+    raise SystemExit("controlled worker failure")
 print(json.dumps({"type": "thread.started", "thread_id": "controlled-attachment"}), flush=True)
 # The writer identity cannot create files under the witness root. Its existing
 # marker is world writable, while the consumer alone controls the release gates.

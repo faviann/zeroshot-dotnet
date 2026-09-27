@@ -1,4 +1,4 @@
-# WebSocket OECP inspection, subscriptions and force
+# WebSocket OECP inspection, subscriptions, force and recovery
 
 The lower client connects to an existing acquired session and makes individual,
 bounded calls. It does not start native processes or retry failed operations.
@@ -91,8 +91,9 @@ unsupported negotiation reaches the target; successful responses must use v1.
 The stock Linux witness separately proves populated inventory, exact run/source
 status, unsupported protocol rejection and empty cluster get. Its recorded native
 terminal failure is inspection evidence, not a provider execution claim. Live
-hosted/private authorities and populated recovery metadata remain unverified;
-controlled peers and source-backed fixtures cover those shapes.
+hosted/private authorities remain unverified; controlled peers and source-backed
+fixtures cover those shapes. The recovery witness below observes populated
+workspace recovery metadata.
 
 ## One watch or log subscription
 
@@ -345,3 +346,77 @@ variant, the per-operation refusal table, identity fences, Stop control capacity
 parked watch resolution and cursorless closes. The packed `DiscoveryConsumer` in the
 stock Linux witness proves the eleven stock refusals and unchanged empty get and
 inventory afterwards.
+
+## Checkpoints and workspace recovery
+
+```csharp
+var page = await oecp.Runs.CheckpointsAsync(new() { RunId = failedRunId, Limit = 10 });
+var next = await oecp.Runs.CheckpointsAsync(new() { RunId = failedRunId, After = page.NextAfter });
+var resumed = await oecp.Runs.ResumeAsync(failedRunId, successorRunId,
+    new CheckpointResumeFrom { CheckpointId = page.Checkpoints[^1].CheckpointId }, freshCredentials);
+var discarded = await oecp.Runs.DiscardWorkspaceAsync(failedRunId);
+```
+
+`CheckpointsAsync` reads one page of native `run/checkpoints`. `After` is an
+exclusive, opaque, run-scoped checkpoint ID and is never parsed. An omitted `Limit`
+means native's 50; values outside 1–100 throw before sending. The page must name
+the requested run, hold at most the effective limit, and report `NextAfter` only
+as its last checkpoint. Anything else is a `Protocol`
+failure. Refusals throw `NativeOecpException` like other reads.
+
+`ResumeAsync` sends one `run/resume` to admit a successor with the caller's
+proposed ID. An omitted selection and an explicit `RestartResumeFrom` both restart
+the graph on the latest retained workspace; they stay distinct on the wire.
+`CheckpointResumeFrom` restores an entry checkpoint. Fresh connection values, the
+resolver and the GitHub token are supplied as a separate `TargetRunCredentials`
+argument, sent only with that attempt, and never appear in default formatting.
+An empty connection map is omitted, as native does. The acknowledgement must name
+the requested successor and source run. Native imports no provider session,
+secret or token usage from the source.
+
+`DiscardWorkspaceAsync` sends one `run/discard_workspace`. It destroys the retained
+recovery workspace but not the run or its history. `Discarded` is `false` when no
+recoverable workspace remained.
+
+Both mutations return `NativeAttempt<T>` with the force outcome model, on ordinary
+request capacity. Only these native refusals are `Rejected`, all of them before
+any successor is created or workspace touched:
+
+| Refusal | Source |
+| --- | --- |
+| `-32601`, `-32602`/`SCHEMA_VIOLATION`, `-32600`/`DUPLICATE_REQUEST_ID`, `-32000`/`SERVER_BUSY` | Native dispatch. `SCHEMA_VIOLATION` includes the target's canonical UUIDv7 check on both IDs. |
+| `-32000`/`INVALID_PHASE` | The target's capability gate: recovery unavailable, or checkpoints unavailable for a checkpoint selection. |
+| `-32000`/`NOT_FOUND` | The source run's ledger lookup. |
+| `-32000`/`IDEMPOTENCY_REUSE` | Resume only: the ledger refused to create the successor. `details.runId` is kept. |
+
+Native reports a source that is not recoverable, one already resumed, a successor
+ID used by another run and failed discard cleanup all as `INTERNAL_ERROR`, which
+can follow successor creation or partial cleanup, so it stays `Unknown`. Native
+does not deduplicate resume: repeating a resume whose reply was lost returns that
+error. The source run's status reports a recorded successor in
+`workspaceRecovery.successorRunId`, and the successor's reports `resumedFrom`;
+reconciling an unknown attempt is the caller's decision.
+
+Discovery advertises `workspace_recovery` and `workspace_checkpoints`, but the
+connection does not consult it; the native gate answers. Direct and private-mode
+targets support both. Hosted-access targets and the portable controller refuse
+them with `INVALID_PHASE`, and the portable controller lists checkpoints for its
+own run only. Hosted HTTP recovery routes are a separate binding.
+
+`RecoveryTests` covers the exact checkpoint, resume and discard frames, including
+omitted versus explicit restart and separate credentials; local limit refusal;
+page contract violations; the capability refusal; the refusal tables; and foreign
+acknowledgements, lost replies and disconnects as one-send unknown outcomes.
+
+The stock Linux witness's packed `RecoveryConsumer` runs on the attachment target
+with a controlled worker that fails after checkout. Native retains that
+`worker_failed` workspace with its connection requirements. The consumer pages
+the worker entry checkpoint, resumes with the selection omitted, and checks both
+status links. It repeats the source resume, which returns `INTERNAL_ERROR` and
+admits nothing. It resumes the successor from its checkpoint, then discards the
+second successor's workspace (`true`, then `false`). It also records the reachable
+refusals: `NOT_FOUND`, `SCHEMA_VIOLATION`, and `INTERNAL_ERROR` for succeeded,
+force-stopped and discarded sources. Native disposes a force-stopped workspace.
+Each run has one checkpoint, so live paging never gets past the first page.
+`INVALID_PHASE` has deterministic coverage only; a stock direct target supports
+both capabilities.

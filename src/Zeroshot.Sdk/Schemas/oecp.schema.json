@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection, cluster admission/lifecycle/observation, trusted run submit and run subscription closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
+  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection, cluster admission/lifecycle/observation, trusted run submit, run subscription and workspace recovery closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
   "$defs": {
     "ActiveExecution": {
       "additionalProperties": false,
@@ -288,6 +288,13 @@
         "source"
       ],
       "type": "object"
+    },
+    "CheckpointId": {
+      "description": "Opaque run-scoped checkpoint identity. Clients must not interpret its spelling.",
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+      "type": "string"
     },
     "ClusterStatus": {
       "properties": {
@@ -1082,6 +1089,148 @@
       ],
       "type": "object"
     },
+    "RunCheckpoint": {
+      "additionalProperties": false,
+      "description": "A durable entry point immediately before the named node or outer concurrent group starts.\nParallel and mapped groups are atomic: their children and all map waves share one entry point.\nWorkspace bytes, storage locations, execution seeds, and credentials remain target-private.",
+      "properties": {
+        "checkpointId": {
+          "$ref": "#/$defs/CheckpointId"
+        },
+        "createdAt": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "loopIterations": {
+          "items": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "mapIndices": {
+          "items": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "node": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "sequence": {
+          "description": "Positive JavaScript-safe sequence, increasing within this run's checkpoint inventory.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "checkpointId",
+        "sequence",
+        "node",
+        "mapIndices",
+        "loopIterations",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "RunCheckpointsParams": {
+      "additionalProperties": false,
+      "description": "Lists retained entry checkpoints in increasing sequence order. `after` is exclusive and must\nidentify a checkpoint in this run. Omitted `limit` means 50; accepted limits are 1 through 100.",
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckpointId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunCheckpointsResult": {
+      "additionalProperties": false,
+      "description": "One bounded page. `nextAfter` is the last returned checkpoint identity only when more remain.",
+      "properties": {
+        "checkpoints": {
+          "items": {
+            "$ref": "#/$defs/RunCheckpoint"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "nextAfter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckpointId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "checkpoints"
+      ],
+      "type": "object"
+    },
+    "RunDiscardWorkspaceParams": {
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunDiscardWorkspaceResult": {
+      "additionalProperties": false,
+      "properties": {
+        "discarded": {
+          "type": "boolean"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "discarded"
+      ],
+      "type": "object"
+    },
     "RunForceParams": {
       "additionalProperties": false,
       "description": "Requests the MVP's only stop mode: force. Repeated requests are idempotent at the run ledger.",
@@ -1265,6 +1414,112 @@
           ]
         }
       },
+      "type": "object"
+    },
+    "RunResumeFrom": {
+      "description": "A new successor either restarts the graph on the latest workspace or continues from an entry\ncheckpoint with its matching predecessor outputs. Provider sessions are never resumed.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "restart",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "checkpointId": {
+              "$ref": "#/$defs/CheckpointId"
+            },
+            "kind": {
+              "const": "checkpoint",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "checkpointId"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "RunResumeParams": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionResolver": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetConnectionResolver"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Run-scoped callback used to resolve fresh dynamic connection values."
+        },
+        "connections": {
+          "additionalProperties": false,
+          "description": "Fresh static connection values for the successor attempt.",
+          "patternProperties": {
+            "^[^\\u0000-\\u001f\\u007f-\\u009f]+$": {
+              "$ref": "#/$defs/StaticConnectionValues"
+            }
+          },
+          "type": "object"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunResumeFrom"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Omission preserves restarting from the latest retained workspace."
+        },
+        "githubToken": {
+          "description": "Fresh GitHub credential for private source checkout or Git delivery.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": "string"
+        },
+        "successorRunId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "successorRunId"
+      ],
+      "type": "object"
+    },
+    "RunResumeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resumedFrom": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "resumedFrom"
+      ],
       "type": "object"
     },
     "RunStatus": {
@@ -1522,6 +1777,15 @@
       },
       "type": "object"
     },
+    "StaticConnectionValues": {
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "StopMode": {
       "enum": [
         "drain",
@@ -1645,6 +1909,42 @@
       "required": [
         "subscriptionId",
         "reason"
+      ],
+      "type": "object"
+    },
+    "TargetConnectionResolver": {
+      "additionalProperties": false,
+      "description": "Run-scoped callback authority for dynamic connection keys.",
+      "properties": {
+        "bearerToken": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sourceConnection": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "endpoint",
+        "bearerToken",
+        "keys"
       ],
       "type": "object"
     },
