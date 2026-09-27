@@ -8,7 +8,7 @@ using Zeroshot.Native.Execution;
 namespace Zeroshot.Native;
 
 /// <summary>Individual operations on an existing native target; never launches a process.</summary>
-public sealed class NativeClient : IDisposable, IAsyncDisposable
+public sealed partial class NativeClient : IDisposable, IAsyncDisposable
 {
     private static readonly HttpRequestOptionsKey<OperationContext> ContextKey = new("Zeroshot.Operation");
     private readonly HttpClient http;
@@ -16,6 +16,7 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
     private readonly OperationExecutor executor;
     private readonly OperationLimits limits;
     private int disposed;
+    private readonly TransportOptions transportOptions;
     public Uri Origin { get; }
     public NativeTargetClient Target { get; }
 
@@ -27,6 +28,7 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
             throw new ArgumentException("Supply credentials per operation, not as HTTP default headers.", nameof(supplied));
         ArgumentNullException.ThrowIfNull(options.Transport);
         limits = options.Transport.Limits();
+        transportOptions = options.Transport;
         if (supplied is not null && supplied.Timeout != Timeout.InfiniteTimeSpan && supplied.Timeout < limits.UnaryTimeout)
             throw new ArgumentException("A supplied HttpClient timeout must be infinite or at least RequestTimeout.", nameof(supplied));
         executor = new OperationExecutor(limits);
@@ -239,6 +241,7 @@ public sealed class NativeClient : IDisposable, IAsyncDisposable
     {
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
         executor.Dispose();
+        foreach (var connection in oecpConnections.Keys) connection.Dispose();
         if (ownsHttpClient) http.Dispose();
     }
     public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }

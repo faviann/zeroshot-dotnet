@@ -22,17 +22,26 @@ public sealed record TransportOptions
     public int MaxRequestBytes { get; init; } = 4 * 1024 * 1024;
     public int MaxResponseBytes { get; init; } = 8 * 1024 * 1024;
     public int MaxErrorBodyBytes { get; init; } = 64 * 1024;
+    public int MaxOecpConnections { get; init; } = 18;
+    public int MaxOecpRequestBytes { get; init; } = 1024 * 1024;
+    public int MaxOecpMessageBytes { get; init; } = 8 * 1024 * 1024;
+    public bool EnableWebSocketLiveness { get; init; } = true;
+    public TimeSpan WebSocketPingInterval { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan WebSocketPongTimeout { get; init; } = TimeSpan.FromSeconds(15);
     public bool CaptureRawDiagnostics { get; init; }
 
     internal OperationLimits Limits()
     {
+        OperationLimits.ValidateTimeout(WebSocketPingInterval, nameof(WebSocketPingInterval));
+        OperationLimits.ValidateTimeout(WebSocketPongTimeout, nameof(WebSocketPongTimeout));
         var limits = new OperationLimits
         {
             ConnectTimeout = ConnectTimeout, UnaryTimeout = RequestTimeout, CleanupTimeout = CleanupTimeout,
             ConcurrentRequests = MaxConcurrentRequests, ReservedControlRequests = ReservedControlRequests,
             HttpConnectionsPerOrigin = MaxHttpConnectionsPerOrigin, HttpRequestBytes = MaxRequestBytes,
             ResponseBytes = MaxResponseBytes, DiagnosticBytes = MaxErrorBodyBytes,
-            CaptureRawDiagnostics = CaptureRawDiagnostics
+            OecpConnections = MaxOecpConnections, OecpRequestBytes = MaxOecpRequestBytes,
+            MessageBytes = MaxOecpMessageBytes, CaptureRawDiagnostics = CaptureRawDiagnostics
         };
         limits.Validate();
         return limits;

@@ -117,7 +117,7 @@ carries its capability. Both require a valid bearer of 1..16384 ASCII graphic by
 matching the fixed native transport. No returned session bearer becomes a control
 credential. Default HTTP Authorization headers are rejected, and supplied handlers
 must not inject credentials. `TargetOecpSession` remains exact wire data; acquiring
-one does not open a WebSocket. The WebSocket binding must revalidate its authority
+one does not open a WebSocket. The [WebSocket binding](../oecp/README.md) revalidates its authority
 at dial time.
 
 Before sending credentials, the binding validates discovery kind/audience/auth mode

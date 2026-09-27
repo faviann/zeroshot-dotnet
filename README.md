@@ -3,7 +3,8 @@
 `Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.9.0** at source
 `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
 definitions, local wire validation, immutable credential-free prepared submissions,
-and [bounded HTTP discovery and session acquisition](docs/http/README.md) of existing targets. An
+[bounded HTTP discovery and session acquisition](docs/http/README.md), and
+[WebSocket OECP inspection](docs/oecp/README.md) of existing targets. An
 [internal operation seam](docs/execution/README.md) supplies deadlines, resource
 admission and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).
@@ -25,8 +26,8 @@ explicit serialization/export remains the caller's responsibility.
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
 | `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
-| `examples/DiscoveryConsumer` | Direct discovery/session acquisition using the packed library, without an SDK build assertion. |
-| `tools/native-witness/run.sh` | Independently runnable stock-native Linux x64 discovery/session witness. |
+| `examples/DiscoveryConsumer` | Packed-library discovery/session and native OECP inspection witness. |
+| `tools/native-witness/run.sh` | Stock-native Linux x64 discovery/session and OECP inspection witness. |
 
 Install a .NET 10 SDK, then run:
 
