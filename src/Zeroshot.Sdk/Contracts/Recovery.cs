@@ -1,5 +1,6 @@
 // Native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa workspace checkpoint and recovery contracts.
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Zeroshot.Native.Contracts;
@@ -18,6 +19,16 @@ public sealed record RunCheckpointsParams : NativeContract
     [JsonPropertyName("limit")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public uint? Limit { get; init; }
+
+    // Shared by the OECP and hosted HTTP bindings: the page names this run, stays within the effective
+    // limit, and NextAfter can only be its last checkpoint.
+    internal void RequirePage(RunCheckpointsResult result)
+    {
+        var page = result.Checkpoints;
+        if (result.RunId != RunId || page.Length > (Limit ?? DefaultLimit) ||
+            (result.NextAfter is not null && (page.IsEmpty || result.NextAfter != page[^1].CheckpointId)))
+            throw new JsonException();
+    }
 }
 
 /// <summary>NextAfter is the last returned checkpoint only when more remain.</summary>
@@ -88,6 +99,18 @@ internal sealed record RunResumeParams : NativeContract
     [JsonPropertyName("githubToken")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GithubToken { get; init; }
+
+    // An empty connection map is omitted, as native does.
+    internal static byte[] SerializeUtf8(RunId runId, RunId successorRunId, RunResumeFrom? from, TargetRunCredentials? credentials)
+    {
+        credentials?.Validate();
+        return NativeJson.SerializeUtf8(new RunResumeParams
+        {
+            RunId = runId, SuccessorRunId = successorRunId, From = from,
+            Connections = credentials is { Connections.IsEmpty: false } ? credentials.Connections : null,
+            ConnectionResolver = credentials?.ConnectionResolver, GithubToken = credentials?.GithubToken
+        });
+    }
 }
 
 /// <summary>The admitted successor and its exact source run.</summary>
@@ -98,6 +121,11 @@ public sealed record RunResumeResult : NativeContract
     public required RunId RunId { get; init; }
     [JsonPropertyName("resumedFrom")]
     public required RunId ResumedFrom { get; init; }
+
+    internal void Require(RunId runId, RunId successorRunId)
+    {
+        if (RunId != successorRunId || ResumedFrom != runId) throw new JsonException();
+    }
 }
 
 [WireContract("RunDiscardWorkspaceParams")]
@@ -115,4 +143,9 @@ public sealed record RunDiscardWorkspaceResult : NativeContract
     public required RunId RunId { get; init; }
     [JsonPropertyName("discarded")]
     public required bool Discarded { get; init; }
+
+    internal void Require(RunId runId)
+    {
+        if (RunId != runId) throw new JsonException();
+    }
 }

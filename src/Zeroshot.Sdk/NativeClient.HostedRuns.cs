@@ -11,10 +11,14 @@ public sealed partial class NativeClient
     /// <summary>Hosted run lifecycle at routes advertised by explicitly supplied discovery.</summary>
     public NativeHostedRunsClient HostedRuns => hostedRuns ??= new NativeHostedRunsClient(this);
 
-    // Native build_hosted_runs_descriptor compiles all five routes before any is used.
-    // Invalid use throws before any request is sent.
     internal Uri HostedRunRoute(TargetDiscoveryDocument discovery, TargetControlCredentials credentials,
         Func<TargetHostedRunRoutes, string> select, RunId? runId, string? query, params (string, string?)[] values)
+        => NativeRoutes.RunIdRoute(HostedRunsBase(discovery, credentials, runId),
+            select(discovery.Extensions.HostedRuns!.RouteTemplates), runId?.Value, query, values);
+
+    // Native build_hosted_runs_descriptor compiles all five routes before any is used and returns the
+    // capability base, which hosted workspace recovery shares. Invalid use throws before any request is sent.
+    private Uri HostedRunsBase(TargetDiscoveryDocument discovery, TargetControlCredentials credentials, RunId? runId)
     {
         ValidateHostedUse(discovery, credentials);
         if (runId is not null && !NativeRoutes.IsAddressableSegment(runId.Value))
@@ -29,7 +33,7 @@ public sealed partial class NativeClient
         _ = NativeRoutes.RunIdPath(routes.Watch, requiresRunId: true, NativeHostedRunsClient.WatchQuery);
         _ = NativeRoutes.RunIdPath(routes.Logs, requiresRunId: true, NativeHostedRunsClient.LogsQuery);
         _ = NativeRoutes.RunIdPath(routes.Force, requiresRunId: true, query: null);
-        return NativeRoutes.RunIdRoute(baseUrl, select(routes), runId?.Value, query, values);
+        return baseUrl;
     }
 
     // Native hosted_stream admits any successful status without checking Content-Type.

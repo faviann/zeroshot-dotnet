@@ -609,40 +609,46 @@
       "id": "discovered:POST hosted_workspace_recovery.resume",
       "transport": "HTTP",
       "bindingOwnerIssue": 30,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunResumeParams` at `{run_id}` -> `RunResumeResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a valid `zeroshot.hosted-runs/v1` capability, whose same-origin `base_url` and five lifecycle templates are validated first, and a separate `hosted_workspace_recovery` extension of kind `openengine.hosted-workspace-recovery/v1`. That extension has no base URL: its resume, checkpoints and discard_workspace templates append to the hosted-runs base, each with exactly one whole `{run_id}` segment and no query, all three compiled before any operation. The run ID is percent-encoded as one path segment and the body carries the same ID; IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) are refused. Direct and private targets (whose `workspace_recovery`/`workspace_checkpoints` kinds are OECP capabilities), absent or incompatible capabilities and invalid descriptors throw before dispatch. [contract/hosted_runs.rs:L189-L244][http-58] [native_v2_target.rs:L378-L393][http-57]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
+      "typeClosure": "POST the shared #24 `RunResumeParams {runId, successorRunId, from?, connections?, connectionResolver?, githubToken?}` (Contracts/Recovery.cs, as `oecp:run/resume`) at `{run_id}` -> any 2xx (64 KiB) `RunResumeResult {runId, resumedFrom}` naming the requested successor and source, returned as `NativeAttempt<RunResumeResult>`: `Rejected` only for 400 `invalid_request` / 401 `unauthorized` / 403 `forbidden` / 404 `not_found` problems; other received failures, lost replies, malformed, foreign and oversized results are `Unknown` (the OECP binding's JSON-RPC refusal codes have no pinned hosted equivalent); no retry or reconciliation",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L189"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; omitted/checkpoint selection with separate fresh credentials, foreign successor/source acknowledgements, refusal-pair classification, reply loss and the 64 KiB bound. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "inventory": "native-inventory.md#L189",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
+      },
+      "binding": "NativeClient.HostedRecovery.ResumeAsync"
     },
     {
       "id": "discovered:POST hosted_workspace_recovery.checkpoints",
       "transport": "HTTP",
       "bindingOwnerIssue": 30,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunCheckpointsParams` at `{run_id}` -> `RunCheckpointsResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a valid `zeroshot.hosted-runs/v1` capability, whose same-origin `base_url` and five lifecycle templates are validated first, and a separate `hosted_workspace_recovery` extension of kind `openengine.hosted-workspace-recovery/v1`. That extension has no base URL: its resume, checkpoints and discard_workspace templates append to the hosted-runs base, each with exactly one whole `{run_id}` segment and no query, all three compiled before any operation. The run ID is percent-encoded as one path segment and the body carries the same ID; IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) are refused. Direct and private targets (whose `workspace_recovery`/`workspace_checkpoints` kinds are OECP capabilities), absent or incompatible capabilities and invalid descriptors throw before dispatch. [contract/hosted_runs.rs:L189-L244][http-58] [native_v2_target.rs:L378-L393][http-57]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
+      "typeClosure": "POST the shared #24 `RunCheckpointsParams {runId, after?, limit?}` (Contracts/Recovery.cs, as `oecp:run/checkpoints`; default limit 50, accepted 1-100) at `{run_id}` -> any 2xx (64 KiB) `RunCheckpointsResult {runId, checkpoints, nextAfter?}` under the same page contract (requested run, at most the effective limit, `nextAfter` only as the last checkpoint); failures throw `NativeHttpException`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L190"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; page contract violations, preserved problem on refusal and the 64 KiB bound. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "inventory": "native-inventory.md#L190",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
+      },
+      "binding": "NativeClient.HostedRecovery.CheckpointsAsync"
     },
     {
       "id": "discovered:POST hosted_workspace_recovery.discard_workspace",
       "transport": "HTTP",
       "bindingOwnerIssue": 30,
-      "status": "unimplemented",
-      "supportPrerequisites": "Validated advertised capability and route template; hosted-only except run_history (direct+UI or hosted).",
-      "authenticationPrerequisites": "Hosted OAuth access bearer; direct run_history is unauthenticated.",
-      "typeClosure": "POST `RunDiscardWorkspaceParams` at `{run_id}` -> `RunDiscardWorkspaceResult`",
+      "status": "implemented",
+      "supportPrerequisites": "Hosted OAuth discovery (kind `zeroshot.native-v2-target/v2`, audience `controller`) with a valid `zeroshot.hosted-runs/v1` capability, whose same-origin `base_url` and five lifecycle templates are validated first, and a separate `hosted_workspace_recovery` extension of kind `openengine.hosted-workspace-recovery/v1`. That extension has no base URL: its resume, checkpoints and discard_workspace templates append to the hosted-runs base, each with exactly one whole `{run_id}` segment and no query, all three compiled before any operation. The run ID is percent-encoded as one path segment and the body carries the same ID; IDs native's path-segment setter would alter (`.`, `..`, tab/CR/LF) are refused. Direct and private targets (whose `workspace_recovery`/`workspace_checkpoints` kinds are OECP capabilities), absent or incompatible capabilities and invalid descriptors throw before dispatch. [contract/hosted_runs.rs:L189-L244][http-58] [native_v2_target.rs:L378-L393][http-57]",
+      "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
+      "typeClosure": "POST the shared #24 `RunDiscardWorkspaceParams {runId}` (Contracts/Recovery.cs, as `oecp:run/discard_workspace`) at `{run_id}` -> any 2xx (64 KiB) `RunDiscardWorkspaceResult {runId, discarded}` naming the requested run, returned as `NativeAttempt<RunDiscardWorkspaceResult>`: `Rejected` only for 400 `invalid_request` / 401 `unauthorized` / 403 `forbidden` / 404 `not_found` problems; other received failures, lost replies, malformed, foreign and oversized results are `Unknown` (the OECP binding's JSON-RPC refusal codes have no pinned hosted equivalent); destroys only the retained workspace, not the run or history",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L191"
-      }
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; foreign acknowledgements, refusal-pair classification and reply loss. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "inventory": "native-inventory.md#L191",
+        "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
+      },
+      "binding": "NativeClient.HostedRecovery.DiscardWorkspaceAsync"
     },
     {
       "id": "discovered:POST connections.list",

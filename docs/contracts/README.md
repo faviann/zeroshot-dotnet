@@ -62,6 +62,11 @@ status records. `NativeClient.MergePlans` binds create/status/force on validated
 discovery; see [hosted merge plans](../http/README.md#hosted-merge-plans). These bindings
 have controlled-authority evidence only.
 
+`NativeClient.HostedRecovery` binds checkpoints/resume/discard_workspace on validated
+hosted discovery with the shared `Contracts/Recovery.cs` types; see
+[hosted workspace recovery](../http/README.md#hosted-workspace-recovery). These bindings
+have controlled-peer evidence only.
+
 `Contracts/OAuth.cs` maps hosted OAuth metadata, device authorization, token and
 login-session records. `NativeClient.OAuth` binds the five individual native calls on
 validated hosted discovery; see [hosted OAuth operations](../http/README.md#hosted-oauth-operations).

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Native;
@@ -12,14 +11,8 @@ public sealed partial class OecpRunsClient
     public Task<RunCheckpointsResult> CheckpointsAsync(RunCheckpointsParams parameters, OecpRequest? request = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(parameters);
-        var limit = parameters.Limit ?? RunCheckpointsParams.DefaultLimit;
-        return connection.CallAsync<RunCheckpointsResult>("run/checkpoints", NativeJson.SerializeUtf8(parameters), result =>
-        {
-            var page = result.Checkpoints;
-            if (result.RunId != parameters.RunId || page.Length > limit ||
-                (result.NextAfter is not null && (page.IsEmpty || result.NextAfter != page[^1].CheckpointId)))
-                throw new JsonException();
-        }, cancellationToken, request);
+        return connection.CallAsync<RunCheckpointsResult>("run/checkpoints", NativeJson.SerializeUtf8(parameters),
+            parameters.RequirePage, cancellationToken, request);
     }
 
     /// <summary>
@@ -32,17 +25,9 @@ public sealed partial class OecpRunsClient
     {
         ArgumentNullException.ThrowIfNull(runId);
         ArgumentNullException.ThrowIfNull(successorRunId);
-        credentials?.Validate();
-        var parameters = NativeJson.SerializeUtf8(new RunResumeParams
-        {
-            RunId = runId, SuccessorRunId = successorRunId, From = from,
-            Connections = credentials is { Connections.IsEmpty: false } ? credentials.Connections : null,
-            ConnectionResolver = credentials?.ConnectionResolver, GithubToken = credentials?.GithubToken
-        });
-        return connection.AttemptAsync<RunResumeResult>(ResumeMethod, parameters, result =>
-        {
-            if (result.RunId != successorRunId || result.ResumedFrom != runId) throw new JsonException();
-        }, IsResumeRefusal, control: false, request, cancellationToken);
+        var parameters = RunResumeParams.SerializeUtf8(runId, successorRunId, from, credentials);
+        return connection.AttemptAsync<RunResumeResult>(ResumeMethod, parameters, result => result.Require(runId, successorRunId),
+            IsResumeRefusal, control: false, request, cancellationToken);
     }
 
     /// <summary>Sends one request to destroy the retained recovery workspace. The run and its history remain.</summary>
@@ -51,7 +36,7 @@ public sealed partial class OecpRunsClient
     {
         ArgumentNullException.ThrowIfNull(runId);
         return connection.AttemptAsync<RunDiscardWorkspaceResult>(DiscardWorkspaceMethod, NativeJson.SerializeUtf8(new RunDiscardWorkspaceParams { RunId = runId }),
-            result => { if (result.RunId != runId) throw new JsonException(); }, IsDiscardRefusal, control: false, request, cancellationToken);
+            result => result.Require(runId), IsDiscardRefusal, control: false, request, cancellationToken);
     }
 
     // The target's capability gate (INVALID_PHASE) and canonical-ID check (SCHEMA_VIOLATION) run before the controller;
