@@ -143,3 +143,20 @@ every event, close, before/after status and both refusal bodies. This proves sto
 native runtime and attachment behavior with a controlled provider, without claiming
 real provider service integration. Hosted/private endpoints and native remote
 slow-consumer behavior remain outside this witness.
+
+`force.sh` then reuses that live target and controlled provider for the fifth
+packed consumer. It resets the provider gates and ready marker, derives a second
+request with its own run ID and submission key, and never releases the provider's
+first gate. `ForceConsumer` waits for native status to report the active execution,
+opens a watch from that status cursor and sends one `Runs.ForceAsync` request. The
+acknowledgement must be `Acknowledged` for the exact run with a `stopping` or
+`finished` phase; the witness records the phase native returns rather than assuming
+one. Stock native awaits runtime cleanup before replying, so this acknowledgement is
+normally already `finished` with `force_stopped`. Separately, durable watch history
+must contain a `stopping` record before the `force_stopped` terminal record, and a
+later status query must report that terminal result. A repeated force of the
+terminal run is acknowledged with its existing status; an unknown canonical run ID
+is a rejected `NOT_FOUND` attempt. `force.json` retains the active status, the
+acknowledgement, every history record, terminal status and both follow-up attempts.
+This proves native force against a controlled execution, not physical-cessation
+guarantees, provider service behavior or hosted force routes.
