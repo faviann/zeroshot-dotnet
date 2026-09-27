@@ -89,7 +89,7 @@ public sealed class NativeHistoryClient
     private static void Configure(HttpRequestMessage request)
     {
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
+        NativeClient.NoStore(request);
     }
 
     private Uri ListUrl(TargetDiscoveryDocument discovery, RunId? after, TargetControlCredentials? credentials)
