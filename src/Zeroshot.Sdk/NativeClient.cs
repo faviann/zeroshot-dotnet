@@ -23,6 +23,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     public NativeTargetClient Target { get; }
     public NativeConnectionsClient Connections { get; }
     public NativeProfilesClient Profiles { get; }
+    public NativeOAuthClient OAuth { get; }
 
     private NativeClient(NativeClientOptions options, HttpClient? supplied, bool ownsHttpClient)
     {
@@ -48,6 +49,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         Target = new NativeTargetClient(this);
         Connections = new NativeConnectionsClient(this);
         Profiles = new NativeProfilesClient(this);
+        OAuth = new NativeOAuthClient(this);
     }
 
     /// <summary>Creates a safe owned HTTP transport, or borrows a caller-compliant client by default.</summary>
@@ -167,6 +169,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         HttpResponseMessage? ownedResponse = null;
         TargetHttpProblem? problem = null;
         UiProblem? uiProblem = null;
+        DeviceTokenError? deviceTokenError = null;
         HttpStatusCode? receivedStatus = null;
         var cleanupStarted = false;
         try
@@ -217,6 +220,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     try
                     {
                         if (operation.UiRouter) uiProblem = NativeJson.DeserializeUtf8<UiProblem>(bytes);
+                        else if (operation.OAuthErrors)
+                            deviceTokenError = NativeJson.DeserializeUtf8<OAuthErrorResponse>(bytes).Known;
                         else problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes);
                     }
                     catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
@@ -240,7 +245,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         }
         catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
             // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
-            operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null); }
+            operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null, deviceTokenError); }
     }
 
     /// <summary>

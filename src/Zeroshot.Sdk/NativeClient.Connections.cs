@@ -63,7 +63,7 @@ public sealed partial class NativeClient
 
     // Native's status-derived default codes (default_http_error_code in contract/http_error.rs), which native
     // itself uses only when a response has no parseable problem. A hosted server's own codes are not pinned
-    // and native serves no connection or profile routes; every other received failure leaves the effect unknown.
+    // and native serves no connection, profile or OAuth routes; every other received failure leaves the effect unknown.
     private static bool IsHostedRefusal(HttpStatusCode? status, string code) =>
         (status, code) is
             (HttpStatusCode.BadRequest, "invalid_request") or

@@ -42,6 +42,9 @@ internal static class WireValidation
                 Validate(value.GetProperty("source"), typeof(ResolvedSource));
                 if (run.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
             }
+            if (result is DeviceAuthorization authorization) authorization.Validate();
+            if (result is OAuthTokens tokens) tokens.Validate();
+            if (result is TargetLoginSession session) session.Validate();
             if (result is TargetRunRequest request)
             {
                 TargetRunRequest.ValidateRunId(request.RunId);

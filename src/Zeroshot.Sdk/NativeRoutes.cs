@@ -65,11 +65,27 @@ internal static class NativeRoutes
         var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", runId, StringComparison.Ordinal)));
         if (after is null) return url;
         // Native appends the pair with application/x-www-form-urlencoded byte serialization.
-        var query = new StringBuilder("?after=");
-        foreach (var b in Encoding.UTF8.GetBytes(after))
-            query.Append(char.IsAsciiLetterOrDigit((char)b) || b is (byte)'*' or (byte)'-' or (byte)'.' or (byte)'_'
-                ? ((char)b).ToString() : b == (byte)' ' ? "+" : $"%{b:X2}");
-        return new Uri(url.OriginalString + query, new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
+        return new Uri(url.OriginalString + "?" + FormEncode([("after", after)]),
+            new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
+    }
+
+    // The WHATWG application/x-www-form-urlencoded byte serializer used by native's url/reqwest forms.
+    internal static string FormEncode(IEnumerable<(string Name, string Value)> pairs)
+    {
+        var form = new StringBuilder();
+        foreach (var (name, value) in pairs)
+        {
+            if (form.Length > 0) form.Append('&');
+            Append(name); form.Append('='); Append(value);
+        }
+        return form.ToString();
+
+        void Append(string text)
+        {
+            foreach (var b in Encoding.UTF8.GetBytes(text))
+                form.Append(char.IsAsciiLetterOrDigit((char)b) || b is (byte)'*' or (byte)'-' or (byte)'.' or (byte)'_'
+                    ? ((char)b).ToString() : b == (byte)' ' ? "+" : $"%{b:X2}");
+        }
     }
 
     internal static Uri SessionEndpoint(Uri origin, string endpoint)

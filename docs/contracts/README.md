@@ -43,6 +43,12 @@ results. `NativeClient.Profiles` binds list/show/set/delete/default/run on
 validated hosted discovery; see [hosted run profiles](../http/README.md#hosted-run-profiles).
 These bindings have controlled-authority evidence only.
 
+`Contracts/OAuth.cs` maps hosted OAuth metadata, device authorization, token and
+login-session records. `NativeClient.OAuth` binds the five individual native calls on
+validated hosted discovery; see [hosted OAuth operations](../http/README.md#hosted-oauth-operations).
+The advertised revocation URL remains an inventory gap with no operation. These
+bindings also have controlled-authority evidence only.
+
 `Contracts/Dashboard.cs` adds the browser bootstrap catalog, validation document and
 authoring/data draft actions from native `profile_ui`; see
 [dashboard routes](../dashboard/README.md). They reuse the generated graph, runtime and
