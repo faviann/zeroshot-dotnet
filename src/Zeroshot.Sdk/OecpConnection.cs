@@ -130,13 +130,20 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                 finally { lock (gate) pending.Remove(id); }
             }, cleanup: async token =>
             {
+                if (register is not null)
+                {
+                    // Cleanup may race the send continuation. Any started establishment
+                    // can allocate a remote stream, even before SendCompleted is published.
+                    // Sharing SendAsync's gate makes this decision atomic with its token
+                    // check and SendStarted update; a later send sees the cancelled token.
+                    lock (gate)
+                        if (state.SendStarted && !state.ResponseReceived) Close(NativeOecpFailureKind.Transport);
+                    return;
+                }
                 // An abandoned read does not stop a run. The native WebSocket binding accepts
                 // this cooperative notification; late replies keep their original ID and are ignored.
                 if (state.SendCompleted && !state.ResponseReceived)
                 {
-                    // An abandoned establishment can still allocate a remote stream. With
-                    // no subscription ID yet, closing is the only bounded ownership boundary.
-                    if (register is not null) { Close(NativeOecpFailureKind.Transport); return; }
                     try { await SendAsync(CancellationBytes(new(id)), new Pending(null), token).ConfigureAwait(false); }
                     catch (Exception) { }
                 }

@@ -264,27 +264,38 @@ public sealed class SubscriptionTests
     [Test]
     public async Task CancellationDuringEstablishmentDoesNotLeaveAnAdmittedStreamBehind()
     {
-        var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var reply = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var peer = new Peer(async socket =>
+        foreach (var replyRacesCancellation in new[] { false, true })
         {
-            var request = await Read(socket); received.SetResult(); await reply.Task;
-            try { await Reply(socket, request, Establishment("logs")); await Event(socket, LogEvent); }
-            catch (WebSocketException) { }
-        });
-        using var client = peer.Client(new() { MaxConcurrentSubscriptions = 1 });
-        await using var connection = await client.ConnectOecpAsync(peer.Session);
-        using var cancellation = new CancellationTokenSource();
-        var opening = connection.Runs.LogsAsync(new() { RunId = new("run-1") }, cancellation.Token);
-        await received.Task; cancellation.Cancel(); reply.SetResult();
-        try
-        {
-            await using var subscription = await opening;
-            Check((await subscription.Completion.WaitAsync(TimeSpan.FromSeconds(5))).Origin == NativeSubscriptionOrigin.Cancelled);
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var reply = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var peer = new Peer(async socket =>
+            {
+                var request = await Read(socket); received.SetResult(); await reply.Task;
+                try { await Reply(socket, request, Establishment("logs")); await Event(socket, LogEvent); }
+                catch (WebSocketException) { }
+            });
+            using var client = peer.Client(new() { MaxConcurrentSubscriptions = 1 });
+            await using var connection = await client.ConnectOecpAsync(peer.Session);
+            using var cancellation = new CancellationTokenSource();
+            var opening = connection.Runs.LogsAsync(new() { RunId = new("run-1") }, cancellation.Token);
+            await received.Task; cancellation.Cancel();
+            if (replyRacesCancellation) reply.SetResult();
+            try
+            {
+                await using var subscription = await opening;
+                Check((await subscription.Completion.WaitAsync(TimeSpan.FromSeconds(5))).Origin == NativeSubscriptionOrigin.Cancelled);
+            }
+            catch (OecpOperationCanceledException) { }
+            if (!replyRacesCancellation)
+            {
+                // A dispatched establishment with no reply must release remote ownership
+                // by closing the socket before the abandoned response is allowed through.
+                Check((await connection.Completion.WaitAsync(TimeSpan.FromSeconds(5)))?.Kind == NativeOecpFailureKind.Transport);
+                reply.SetResult();
+            }
+            // The cancelled producer must release the same client's subscription admission.
+            var queue = client.Observations.Open<string, Cursor>(); queue.Complete(); queue.Dispose();
+            await peer.Finished;
         }
-        catch (OecpOperationCanceledException) { }
-        // The cancelled producer must release the same client's subscription admission.
-        var queue = client.Observations.Open<string, Cursor>(); queue.Complete(); queue.Dispose();
-        await peer.Finished;
     }
 }
