@@ -4,9 +4,9 @@ Run `tools/native-witness/run.sh` from any directory on Linux x64 with .NET 10,
 Bash, curl, tar, sha256sum, shuf and ripgrep. It downloads the pinned official stock
 release, verifies the archive and extracted executable, and launches a loopback
 native target with a fresh state directory, empty asset working directory and
-scrubbed environment. No user assets, credentials, provider tools or submitted runs
-are used. The library consumer performs discovery and session acquisition; process management belongs
-to this developer witness.
+scrubbed environment. A test-owned no-worker graph is admitted with a fixed run/source
+identity and empty connection values. No user assets, credentials or provider tools
+are used. Process management and raw HTTP admission belong to this developer witness.
 
 The harness writes every artifact to a fresh `/tmp/zeroshot-native-witness.*`
 directory and prints its path on success or failure. It terminates the native
@@ -33,10 +33,19 @@ copied external consumer uses a locally packed `Zeroshot.Client` package and iso
 package cache to discover and acquire two sessions: `{}` and an explicit canonical
 UUIDv7 run selector. It checks the returned same-authority `ws` endpoint and absence
 of a bearer. Direct session acquisition does not require the selected run to exist.
-It retains provenance, native logs, raw discovery/session data, response headers,
-package/restore logs and consumer output. Later binding issues extend this harness;
-this witness claims no WebSocket/OECP dispatch, run submission, or live hosted/private
-authority evidence. Hosted/private contracts currently use source-backed controlled
+The packed consumer then initializes WebSocket OECP, verifies capabilities, reads
+native's empty cluster get, lists the admitted run, checks exact run/source status
+through a terminal projection and verifies unsupported-protocol rejection. This host
+reports `runtime_unavailable`; that real terminal status is inspection evidence,
+not successful provider execution or terminal-event durability. The source identity
+is a fixture label, not evidence of checkout. No production submission binding is
+claimed by this test-owned admission step. The 30 s witness wait fails explicitly
+if terminal evidence cannot be obtained.
+
+It retains provenance, request bytes and hash, receipt, native logs, raw discovery/
+session data, response headers, package/restore logs and consumer output. Later
+binding issues extend this harness. Live hosted/private authorities, provider success
+and populated workspace recovery remain unverified. Hosted/private contracts currently use source-backed controlled
 HTTP peers; HTTPS acquisition uses a temporary trusted certificate in deterministic
 tests, and WSS scheme/authority/port rules are tested without dialing WebSockets.
 

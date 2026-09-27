@@ -15,14 +15,18 @@
       "id": "oecp:initialize",
       "transport": "OECP",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Succeeds: `openengine.graph.full/v1`, both booleans true, empty cluster status.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`InitializeParams {protocolVersion}` \u2192 `InitializeResult {protocolVersion, capabilities, status}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L36"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L36",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "OecpConnection.InitializeAsync"
     },
     {
       "id": "oecp:plan",
@@ -118,15 +122,19 @@
     {
       "id": "oecp:get",
       "transport": "OECP",
-      "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "bindingOwnerIssue": 18,
+      "status": "implemented",
       "supportPrerequisites": "Always `GetResult::empty()`; does not read a native run.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`GetParams {atCursor?}` \u2192 `GetResult {spec, status, atCursor, terminalResult?}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L44"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L44",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "OecpConnection.Cluster.GetAsync"
     },
     {
       "id": "oecp:watch",
@@ -184,27 +192,35 @@
       "id": "oecp:run/list",
       "transport": "OECP",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Every retained run projection in this controller/ledger namespace; no filter, cursor, pagination, submission-key lookup, or total count limit in this type. [Types][run-wire], [backend][cloud-backend]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunListParams {}` \u2192 `RunListResult {runs: RunStatusResult[]}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L58"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L58",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "OecpConnection.Runs.ListAsync"
     },
     {
       "id": "oecp:run/status",
       "transport": "OECP",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Current identity/source/size/cursor/status and optional recovery metadata. Missing run \u2192 `NOT_FOUND`. A runtime failure fallback can be visible without a newly durable event; the wire has no durability marker. [Observation types][observation], [fallback][runtime-observation]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunStatusParams {runId}` \u2192 `RunStatusResult`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L59"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L59",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "OecpConnection.Runs.StatusAsync"
     },
     {
       "id": "oecp:run/watch",
@@ -343,14 +359,18 @@
       "id": "http:GET /native-v2/oecp",
       "transport": "WebSocket upgrade",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Direct identity, hosted OECP-purpose bearer, or private capability. Wrong method/path on an upgrade receives 404. OECP methods/framing are inventoried above. [transport.rs:L227-L257][http-26] [transport.rs:L426-L456][http-27]",
       "typeClosure": "HTTP upgrade; OECP follows -> Successful WebSocket handshake",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L122"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L122",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "NativeClient.ConnectOecpAsync"
     },
     {
       "id": "http:POST /native-v2/private-bootstrap",
@@ -1227,14 +1247,18 @@
       "id": "oecp-notification:$/cancelRequest",
       "transport": "OECP",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "`{id: RequestId}`. WebSocket binding requests cooperative cancellation of an in-flight unary operation; unknown/completed ID is ignored, no response or rollback claim. It is not an established-subscription cancel and not a force-stop. The NDJSON binding does not implement this interception.",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L77"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#L77",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "not claimed; controlled peer proves exact notification and late-response handling",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "OecpConnection.CancelRequestAsync"
     },
     {
       "id": "callback:POST connectionResolver.endpoint",
@@ -1292,14 +1316,18 @@
       "id": "binding:websocket",
       "transport": "websocket",
       "bindingOwnerIssue": 18,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Backend-specific method support; no executable launch or provisioning",
       "authenticationPrerequisites": "Native session and endpoint-specific direct/hosted/private authority",
       "typeClosure": "OECP envelopes, named method/notification rows, binding-specific cancellation semantics",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
-      }
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
+      },
+      "binding": "NativeClient.ConnectOecpAsync / OecpConnection"
     },
     {
       "id": "binding:ndjson-streams",

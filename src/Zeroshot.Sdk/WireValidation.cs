@@ -66,6 +66,11 @@ internal static class WireValidation
     private static JsonObject LoadDefinitions()
     {
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
+        var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
+        foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
+        // Version negotiation accepts arbitrary request versions so the peer can report its
+        // unsupported-protocol error. A successful reply must still name the supported version.
+        definitions["InitializeParams"]!["properties"]!["protocolVersion"]!.AsObject().Remove("const");
         // The native decoder accepts these legacy spellings although its generated enum schema does not.
         definitions["RunSize"]!["enum"] = new JsonArray("small", "medium", "large", "tiny", "standard");
         // Rust string::trim and byte counts, rather than a regex character bound, own instructions.

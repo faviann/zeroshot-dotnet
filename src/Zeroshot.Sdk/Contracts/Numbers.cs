@@ -60,7 +60,12 @@ public readonly record struct RequestId
 
 internal sealed class RequestIdConverter : JsonConverter<RequestId>
 {
-    public override RequestId Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => reader.TokenType == JsonTokenType.String ? new(reader.GetString()!) : new(reader.GetInt64());
+    public override RequestId Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String) return new(reader.GetString()!);
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt64(out var number)) return new(number);
+        throw new JsonException("A request ID must be a string or signed integer.");
+    }
     public override void Write(Utf8JsonWriter writer, RequestId value, JsonSerializerOptions options)
     {
         if (value.Text is { } text) writer.WriteStringValue(text);
