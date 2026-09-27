@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Sourced by run.sh after the direct-target phases. A separate private-mode target with its own
-# storage and test-generated bootstrap key and capability, for private-route witnesses to extend.
+# storage and test-generated bootstrap key and capability. After bootstrap, the same consumer admits
+# the inspection request and reads the private operator exports with that capability.
 stop_native
 private_dir="$witness_dir/private"
 mkdir -p "$private_dir/state" "$private_dir/consumer"
@@ -32,4 +33,4 @@ cp "$repo_dir/examples/PrivateBootstrapConsumer/"*.cs* "$private_dir/consumer/"
 dotnet restore "$private_dir/consumer/PrivateBootstrapConsumer.csproj" --packages "$witness_dir/packages" \
   --source "$witness_dir/feed" --source https://api.nuget.org/v3/index.json > "$private_dir/restore.log"
 dotnet run --project "$private_dir/consumer/PrivateBootstrapConsumer.csproj" -c Release --no-restore -- \
-  "$origin" "$private_dir" > "$witness_dir/private-bootstrap.json"
+  "$origin" "$private_dir" "$witness_dir/request.json" > "$witness_dir/private-bootstrap.json"

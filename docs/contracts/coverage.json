@@ -482,40 +482,52 @@
       "id": "http:GET /native-v2/operator-diagnostics/{runId}",
       "transport": "HTTP",
       "bindingOwnerIssue": 40,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Private capability only. Nonprivate server 404; malformed body/ID 400. [transport.rs:L278-L289][http-29] [transport.rs:L460-L468][http-30]",
-      "typeClosure": "Empty body; canonical UUIDv7 path suffix -> 200 `TargetOperatorDiagnostics`; no-store",
+      "typeClosure": "Empty body; canonical UUIDv7 path suffix -> 200 `TargetOperatorDiagnostics {diagnostics: TargetOperatorDiagnostic[]}` with `{id,runId,code,operation,exitStatus?,stdout,stderr,stdoutTruncated,stderrTruncated}`; no-store; TargetHttpProblem",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L124"
-      }
+        "status": "Fixed-route GET with required PrivateCapability credentials; foreign-run or over-4 KiB text rejected as malformed, 64 KiB response bound; truncation flags and exitStatus omission preserved; payload absent from default formatting",
+        "inventory": "native-inventory.md#L124",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: valid read of its diagnostics as received, empty list for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "limitations": "Non-empty and truncated diagnostics are fixture-only: stock native records them only for checkout, push and local-controller failures, which the witness target does not reach. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
+      },
+      "binding": "NativeClient.Private.GetOperatorDiagnosticsAsync"
     },
     {
       "id": "http:POST /native-v2/history/definition",
       "transport": "HTTP",
       "bindingOwnerIssue": 40,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Private capability only, using already-owned history service. [transport_history.rs:L9-L80][http-31]",
-      "typeClosure": "Strict camelCase `{runId}`; max 4096 bytes -> 200 `RunDefinition`; no-store",
+      "typeClosure": "Strict camelCase `{runId}`; max 4096 bytes -> 200 `RunDefinition` (run-history records of #35); no-store; TargetHttpProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L125"
-      }
+        "status": "Fixed-route POST with required PrivateCapability credentials; 4096-byte request bound; #35 definition checks and 8 MiB bound; history problem categories",
+        "inventory": "native-inventory.md#L125",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: definition of the finished run, run_not_found for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "limitations": "No retention guarantee. Other history categories use #35's shared problem mapping and are not exercised on this route. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
+      },
+      "binding": "NativeClient.Private.GetHistoryDefinitionAsync"
     },
     {
       "id": "http:POST /native-v2/history/page",
       "transport": "HTTP",
       "bindingOwnerIssue": 40,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Fixed target route; endpoint mode and body prerequisites in inventory.",
       "authenticationPrerequisites": "Private capability only; history-specific problems retained. [transport_history.rs:L9-L85][http-32]",
-      "typeClosure": "Strict camelCase `{runId, after?}` (`Cursor`) max 4096 bytes -> 200 `HistoryPage`; no-store",
+      "typeClosure": "Strict camelCase `{runId, after?}` (`Cursor`, omitted when absent); max 4096 bytes -> 200 `HistoryPage` (run-history records of #35); no-store; TargetHttpProblem with RunHistoryProblemCode",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L126"
-      }
+        "status": "Fixed-route POST with required PrivateCapability credentials; 4096-byte request bound; #35 page checks and 8 MiB bound; history problem categories",
+        "inventory": "native-inventory.md#L126",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: complete page with its terminal event and exclusive empty end page, run_not_found for an unknown run, invalid_cursor ahead of the run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "limitations": "No retention guarantee. Other history categories use #35's shared problem mapping and are not exercised on this route. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
+      },
+      "binding": "NativeClient.Private.GetHistoryPageAsync"
     },
     {
       "id": "discovered:GET hosted_runs.list",

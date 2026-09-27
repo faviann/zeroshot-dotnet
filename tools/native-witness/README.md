@@ -76,7 +76,9 @@ provider or forge authority is supplied.
 A history consumer then reads the discovered run-history capability through the
 direct target UI mount over the runs retained so far: list and resumed list, the
 inspection run's definition and pages, HEAD for all three routes, and the native
-`run_not_found` and `invalid_cursor` problem categories. It then acquires an OECP
+`run_not_found` and `invalid_cursor` problem categories. The three private operator
+exports sent to this direct target with a private capability must each get 404
+`request.not_found`: a target in the wrong mode refuses them. It then acquires an OECP
 session on the same client. Without `Connection: close` on history requests, native
 would route that reused connection to its UI router and return 404. `history.json`
 retains the evidence.
@@ -250,9 +252,23 @@ because the client performs no bootstrap cryptography. It then sends three
 `Rejected` with 400 `request.invalid` and leaves the bootstrap open. The valid
 envelope is `Acknowledged` with an empty 204. Resending it is `Rejected` with 404
 `request.not_found` because native consumed its key. `private-bootstrap.json`
-retains discovery and all three attempts. Later private-route witnesses can reuse this
-target and its capability. This phase proves no live private submission, session or
-OECP authority.
+retains discovery and all three attempts.
+
+The same consumer then uses the bootstrapped capability as `PrivateCapability`
+control credentials. It admits the inspection request on this target and reads the
+private exports:
+
+- The history definition, polled until native reports the run finished.
+- The complete page ending with its terminal event, and the empty page after it.
+- The run's operator diagnostics as received. Stock native records diagnostics only
+  for checkout, push and local-controller failures, so this read is normally an empty
+  list; non-empty and truncated diagnostics are fixture-only.
+- For an unknown run: an empty diagnostics list and `run_not_found` history.
+- `invalid_cursor` for a cursor ahead of the run.
+- 401 `request.unauthorized` on all three exports for a wrong capability.
+
+The `exports` object in `private-bootstrap.json` retains this evidence. This phase
+proves no private session or OECP authority.
 
 `controller.sh` then exercises the NDJSON bindings against a stock local-run
 portable controller. It seeds a local Git repository with a fixture GitHub origin

@@ -69,7 +69,11 @@ The dashboard run routes reuse the run-history records; their SSE route adds onl
 private bootstrap envelope. `NativeClient.Private.BootstrapAsync` sends it once and
 returns `NativeAttempt<EmptyResponse>`; see
 [private target bootstrap](../http/README.md#private-target-bootstrap).
-`examples/PrivateBootstrapConsumer` exercises it against a stock private-mode target.
+`TargetOperatorDiagnostics` in the same file is the private diagnostics snapshot. The
+private diagnostics and history exports reuse the run-history records; see
+[private operator exports](../http/README.md#private-operator-exports).
+`examples/PrivateBootstrapConsumer` exercises the bootstrap and the exports against a
+stock private-mode target.
 
 `Contracts/Cluster.cs` completes the shared OECP closure. It covers cluster plan,
 apply, update, stop, retry, resubmit, delete, the watch/logs/agent-attach
