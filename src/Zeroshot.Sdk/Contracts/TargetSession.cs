@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -44,6 +45,59 @@ public sealed record TargetPrivateBootstrapRequest : TargetHttpContract
 
     private static bool IsLowerHex(string value, int bytes) =>
         value.Length == bytes * 2 && value.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f');
+}
+
+/// <summary>
+/// A private target's snapshot of its small in-memory operator-diagnostic buffer for one run
+/// (native_v2_target.rs, operator_diagnostics.rs). An unknown run has an empty list.
+/// </summary>
+public sealed record TargetOperatorDiagnostics : TargetHttpContract
+{
+    [JsonPropertyName("diagnostics")]
+    public required ImmutableArray<TargetOperatorDiagnostic> Diagnostics { get; init; }
+}
+
+/// <summary>
+/// One sanitized platform diagnostic. Native cuts stdout and stderr to 4 KiB each and reports the
+/// cut in the truncation flags. The text is command output: inspect it explicitly.
+/// </summary>
+public sealed record TargetOperatorDiagnostic : TargetHttpContract
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+    [JsonPropertyName("code")]
+    public required string Code { get; init; }
+    [JsonPropertyName("operation")]
+    public required string Operation { get; init; }
+    [JsonPropertyName("exitStatus")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ExitStatus { get; init; }
+    [JsonPropertyName("stdout")]
+    public required string Stdout { get; init; }
+    [JsonPropertyName("stderr")]
+    public required string Stderr { get; init; }
+    [JsonPropertyName("stdoutTruncated")]
+    public required bool StdoutTruncated { get; init; }
+    [JsonPropertyName("stderrTruncated")]
+    public required bool StderrTruncated { get; init; }
+}
+
+// Native transport_history.rs private export requests: strict camelCase, at most 4096 bytes.
+internal sealed record PrivateHistoryDefinitionRequest : TargetHttpContract
+{
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+}
+
+internal sealed record PrivateHistoryPageRequest : TargetHttpContract
+{
+    [JsonPropertyName("runId")]
+    public required RunId RunId { get; init; }
+    [JsonPropertyName("after")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Cursor? After { get; init; }
 }
 
 /// <summary>

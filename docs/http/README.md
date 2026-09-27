@@ -658,3 +658,58 @@ unknown-effect contact and pre-dispatch refusals. The
 [native witness](../../tools/native-witness/README.md) runs a stock 10.9.0
 private-mode target with isolated key and capability material. It proves invalid,
 accepted and closed outcomes.
+
+## Private operator exports
+
+```csharp
+var operatorAuthority = new TargetControlCredentials(TargetAuthentication.PrivateCapability, capability);
+TargetOperatorDiagnostics diagnostics = await native.Private.GetOperatorDiagnosticsAsync(runId, operatorAuthority);
+RunDefinition definition = await native.Private.GetHistoryDefinitionAsync(runId, operatorAuthority);
+HistoryPage page = await native.Private.GetHistoryPageAsync(runId, operatorAuthority, after: cursor);
+```
+
+These three reads use a private-mode target's fixed routes:
+
+| Method | Native route | Result |
+| --- | --- | --- |
+| `GetOperatorDiagnosticsAsync` | `GET /native-v2/operator-diagnostics/{runId}`, no body | `TargetOperatorDiagnostics` |
+| `GetHistoryDefinitionAsync` | `POST /native-v2/history/definition` with `{"runId"}` | `RunDefinition` |
+| `GetHistoryPageAsync` | `POST /native-v2/history/page` with `{"runId","after"?}` | `HistoryPage` |
+
+They take a canonical UUIDv7 run ID and an optional cursor, like the public
+[run history](#run-history) methods. There is no discovery parameter because native
+does not advertise these routes. Credentials are required and must be
+`PrivateCapability`. Missing or hosted credentials, a run ID that is not a canonical
+UUIDv7 and a non-canonical cursor throw `ArgumentException` before sending. The
+client never turns ordinary run credentials into operator authority.
+
+The history exports reuse the public history records and checks: requested run
+identity, versions, cursors, contiguity, control placement, runtime failure and the
+8 MiB response bound. Native limits each request body to 4096 bytes; a validated
+request is far below it. A missing `after` is omitted from the body, and native reads
+from `v2:0`.
+
+Each diagnostic keeps native's `id`, `runId`, `code`, `operation`, optional
+`exitStatus`, `stdout`, `stderr` and both truncation flags. Native keeps at most two
+diagnostics in memory across all runs and cuts each text to 4 KiB. A response is
+rejected as malformed when a diagnostic names another run or a text exceeds 4096
+UTF-8 bytes; the whole response is bounded at 64 KiB. An empty list does not show
+whether the run exists. The text is command output. Default record and exception
+formatting never shows it or a capability; inspect it explicitly.
+
+Refusals keep their status and `TargetHttpProblem`:
+
+- A target that is not in private mode answers 404 `request.not_found`, before any
+  capability check.
+- A wrong capability gets 401 `request.unauthorized`.
+- A malformed request gets 400 `request.invalid`.
+- The history exports also set `HistoryProblem` from native's history codes, such
+  as 404 `run_not_found` and 400 `invalid_cursor`.
+
+`PrivateExportsTests.cs` covers the exact requests, authority and argument
+refusals, the refusal categories, and malformed or oversized responses. The
+[native witness](../../tools/native-witness/README.md) reads a real admitted run
+through a stock private-mode target and checks the refusals of a direct target.
+Non-empty and truncated diagnostics are fixture-only: stock native records
+diagnostics only for checkout, push and local-controller failures, which that
+target does not reach.

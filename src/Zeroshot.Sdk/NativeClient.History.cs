@@ -21,7 +21,7 @@ public sealed class NativeHistoryClient
 {
     internal const string Kind = "zeroshot.run-history/v1";
     private const int ProblemBytes = 64 * 1024;
-    private static readonly Cursor InitialCursor = new("v2:0");
+    internal static readonly Cursor InitialCursor = new("v2:0");
     // Direct history is served by the target's UI router; hosted history is a host-owned HTTP API.
     private static readonly HistoryOperation List = new("history.list", 4);
     private static readonly HistoryOperation Detail = new("history.detail", 8);
@@ -107,8 +107,7 @@ public sealed class NativeHistoryClient
     private Uri PageUrl(TargetDiscoveryDocument discovery, RunId runId, Cursor after, TargetControlCredentials? credentials)
     {
         RequireRunId(runId, nameof(runId));
-        if (!RunHistoryRules.TryCanonical(after, out _))
-            throw new ArgumentException("A history page cursor must be canonical v2:<sequence>.", nameof(after));
+        RequireCursor(after, nameof(after));
         return Route(discovery, credentials, d => d.Page, runId.Value, after.Value, allowsAfter: true);
     }
 
@@ -117,6 +116,12 @@ public sealed class NativeHistoryClient
         ArgumentNullException.ThrowIfNull(runId, name);
         if (!TargetRunRequest.IsCanonicalRunId(runId.Value))
             throw new ArgumentException("Run history requires a canonical UUIDv7 run ID.", name);
+    }
+
+    internal static void RequireCursor(Cursor cursor, string name)
+    {
+        if (!RunHistoryRules.TryCanonical(cursor, out _))
+            throw new ArgumentException("A history page cursor must be canonical v2:<sequence>.", name);
     }
 
     private Uri Route(TargetDiscoveryDocument discovery, TargetControlCredentials? credentials,

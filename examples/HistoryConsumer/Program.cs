@@ -48,6 +48,17 @@ Check(ahead is { StatusCode: HttpStatusCode.BadRequest, HistoryProblem: RunHisto
 var headMissing = await Refused(native.History.HeadDetailAsync(discovery, unknown, cancellationToken: token));
 Check(headMissing is { StatusCode: HttpStatusCode.NotFound, Problem: null, UiProblem: null }, "HEAD refusal has status only");
 
+// Private exports on a direct target: native refuses before checking any capability.
+var operatorAuthority = new TargetControlCredentials(TargetAuthentication.PrivateCapability, "not-a-private-target");
+var wrongMode = new[]
+{
+    await Refused(native.Private.GetOperatorDiagnosticsAsync(runId, operatorAuthority, token)),
+    await Refused(native.Private.GetHistoryDefinitionAsync(runId, operatorAuthority, token)),
+    await Refused(native.Private.GetHistoryPageAsync(runId, operatorAuthority, cancellationToken: token))
+};
+Check(wrongMode.All(error => error is { StatusCode: HttpStatusCode.NotFound, Problem.Code: "request.not_found", HistoryProblem: null }),
+    "private exports refused by a direct target");
+
 // The UI router would otherwise keep a pooled history connection and answer this control request with 404.
 var session = await native.Target.CreateOecpSessionAsync(discovery, cancellationToken: token);
 Check(session.BearerToken is null, "control request after history on the same client");
@@ -56,7 +67,9 @@ Console.WriteLine(JsonSerializer.Serialize(new
 {
     list = Wire(list), definition = new { phase = definition.Phase.ToString(), cursor = definition.Cursor.Value, terminal = Wire(definition.Terminal!) },
     page = Wire(page), heads = heads.Select(head => new { head.StatusCode, head.ContentLength }),
-    problems = new[] { missing.HistoryProblem.ToString(), ahead.HistoryProblem.ToString() }, sessionAfterHistory = true
+    problems = new[] { missing.HistoryProblem.ToString(), ahead.HistoryProblem.ToString() },
+    privateExportsWrongMode = wrongMode.Select(error => new { error.Operation, status = (int)error.StatusCode!, error.Problem!.Code }),
+    sessionAfterHistory = true
 }));
 
 static async Task<NativeHttpException> Refused(Task task)
