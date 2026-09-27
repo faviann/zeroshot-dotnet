@@ -3,12 +3,15 @@
 Run `tools/native-witness/run.sh` from any directory on Linux x64 with .NET 10,
 Bash, Python 3, curl, tar, sha256sum, shuf and ripgrep. The observation phase also
 requires root or passwordless `sudo`, because stock native owns setup hooks and
-isolated runtime identities as root. It downloads the pinned official stock
+isolated runtime identities as root. The attachment phase additionally needs Git,
+`mount`, `unshare`, `/usr/lib/git-core/git` and permission to create a private mount
+namespace. It downloads the pinned official stock
 release, verifies the archive and extracted executable, and launches a loopback
 native target with fresh state and asset directories and a
-scrubbed environment. A test-owned no-worker graph is admitted with a fixed run/source
-identity and empty connection values. No user assets, credentials or provider tools
-are used. Process management and raw HTTP admission belong to this developer witness.
+scrubbed environment. Test-owned no-worker graphs cover admission and durable
+observation; one controlled worker covers live attachment. No user assets or
+credentials are used. Process management and raw HTTP admission belong to this
+developer witness.
 
 The harness writes every artifact to a fresh `/tmp/zeroshot-native-witness.*`
 directory and prints its path on success or failure. It terminates the native
@@ -65,7 +68,7 @@ provider or forge authority is supplied.
 
 A third packed-package consumer exercises `Runs.WatchAsync` and `Runs.LogsAsync`
 against a separate target with fresh observation storage. The original target is
-stopped first. Only this target runs with root privileges and a scrubbed environment.
+stopped first. This target runs with root privileges and a scrubbed environment.
 The admitted no-worker graph has a test-owned setup hook that prints `history-ready`,
 waits for a release file, prints `live-after-subscription`, and exits with status 1.
 The hook has a 60-second bound and runs before source checkout. Native captures its
@@ -113,3 +116,30 @@ for ledger-owned `SafeLog` records,
 for setup-before-checkout ordering, and
 [`environment.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_hosting/environment.rs)
 for hook execution and output capture.
+
+The fourth packed consumer exercises `Runs.AttachAsync` on an actual active
+execution. `attachment.sh` seeds a tiny local Git repository, uses its exact commit
+as the submitted source, and supplies a null-input/null-output worker graph with a
+test-owned Codex JSONL producer. The stock archive's bundled `restic` is extracted
+beside native for runtime workspace allocation. Its checksum is recorded along
+with the already verified archive and native executable provenance.
+
+This target runs in a private mount namespace. A temporary `/usr/local/bin`
+filesystem supplies the controlled Codex producer; a private bind mount at
+`/usr/bin/git` redirects only the fixture GitHub URL to the local bare repository.
+The host executables and Git configuration are untouched. No external provider or
+forge credentials are used. The writer's readiness marker lives in the fresh
+witness directory; the consumer controls separate output and settlement gates.
+The producer has finite gate deadlines, and harness cleanup releases both gates
+before stopping native.
+
+The consumer takes its exact execution selector from `run/status`, establishes
+attachment, and releases output only after receiving `working`. It receives native
+live output before releasing execution, then verifies `settled` and the native
+cursorless `done` close. Separate status evidence verifies the graph result.
+Reattaching the inactive execution must return `GONE`; an unknown selector under
+the same real run must return `NOT_FOUND`. `attachment.json` retains establishment,
+every event, close, before/after status and both refusal bodies. This proves stock
+native runtime and attachment behavior with a controlled provider, without claiming
+real provider service integration. Hosted/private endpoints and native remote
+slow-consumer behavior remain outside this witness.

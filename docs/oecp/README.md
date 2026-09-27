@@ -30,7 +30,7 @@ explicitly. Request IDs use native signed 64-bit integers or strings; this bindi
 allocates positive integer IDs. Retired local IDs are ignored so a delayed response
 after cancellation cannot complete another call. No ID is reused on a connection.
 `Completion` exposes a connection-wide failure even when no unary call is pending;
-explicit disposal completes it with null. Run watch and log subscriptions share
+explicit disposal completes it with null. Run watch, log and attachment subscriptions share
 this receive loop and the native client's observation budget.
 
 Liveness uses .NET's WebSocket PING/PONG implementation: 30 s ping interval and
@@ -166,3 +166,40 @@ history replay and genuinely new watch/log records after establishment, then exa
 run/source and exclusive replay after restarting the target with retained storage.
 Native environment hooks generate the records and an intentional setup failure;
 this is observation evidence and makes no provider execution claim.
+
+## One live execution attachment
+
+```csharp
+await using var attachment = await oecp.Runs.AttachAsync(
+    new RunAttachParams { RunId = runId, Execution = execution }, cancellationToken);
+await foreach (var record in attachment.ReadAllAsync(cancellationToken))
+{
+    // Event is WorkingAgentAttachEvent, OutputAgentAttachEvent or SettledAgentAttachEvent.
+    Inspect(record.RunId, record.Execution, record.Event);
+}
+var completion = await attachment.Completion;
+```
+
+Use the exact opaque execution reference supplied by native status. Both the
+establishment and every event must match the requested run and execution.
+`OutputAgentAttachEvent.Text` preserves native assistant-display output with its
+16,384 UTF-8 byte limit and prohibition on control characters. Invalid or oversized
+text fails explicitly; the client never truncates or silently substitutes it.
+Native `NOT_FOUND` (unknown execution) and `GONE` (inactive or not live) remain
+distinct `NativeOecpException.RpcError.Data.Code` values.
+
+Attachment uses the same bounded `NativeSubscription` lifecycle and shared
+observation capacity as watch/logs. It has no input channel, replay or automatic
+recovery, and `LastDeliveredCursor` stays null. On interruption, the establishment,
+already delivered events and completion origin retain available context; validated
+queued events may drain before the failure. Disposal and cancellation detach only.
+A `SettledAgentAttachEvent` describes that execution's attachment data. Neither it
+nor a normal subscription close creates a terminal run result; query run status or
+observe a terminal watch record for that separate evidence.
+
+`AttachmentTests` covers the full closed event algebra, identity mismatches,
+malformed/oversized output, encoded message/queue bounds, disposal, cancellation,
+interruption and distinct refusals. The stock Linux witness's packed
+`AttachmentConsumer` uses a controlled provider execution and real Git checkout
+inside a private mount namespace. It proves native working/output/settled delivery,
+cursorless close and the actual inactive/unknown refusals.
