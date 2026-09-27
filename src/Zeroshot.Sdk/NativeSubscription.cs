@@ -36,6 +36,8 @@ public sealed record NativeSubscriptionCompletion
 
 internal interface IOecpSubscription
 {
+    /// <summary>Cluster logs and agent attachment closes must not carry a cursor.</summary>
+    bool CursorlessClose { get; }
     void Receive(JsonElement parameters, int encodedBytes);
     void Closed(SubscriptionClosedNotification notification);
     void Disconnected(NativeOecpFailureKind? failure);
@@ -47,6 +49,7 @@ public sealed class NativeSubscription<TEstablishment, TEvent> : IAsyncDisposabl
     private readonly ObservationQueue<TEvent, Cursor> queue;
     private readonly Func<TEvent, Cursor?> validate;
     private readonly Func<SubscriptionId, bool, Task> detach;
+    private readonly bool cursorlessClose;
     private readonly object gate = new();
     private NativeSubscriptionCompletion? outcome;
     private readonly TaskCompletionSource<NativeSubscriptionCompletion> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -55,12 +58,14 @@ public sealed class NativeSubscription<TEstablishment, TEvent> : IAsyncDisposabl
     /// <summary>Last cursor handed to the caller, including records drained after closure. Null for cursorless attachment. Not a processing checkpoint.</summary>
     public Cursor? LastDeliveredCursor => queue.LastDeliveredPosition;
     internal SubscriptionId Id { get; }
+    bool IOecpSubscription.CursorlessClose => cursorlessClose;
 
     internal NativeSubscription(TEstablishment establishment, SubscriptionId id,
         ObservationQueue<TEvent, Cursor> queue, Func<TEvent, Cursor?> validate,
-        Func<SubscriptionId, bool, Task> detach)
+        Func<SubscriptionId, bool, Task> detach, bool cursorlessClose)
     {
         Establishment = establishment; Id = id; this.queue = queue; this.validate = validate; this.detach = detach;
+        this.cursorlessClose = cursorlessClose;
     }
 
     internal void Start() => _ = SettleAsync();

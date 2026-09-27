@@ -46,11 +46,51 @@ try
 }
 catch (NativeOecpException error) when (error.Kind == NativeOecpFailureKind.RpcError && error.RpcError?.Data?.Code == "UNSUPPORTED_PROTOCOL_VERSION")
 { unsupported = error.RpcError; }
+// Stock DirectTarget inherits INVALID_PHASE for every shared cluster method except initialize/get,
+// despite initialize advertising logs and agentAttach, and refuses trusted run/submit with RUN_CONFLICT.
+var graph = NativeJson.DeserializeUtf8<GraphSpec>("""{"profile":"openengine.graph.full/v1","initialInput":{"kind":"null"},"policy":{"policy":"policy.native-v2@1","default":"deny"},"root":{"kind":"succeed","name":"done","output":{"kind":"null"},"bindings":[]}}"""u8);
+var key = new IdempotencyKey("cluster-witness");
+var refusals = new Dictionary<string, JsonRpcError>();
+void Refused<T>(string method, NativeAttempt<T> attempt, string code) where T : class
+{
+    if (attempt is not { Outcome: NativeAttemptOutcome.Rejected, Failure: NativeOecpException { RpcError: { Code: -32000 } rpc } } || rpc.Data?.Code != code)
+        throw new InvalidOperationException($"Native did not reject {method} with {code}.");
+    refusals[method] = rpc;
+}
+async Task RefusedSubscription(string method, Func<Task<IAsyncDisposable>> open)
+{
+    try { await (await open()).DisposeAsync(); }
+    catch (NativeOecpException error) when (error.RpcError is { Code: -32000, Data.Code: "INVALID_PHASE" } rpc) { refusals[method] = rpc; return; }
+    throw new InvalidOperationException($"Native did not refuse {method} with INVALID_PHASE.");
+}
+try { await oecp.Cluster.PlanAsync(new() { Graph = graph }); throw new InvalidOperationException("Native accepted plan."); }
+catch (NativeOecpException error) when (error.RpcError is { Code: -32000, Data.Code: "INVALID_PHASE" } rpc) { refusals["plan"] = rpc; }
+Refused("apply", await oecp.Cluster.ApplyAsync(new() { Graph = graph, Input = System.Text.Json.JsonDocument.Parse("null").RootElement, IfGeneration = 0, IdempotencyKey = key }), "INVALID_PHASE");
+Refused("update", await oecp.Cluster.UpdateAsync(new() { Suspended = true, IfGeneration = 1, IdempotencyKey = key }), "INVALID_PHASE");
+Refused("stop", await oecp.Cluster.StopAsync(new() { Mode = StopMode.Drain, IfGeneration = 1, IdempotencyKey = key }), "INVALID_PHASE");
+Refused("retry", await oecp.Cluster.RetryAsync(new() { IfGeneration = 1, IdempotencyKey = key }), "INVALID_PHASE");
+Refused("resubmit", await oecp.Cluster.ResubmitAsync(new() { IfGeneration = 1, IfRunId = runId, IdempotencyKey = key }), "INVALID_PHASE");
+Refused("delete", await oecp.Cluster.DeleteAsync(new() { IfGeneration = 1, IfRunId = runId, IdempotencyKey = key }), "INVALID_PHASE");
+await RefusedSubscription("watch", async () => await oecp.Cluster.WatchAsync(new() { RunId = runId }));
+await RefusedSubscription("logs", async () => await oecp.Cluster.LogsAsync());
+await RefusedSubscription("agent/attach", async () => await oecp.Cluster.AttachAgentAsync(new() { Execution = new("worker:1") }));
+Refused("run/submit", await oecp.Runs.SubmitAsync(new()
+{
+    RunId = new("0195af77-1000-7000-8000-000000000027"),
+    Submission = new() { Title = new("cluster witness"), Graph = graph, InitialInput = System.Text.Json.JsonDocument.Parse("null").RootElement,
+        Runtime = NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"codex","provider":"openai","size":"small","nodes":{}}"""u8),
+        Source = expectedSource, SubmissionKey = new("cluster-witness") }
+}), "RUN_CONFLICT");
+var afterRefusals = await oecp.Cluster.GetAsync();
+var afterInventory = await oecp.Runs.ListAsync();
+if (refusals.Count != 11 || afterRefusals.Status.Phase != Phase.Empty || afterInventory.Runs.Length != 1)
+    throw new InvalidOperationException("Cluster refusals changed native state.");
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
 {
     initialize = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(initialized)).RootElement,
     cluster = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(empty)).RootElement,
     inventory = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(inventory)).RootElement,
     status = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(status)).RootElement,
-    unsupported = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(unsupported)).RootElement
+    unsupported = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(unsupported)).RootElement,
+    refusals = refusals.ToDictionary(item => item.Key, item => System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(item.Value)).RootElement)
 }));

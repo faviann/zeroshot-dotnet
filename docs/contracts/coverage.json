@@ -39,92 +39,120 @@
       "id": "oecp:plan",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`PlanParams {graph}` \u2192 `PlanResult {ok, diagnostics, bounds?}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L37"
-      }
+        "status": "typed verification call returning PlanResult diagnostics and optional structural bounds",
+        "inventory": "native-inventory.md#L37",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements plan; the result shape rests on pinned native goldens, and the only live evidence is the stock INVALID_PHASE refusal."
+      },
+      "binding": "OecpConnection.Cluster.PlanAsync"
     },
     {
       "id": "oecp:apply",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`ApplyParams {graph, input?, dryRun?, ifGeneration?, idempotencyKey?}` \u2192 `ApplyResult {generation, runId, phase, deduped, diff?}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L38"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L38",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.ApplyAsync"
     },
     {
       "id": "oecp:update",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`UpdateParams {labels?, logLevel?, suspended?, ifGeneration, idempotencyKey}` \u2192 `UpdateResult {generation, runId, phase, operational, atCursor, deduped}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L39"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L39",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.UpdateAsync"
     },
     {
       "id": "oecp:stop",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`StopParams {mode, ifGeneration, idempotencyKey}` \u2192 `StopResult {generation, runId, phase, acceptedMode, effectiveMode, operational, atCursor, deduped}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L40"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch; reserved control capacity",
+        "inventory": "native-inventory.md#L40",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.StopAsync"
     },
     {
       "id": "oecp:retry",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RetryParams {ifGeneration, idempotencyKey}` \u2192 `RetryResult {generation, runId, phase, retriedTurnId, retryTurnId, operational, atCursor, deduped}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L41"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L41",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.RetryAsync"
     },
     {
       "id": "oecp:resubmit",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`ResubmitParams {ifGeneration, ifRunId, idempotencyKey, replacementInput?}` \u2192 `ResubmitResult {generation, priorRunId, runId, phase, operational, atCursor, deduped}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L42"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L42",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.ResubmitAsync"
     },
     {
       "id": "oecp:delete",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`DeleteParams {ifGeneration, ifRunId?, idempotencyKey}` \u2192 `DeleteResult {deleted, phase, generation?, runId?, atCursor?, deduped}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L43"
-      }
+        "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
+        "inventory": "native-inventory.md#L43",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
+      },
+      "binding": "OecpConnection.Cluster.DeleteAsync"
     },
     {
       "id": "oecp:get",
@@ -147,53 +175,69 @@
       "id": "oecp:watch",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`WatchParams {runId?, fromCursor?}` \u2192 `WatchResult {subscriptionId, runId, atCursor}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L45"
-      }
+        "status": "bounded NativeSubscription<WatchResult,EventNotification> over the complete WatchEvent algebra; requested or resolved run identity is enforced, and a parked subscription takes its run from the first record",
+        "inventory": "native-inventory.md#L45",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
+      },
+      "binding": "OecpConnection.Cluster.WatchAsync"
     },
     {
       "id": "oecp:logs",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`, despite initialize's boolean.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`LogsParams {}` \u2192 `LogsResult {subscriptionId}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L46"
-      }
+        "status": "bounded, future-only, cursorless NativeSubscription<LogsResult,LogEventNotification>; a close carrying a cursor is a protocol failure",
+        "inventory": "native-inventory.md#L46",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
+      },
+      "binding": "OecpConnection.Cluster.LogsAsync"
     },
     {
       "id": "oecp:agent/attach",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "`INVALID_PHASE`, despite initialize's boolean.",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`AgentAttachParams {execution}` \u2192 `AgentAttachResult {subscriptionId}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L47"
-      }
+        "status": "bounded, future-only, cursorless NativeSubscription<AgentAttachResult,AgentAttachEventNotification> with no run selector; a close carrying a cursor is a protocol failure",
+        "inventory": "native-inventory.md#L47",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
+      },
+      "binding": "OecpConnection.Cluster.AttachAgentAsync"
     },
     {
       "id": "oecp:run/submit",
       "transport": "OECP",
       "bindingOwnerIssue": 27,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Generic trusted-controller bootstrap contract exists. Target OECP deliberately rejects with `RUN_CONFLICT`; use HTTP run request, which also carries credentials/resolver. [Types][run-wire], [adapter][target-backend]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunSubmitParams {runId, submission}` \u2192 `RunSubmitResult {runId}`",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L57"
-      }
+        "status": "one-send binding returning NativeAttempt<RunSubmitResult>; any acknowledged run ID is retained because native deduplication can return an earlier run; -32602/GRAPH_INVALID, IDEMPOTENCY_REUSE, RUN_CONFLICT and INVALID_PHASE are pre-effect refusals",
+        "inventory": "native-inventory.md#L57",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "limitations": "No working native run/submit backend is exercised: the stock target and portable controller refuse it, so acknowledgement and the non-RUN_CONFLICT refusals have controlled-peer evidence only. Direct runs are submitted over HTTP."
+      },
+      "binding": "OecpConnection.Runs.SubmitAsync"
     },
     {
       "id": "oecp:run/list",
@@ -1340,32 +1384,40 @@
       "id": "oecp-notification:event",
       "transport": "OECP",
       "bindingOwnerIssue": 20,
-      "status": "partially implemented",
+      "status": "implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "Body is selected by the established subscription, not by another method name. Six bodies listed next.",
       "evidence": {
-        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "status": "all six subscription bodies are bound: run/watch and run/logs (#21), run/attach (#22), and cluster watch, logs and agent/attach (#27)",
         "inventory": "native-inventory.md#L74",
-        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs; tests/Zeroshot.Sdk.Tests/AttachmentTests.cs; tests/Zeroshot.Sdk.Tests/ClusterTests.cs",
         "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "NativeSubscription<TEstablishment,TEvent>.ReadAllAsync",
-      "implementedByIssue": 21
+      "implementedByIssue": 21,
+      "eventAssociations": {
+        "watch": "EventNotification",
+        "logs": "LogEventNotification",
+        "agent/attach": "AgentAttachEventNotification",
+        "run/watch": "RunWatchEventNotification",
+        "run/logs": "RunLogEventNotification",
+        "run/attach": "RunAttachEventNotification"
+      }
     },
     {
       "id": "oecp-notification:subscription/closed",
       "transport": "OECP",
       "bindingOwnerIssue": 20,
-      "status": "partially implemented",
+      "status": "implemented",
       "supportPrerequisites": "Existing connection; event body depends on subscription. $/cancelRequest is WebSocket-only at this pin.",
       "authenticationPrerequisites": "Connection authority; cancellation is scoped to that connection.",
       "typeClosure": "`subscriptionId`, `reason`, and, for durable subscriptions, optional `lastDeliveredCursor`. Reasons are exact strings `done`, `SLOW_CONSUMER`, `SOURCE_UNAVAILABLE`. Closing is terminal for that subscription, not evidence of run success.",
       "evidence": {
-        "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
+        "status": "complete for all six subscriptions; cluster logs and agent/attach closes must be cursorless (LogsClosedNotification/AgentAttachClosedNotification), and a close carrying a cursor is a protocol failure",
         "inventory": "native-inventory.md#L75",
-        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs; tests/Zeroshot.Sdk.Tests/AttachmentTests.cs; tests/Zeroshot.Sdk.Tests/ClusterTests.cs",
         "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },

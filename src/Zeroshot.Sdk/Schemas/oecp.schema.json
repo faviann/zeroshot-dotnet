@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection and run subscription closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
+  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection, cluster admission/lifecycle/observation, trusted run submit and run subscription closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
   "$defs": {
     "ActiveExecution": {
       "additionalProperties": false,
@@ -22,6 +22,41 @@
       "required": [
         "execution",
         "node"
+      ],
+      "type": "object"
+    },
+    "AdmissionTransition": {
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "seedInput": true,
+        "spec": {
+          "$ref": "#/$defs/GraphSpec"
+        }
+      },
+      "required": [
+        "runId",
+        "spec",
+        "seedInput"
+      ],
+      "type": "object"
+    },
+    "AgentAttachClosedNotification": {
+      "additionalProperties": false,
+      "description": "Wire body of the terminal `subscription/closed` server notification for an `agent/attach`\nsubscription. Deliberately carries no cursor field -- `agent/attach` gives a type-level\n\"cursorless\" guarantee, unlike [`crate::SubscriptionClosedNotification`].",
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/SubscriptionCloseReason"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "reason"
       ],
       "type": "object"
     },
@@ -75,6 +110,185 @@
         }
       ]
     },
+    "AgentAttachEventNotification": {
+      "$ref": "#/$defs/AgentAttachEventNotificationWire"
+    },
+    "AgentAttachEventNotificationWire": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/AgentAttachEvent"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "event"
+      ],
+      "type": "object"
+    },
+    "AgentAttachParams": {
+      "additionalProperties": false,
+      "description": "`agent/attach` establishment parameters: the named `{execution}` request. Deliberately closed,\nrejecting any unknown field.",
+      "properties": {
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution"
+      ],
+      "type": "object"
+    },
+    "AgentAttachResult": {
+      "additionalProperties": false,
+      "description": "The `agent/attach` establishment result: only a `subscriptionId`. Deliberately carries no\n`runId` or `atCursor` -- `agent/attach` is not run-scoped and has no cursor.",
+      "properties": {
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId"
+      ],
+      "type": "object"
+    },
+    "ApplyParams": {
+      "additionalProperties": false,
+      "properties": {
+        "dryRun": {
+          "default": false,
+          "type": "boolean"
+        },
+        "graph": {
+          "$ref": "#/$defs/GraphSpec"
+        },
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "input": true
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    },
+    "ApplyResult": {
+      "additionalProperties": false,
+      "properties": {
+        "deduped": {
+          "type": "boolean"
+        },
+        "diff": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphDiff"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "phase",
+        "deduped"
+      ],
+      "type": "object"
+    },
+    "BackendFault": {
+      "$ref": "#/$defs/BackendFaultWire"
+    },
+    "BackendFaultWire": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/FaultAction"
+        },
+        "code": {
+          "$ref": "#/$defs/FaultCode"
+        },
+        "consequence": {
+          "$ref": "#/$defs/FaultConsequence"
+        },
+        "eventId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "executionRef": {
+          "default": null,
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retry": {
+          "$ref": "#/$defs/FaultRetryDisposition"
+        },
+        "severity": {
+          "$ref": "#/$defs/FaultSeverity"
+        },
+        "source": {
+          "items": {
+            "$ref": "#/$defs/FaultSourceFrame"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "eventId",
+        "code",
+        "consequence",
+        "retry",
+        "action",
+        "severity",
+        "summary",
+        "source"
+      ],
+      "type": "object"
+    },
     "ClusterStatus": {
       "properties": {
         "atCursor": {
@@ -116,6 +330,73 @@
       ],
       "type": "object"
     },
+    "DeleteParams": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ifRunId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ifGeneration",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "DeleteResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deduped": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "deleted",
+        "phase",
+        "deduped"
+      ],
+      "type": "object"
+    },
     "DispatchState": {
       "enum": [
         "active",
@@ -135,6 +416,99 @@
       },
       "required": [
         "code"
+      ],
+      "type": "object"
+    },
+    "EventNotification": {
+      "additionalProperties": false,
+      "description": "Wire body of the generic `event` server notification.",
+      "properties": {
+        "cursor": {
+          "type": "string"
+        },
+        "event": {
+          "$ref": "#/$defs/WatchEvent"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "cursor",
+        "event"
+      ],
+      "type": "object"
+    },
+    "FaultAction": {
+      "description": "Descriptive only, like [`FaultRetryDisposition`]: naming `Retry` never itself retries or\nauthorizes a retry.",
+      "enum": [
+        "none",
+        "retry",
+        "wait",
+        "escalate",
+        "abort"
+      ],
+      "type": "string"
+    },
+    "FaultCode": {
+      "enum": [
+        "unavailable",
+        "resource_exhausted",
+        "deadline_exceeded",
+        "permission_denied",
+        "failed_precondition",
+        "not_found",
+        "aborted",
+        "internal",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "FaultConsequence": {
+      "enum": [
+        "turn_failed",
+        "run_failed",
+        "run_degraded",
+        "no_observable_effect"
+      ],
+      "type": "string"
+    },
+    "FaultRetryDisposition": {
+      "description": "Descriptive only: no `BackendFault` and no `fault` event ever performs or authorizes a retry.\nEvent ordering and emission never themselves change terminal semantics.",
+      "enum": [
+        "retryable",
+        "retryable_after_backoff",
+        "not_retryable",
+        "indeterminate"
+      ],
+      "type": "string"
+    },
+    "FaultSeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ],
+      "type": "string"
+    },
+    "FaultSourceFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component"
       ],
       "type": "object"
     },
@@ -185,6 +559,44 @@
       },
       "required": [
         "status"
+      ],
+      "type": "object"
+    },
+    "GraphDiff": {
+      "additionalProperties": false,
+      "properties": {
+        "added": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "changed": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "added",
+        "removed",
+        "changed"
       ],
       "type": "object"
     },
@@ -263,6 +675,25 @@
       },
       "type": "object"
     },
+    "LogEventNotification": {
+      "$ref": "#/$defs/LogEventNotificationWire"
+    },
+    "LogEventNotificationWire": {
+      "additionalProperties": false,
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/LogRecord"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "record"
+      ],
+      "type": "object"
+    },
     "LogLevel": {
       "enum": [
         "trace",
@@ -296,6 +727,62 @@
         "level",
         "target",
         "message"
+      ],
+      "type": "object"
+    },
+    "LogsClosedNotification": {
+      "additionalProperties": false,
+      "description": "Wire body of the terminal `subscription/closed` server notification for a `logs` subscription.\nDeliberately carries no cursor field -- `logs` gives a type-level \"cursorless\" guarantee, unlike\n[`crate::SubscriptionClosedNotification`].",
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/SubscriptionCloseReason"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "LogsParams": {
+      "additionalProperties": false,
+      "description": "`logs` establishment parameters. v1 has zero caller filters: this is deliberately empty and\nclosed, rejecting any unknown field.",
+      "type": "object"
+    },
+    "LogsResult": {
+      "additionalProperties": false,
+      "description": "The `logs` establishment result: only a `subscriptionId`. Deliberately carries no `runId` or\n`atCursor` -- `logs` is not run-scoped and has no cursor.",
+      "properties": {
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId"
+      ],
+      "type": "object"
+    },
+    "NodeAddress": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "node": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node",
+        "attempt"
       ],
       "type": "object"
     },
@@ -345,6 +832,47 @@
       ],
       "type": "string"
     },
+    "PlanParams": {
+      "additionalProperties": false,
+      "properties": {
+        "graph": {
+          "$ref": "#/$defs/GraphSpec"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    },
+    "PlanResult": {
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StructuralBounds"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/GraphDiagnostic"
+          },
+          "type": "array"
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
     "RequestId": {
       "anyOf": [
         {
@@ -355,6 +883,133 @@
           "type": "integer"
         }
       ]
+    },
+    "ResubmitParams": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ifRunId": {
+          "type": "string"
+        },
+        "replacementInput": true
+      },
+      "required": [
+        "ifGeneration",
+        "ifRunId",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "ResubmitResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": "string"
+        },
+        "deduped": {
+          "type": "boolean"
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "operational": {
+          "$ref": "#/$defs/OperationalStatus"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "priorRunId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "priorRunId",
+        "runId",
+        "phase",
+        "operational",
+        "atCursor",
+        "deduped"
+      ],
+      "type": "object"
+    },
+    "RetryParams": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ifGeneration",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "RetryResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": "string"
+        },
+        "deduped": {
+          "type": "boolean"
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "operational": {
+          "$ref": "#/$defs/OperationalStatus"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "retriedTurnId": {
+          "type": "string"
+        },
+        "retryTurnId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "runId",
+        "phase",
+        "retriedTurnId",
+        "retryTurnId",
+        "operational",
+        "atCursor",
+        "deduped"
+      ],
+      "type": "object"
     },
     "RunAttachEventNotification": {
       "additionalProperties": false,
@@ -741,6 +1396,19 @@
       ],
       "type": "object"
     },
+    "RunSubmitResult": {
+      "additionalProperties": false,
+      "description": "A successful submission returns the one public identity used by every later run method.",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
     "RunWatchEventNotification": {
       "additionalProperties": false,
       "description": "One durable public status projection. `cursor` is stable run history, not a connection-local\nsequence; clients resume strictly after it.",
@@ -860,6 +1528,73 @@
         "force"
       ],
       "type": "string"
+    },
+    "StopParams": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/$defs/StopMode"
+        }
+      },
+      "required": [
+        "mode",
+        "ifGeneration",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "StopResult": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptedMode": {
+          "$ref": "#/$defs/StopMode"
+        },
+        "atCursor": {
+          "type": "string"
+        },
+        "deduped": {
+          "type": "boolean"
+        },
+        "effectiveMode": {
+          "$ref": "#/$defs/StopMode"
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "operational": {
+          "$ref": "#/$defs/OperationalStatus"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "runId",
+        "phase",
+        "acceptedMode",
+        "effectiveMode",
+        "operational",
+        "atCursor",
+        "deduped"
+      ],
+      "type": "object"
     },
     "SubscriptionCancelParams": {
       "additionalProperties": false,
@@ -1003,6 +1738,259 @@
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
+    },
+    "UpdateParams": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "labels"
+          ]
+        },
+        {
+          "required": [
+            "logLevel"
+          ]
+        },
+        {
+          "required": [
+            "suspended"
+          ]
+        }
+      ],
+      "properties": {
+        "idempotencyKey": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "ifGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "logLevel": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "suspended": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ifGeneration",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "UpdateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "atCursor": {
+          "type": "string"
+        },
+        "deduped": {
+          "type": "boolean"
+        },
+        "generation": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "operational": {
+          "$ref": "#/$defs/OperationalStatus"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "runId",
+        "phase",
+        "operational",
+        "atCursor",
+        "deduped"
+      ],
+      "type": "object"
+    },
+    "WatchEvent": {
+      "description": "The closed public event algebra. `Phase` folds the observable cluster status (admission\ncommit, update, suspend/resume, stop-request); `NodeBegin`/`NodeEnd` are a testkit-only\nsynthetic hook decoupled from the real dispatch/lease turn mechanism, since no native graph\nexecutor exists yet; `Bookmark` advances the cursor without changing folded public state;\n`Fault` carries a durable, backend-neutral projected `BackendFault`: it correlates to the\nenclosing `EventNotification.run_id` plus its own optional opaque `executionRef`, and its\nordering/emission never itself authorizes a retry or changes terminal semantics -- it folds to\nno public status change, exactly like `Bookmark`; `Finished` is always the last event for a\nrun.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AdmissionTransition"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "$ref": "#/$defs/ClusterStatus"
+            },
+            "type": {
+              "const": "phase",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "status"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "input": true,
+            "node": {
+              "$ref": "#/$defs/NodeAddress"
+            },
+            "type": {
+              "const": "node_begin",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "node",
+            "input"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "node": {
+              "$ref": "#/$defs/NodeAddress"
+            },
+            "outcome": {
+              "$ref": "#/$defs/WorkerOutcome"
+            },
+            "type": {
+              "const": "node_end",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "node",
+            "outcome"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "bookmark",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fault": {
+              "$ref": "#/$defs/BackendFault"
+            },
+            "type": {
+              "const": "fault",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "fault"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "final_status": {
+              "$ref": "#/$defs/ClusterStatus"
+            },
+            "stop_mode": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StopMode"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "const": "finished",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "final_status"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WatchParams": {
+      "additionalProperties": false,
+      "properties": {
+        "fromCursor": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "WatchResult": {
+      "properties": {
+        "atCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId"
+      ],
+      "type": "object"
     },
     "WorkspaceRecovery": {
       "additionalProperties": false,

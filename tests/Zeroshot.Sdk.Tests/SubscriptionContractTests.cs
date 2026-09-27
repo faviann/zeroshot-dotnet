@@ -10,7 +10,7 @@ public sealed class SubscriptionContractTests
 {
     internal const string Source = """{"repository":"owner/repo","branch":"main","revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}""";
     internal const string Watch = """{"subscriptionId":"watch","runId":"run-1","title":"title","source":SOURCE,"size":"small","cursor":"opaque cursor /? SECRET","status":{"phase":"finished","terminalResult":{"status":"succeeded","output":{"answer":42}},"metadata":{"tokenUsage":{"inputTokens":7,"outputTokens":3,"complete":true}}}}""";
-    internal static string WatchEvent => Watch.Replace("SOURCE", Source);
+    internal static string RunWatchRecord => Watch.Replace("SOURCE", Source);
     internal const string LogEvent = """{"subscriptionId":"logs","runId":"run-1","cursor":"log boundary /?","timestamp":1234567,"execution":"worker:1","record":{"level":"warn","target":"environment.setup","message":"retained text"}}""";
     private static T Read<T>(string value) => NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(value));
     internal static void Check(bool condition, string message = "Subscription assertion failed.") { if (!condition) throw new InvalidOperationException(message); }
@@ -24,7 +24,7 @@ public sealed class SubscriptionContractTests
     [Test]
     public void FullDistinctNativeEventsRetainMetadataAndOpaqueValues()
     {
-        var watch = Read<RunWatchEventNotification>(WatchEvent);
+        var watch = Read<RunWatchEventNotification>(RunWatchRecord);
         Check(watch.Source.Repository.Value == "owner/repo" && watch.Size == RunSize.Small);
         var status = (FinishedRunStatus)watch.Status;
         Check(((SucceededTerminalResult)status.TerminalResult).Output.GetProperty("answer").GetInt32() == 42);
@@ -34,9 +34,9 @@ public sealed class SubscriptionContractTests
         Check(log.Timestamp.Value == 1234567 && log.Execution!.Value == "worker:1" && log.Record.Level == LogLevel.Warn);
         Check(log.Record.Target.Value == "environment.setup" && log.Record.Message.Value == "retained text");
         Check(!watch.ToString().Contains("SECRET") && !log.ToString().Contains("retained"));
-        Reject<RunLogEventNotification>(WatchEvent);
+        Reject<RunLogEventNotification>(RunWatchRecord);
         Reject<RunWatchEventNotification>(LogEvent);
-        Reject<RunWatchEventNotification>(WatchEvent[..^1] + ",\"workspaceRecovery\":{}}");
+        Reject<RunWatchEventNotification>(RunWatchRecord[..^1] + ",\"workspaceRecovery\":{}}");
     }
 
     [Test]

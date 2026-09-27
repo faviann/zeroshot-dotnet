@@ -62,3 +62,13 @@ private bootstrap envelope. `NativeClient.Private.BootstrapAsync` sends it once 
 returns `NativeAttempt<EmptyResponse>`; see
 [private target bootstrap](../http/README.md#private-target-bootstrap).
 `examples/PrivateBootstrapConsumer` exercises it against a stock private-mode target.
+
+`Contracts/Cluster.cs` completes the shared OECP closure. It covers cluster plan,
+apply, update, stop, retry, resubmit, delete, the watch/logs/agent-attach
+establishments and events, and the trusted `run/submit` result. `coverage.json` now has a
+row for each of the 22 OECP methods; only the workspace-recovery methods remain
+unimplemented under #24. The `event` row maps each of the six subscription associations to its
+body; the four notifications have their own rows. The cluster methods and trusted
+`run/submit` have deterministic evidence from pinned native goldens, plus stock
+DirectTarget refusal evidence only; see
+[shared cluster contract](../oecp/README.md#shared-cluster-contract-and-trusted-run-submit).

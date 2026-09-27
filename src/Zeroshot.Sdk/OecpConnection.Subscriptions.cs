@@ -10,7 +10,7 @@ public sealed partial class OecpConnection
 {
     internal async Task<NativeSubscription<TEstablishment, TEvent>> SubscribeAsync<TEstablishment, TEvent>(
         string method, byte[] parameters, Func<TEstablishment, SubscriptionId> validateEstablishment,
-        Func<SubscriptionId, TEvent, Cursor?> validateEvent, CancellationToken cancellationToken)
+        Func<SubscriptionId, TEvent, Cursor?> validateEvent, CancellationToken cancellationToken, bool cursorlessClose = false)
     {
         ObservationQueue<TEvent, Cursor> queue;
         try { queue = observations.Open<TEvent, Cursor>(cancellationToken); }
@@ -22,7 +22,7 @@ public sealed partial class OecpConnection
             {
                 var id = validateEstablishment(result);
                 if (subscriptions.ContainsKey(id)) throw new JsonException();
-                subscription = new(result, id, queue, record => validateEvent(id, record), DetachAsync);
+                subscription = new(result, id, queue, record => validateEvent(id, record), DetachAsync, cursorlessClose);
                 subscriptions.Add(id, subscription);
                 subscription.Start();
             }).ConfigureAwait(false);
@@ -56,6 +56,7 @@ public sealed partial class OecpConnection
             else
             {
                 var closed = NativeJson.DeserializeUtf8<SubscriptionClosedNotification>(Encoding.UTF8.GetBytes(parameters.GetRawText()));
+                if (subscription.CursorlessClose && closed.LastDeliveredCursor is not null) throw new JsonException();
                 subscriptions.Remove(id);
                 subscription.Closed(closed);
             }

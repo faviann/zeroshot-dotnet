@@ -16,6 +16,11 @@ The witness also expects the one test-owned run in
 `tools/native-witness/inspection-request.json` to have been admitted by the harness.
 It initializes OECP, checks capabilities and empty cluster get, lists and inspects
 that exact run/source through terminal status, and verifies the native numeric/domain
-unsupported-protocol error. The harness owns raw HTTP admission; this consumer does
-not provide the later production submission binding. A native terminal runtime failure
+unsupported-protocol error. It then sends well-formed plan, apply, update, stop,
+retry, resubmit, delete, watch, logs and agent/attach requests and requires native
+`-32000`/`INVALID_PHASE` for each, although initialize advertises logs and agent
+attachment. Trusted `run/submit` must be a rejected `RUN_CONFLICT` attempt. Cluster
+get and the run inventory must be unchanged afterwards, and every refusal body is
+printed. The harness owns raw HTTP admission; this consumer does not provide the
+later production submission binding. A native terminal runtime failure
 is valid inspection evidence, not a claim of successful provider execution.

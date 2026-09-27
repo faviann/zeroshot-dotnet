@@ -36,8 +36,8 @@ public sealed class SubscriptionTests
             Check(watch.GetProperty("method").GetString() == "run/watch");
             Check(watch.GetProperty("params").GetProperty("fromCursor").GetString() == "opaque /? start");
             await Reply(socket, watch, Establishment("watch", "opaque /? start"));
-            await Event(socket, WatchEvent);
-            await Event(socket, WatchEvent.Replace("opaque cursor /? SECRET", "next cursor"));
+            await Event(socket, RunWatchRecord);
+            await Event(socket, RunWatchRecord.Replace("opaque cursor /? SECRET", "next cursor"));
             await Closed(socket, "watch");
             var logs = await Read(socket);
             Check(logs.GetProperty("method").GetString() == "run/logs");
@@ -88,8 +88,8 @@ public sealed class SubscriptionTests
         await using var sourcePeer = new Peer(async socket =>
         {
             await Reply(socket, await Read(socket), Establishment("watch"));
-            await Event(socket, WatchEvent);
-            await Event(socket, WatchEvent.Replace("owner/repo", "foreign/repo"));
+            await Event(socket, RunWatchRecord);
+            await Event(socket, RunWatchRecord.Replace("owner/repo", "foreign/repo"));
             await Read(socket);
         });
         using var sourceClient = sourcePeer.Client(); await using var sourceConnection = await sourceClient.ConnectOecpAsync(sourcePeer.Session);
@@ -237,7 +237,7 @@ public sealed class SubscriptionTests
     [Test]
     public async Task EncodedByteBudgetIsSharedByWatchAndLogBindings()
     {
-        var watchFrame = $$$"""{"jsonrpc":"2.0","method":"event","params":{{{WatchEvent}}}}""";
+        var watchFrame = $$$"""{"jsonrpc":"2.0","method":"event","params":{{{RunWatchRecord}}}}""";
         var logFrame = $$$"""{"jsonrpc":"2.0","method":"event","params":{{{LogEvent}}}}""";
         var budget = System.Text.Encoding.UTF8.GetByteCount(watchFrame + logFrame) - 1;
         await using var peer = new Peer(async socket =>
