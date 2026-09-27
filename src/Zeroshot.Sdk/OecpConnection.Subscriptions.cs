@@ -10,7 +10,7 @@ public sealed partial class OecpConnection
 {
     internal async Task<NativeSubscription<TEstablishment, TEvent>> SubscribeAsync<TEstablishment, TEvent>(
         string method, byte[] parameters, Func<TEstablishment, SubscriptionId> validateEstablishment,
-        Func<SubscriptionId, TEvent, Cursor> validateEvent, CancellationToken cancellationToken)
+        Func<SubscriptionId, TEvent, Cursor?> validateEvent, CancellationToken cancellationToken)
     {
         ObservationQueue<TEvent, Cursor> queue;
         try { queue = observations.Open<TEvent, Cursor>(cancellationToken); }
@@ -97,6 +97,22 @@ public sealed partial class OecpConnection
 
 public sealed partial class OecpRunsClient
 {
+    /// <summary>One live read-only attachment to an exact active execution. No cursor, replay, input or automatic reopen.</summary>
+    public Task<NativeSubscription<RunAttachResult, RunAttachEventNotification>> AttachAsync(RunAttachParams parameters,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        return connection.SubscribeAsync<RunAttachResult, RunAttachEventNotification>("run/attach", NativeJson.SerializeUtf8(parameters), result =>
+        {
+            if (result.RunId != parameters.RunId || result.Execution != parameters.Execution) throw new JsonException();
+            return result.SubscriptionId;
+        }, (id, record) =>
+        {
+            if (record.SubscriptionId != id || record.RunId != parameters.RunId || record.Execution != parameters.Execution) throw new JsonException();
+            return null;
+        }, cancellationToken);
+    }
+
     /// <summary>One durable watch, replayed exclusively after FromCursor then followed live. No automatic reopen.</summary>
     public Task<NativeSubscription<RunWatchResult, RunWatchEventNotification>> WatchAsync(RunWatchParams parameters,
         ResolvedSource? expectedSource = null, CancellationToken cancellationToken = default)

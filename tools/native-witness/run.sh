@@ -15,7 +15,7 @@ native_control=()
 stop_native() {
   if [[ -n $native_pid ]]; then
     # Release a waiting test hook before stopping its target, including failure cleanup.
-    if [[ -n $native_target_pid ]]; then touch "$witness_dir/observation-release"; fi
+    if [[ -n $native_target_pid ]]; then touch "$witness_dir/observation-release" "$witness_dir/attachment-output" "$witness_dir/attachment-release"; fi
     "${native_control[@]}" kill -TERM "${native_target_pid:-$native_pid}" 2>/dev/null || true
     for ((attempt=0; attempt<100; attempt++)); do
       kill -0 "$native_pid" 2>/dev/null || break
@@ -183,5 +183,6 @@ stop_native
 start_observation_target restarted
 dotnet run --project "$witness_dir/observation-consumer/ObservationConsumer.csproj" -c Release --no-build --no-restore -- \
   "$origin" "$witness_dir" restarted > "$witness_dir/observation-after-restart.json"
-printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart\n' | tee "$witness_dir/result.txt"
+source "$repo_dir/tools/native-witness/attachment.sh"
+printf 'PASS: stock native discovery GET, fixed-route HEAD 404, direct session POST with no-store, fresh packed-package consumers: discovery/session, OECP initialize, populated inventory, exact run/source terminal status, unsupported protocol RPC error, empty cluster get; complete asset generation/readmission/HTTP admission, contained-provider normalization, normalized deduplication, exact retained replay, proposed/acknowledged identity, native admission/conflict refusals; watch/logs preexisting history, genuinely live new records, authoritative completion, opaque exclusive replay and exact-run observation after target restart; exact active execution attachment working/live output/settled and cursorless close, inactive GONE and unknown NOT_FOUND\n' | tee "$witness_dir/result.txt"
 cat "$witness_dir/provenance.txt"

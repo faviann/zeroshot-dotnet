@@ -25,6 +25,56 @@
       ],
       "type": "object"
     },
+    "AgentAttachEvent": {
+      "description": "The closed public agent-attach progress algebra. This is the only representable shape:\nreasoning, tools, provider frames, usage, and session identifiers have no variant. `Working`\nand `Settled` are empty struct variants rather than bare units: serde's internally tagged enum\ndeserialization silently ignores unknown fields on a unit variant regardless of\n`deny_unknown_fields`, which would otherwise let an unrepresentable field ride along\nundetected on either of these two variants.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "working",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "maxLength": 16384,
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+              "type": "string"
+            },
+            "type": {
+              "const": "output",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "settled",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "ClusterStatus": {
       "properties": {
         "atCursor": {
@@ -305,6 +355,77 @@
           "type": "integer"
         }
       ]
+    },
+    "RunAttachEventNotification": {
+      "additionalProperties": false,
+      "description": "One live read-only attach event. Carrying both identities prevents events from simultaneous\nverifier attachments being confused on a multiplexed transport.",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/AgentAttachEvent"
+        },
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "execution",
+        "event"
+      ],
+      "type": "object"
+    },
+    "RunAttachParams": {
+      "additionalProperties": false,
+      "description": "Establishes a live, read-only view of exactly one execution.\n\nAttach has no cursor and no replay. Historical output is available through [`RunLogsParams`].\nNo client-to-execution input message exists in this contract.",
+      "properties": {
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "execution"
+      ],
+      "type": "object"
+    },
+    "RunAttachResult": {
+      "additionalProperties": false,
+      "properties": {
+        "execution": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "subscriptionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "runId",
+        "execution"
+      ],
+      "type": "object"
     },
     "RunListParams": {
       "additionalProperties": false,

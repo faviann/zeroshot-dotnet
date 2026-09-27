@@ -45,19 +45,19 @@ internal interface IOecpSubscription
 public sealed class NativeSubscription<TEstablishment, TEvent> : IAsyncDisposable, IOecpSubscription
 {
     private readonly ObservationQueue<TEvent, Cursor> queue;
-    private readonly Func<TEvent, Cursor> validate;
+    private readonly Func<TEvent, Cursor?> validate;
     private readonly Func<SubscriptionId, bool, Task> detach;
     private readonly object gate = new();
     private NativeSubscriptionCompletion? outcome;
     private readonly TaskCompletionSource<NativeSubscriptionCompletion> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TEstablishment Establishment { get; }
     public Task<NativeSubscriptionCompletion> Completion => completion.Task;
-    /// <summary>Last record handed to the caller, including records drained after closure. Not a processing checkpoint.</summary>
+    /// <summary>Last cursor handed to the caller, including records drained after closure. Null for cursorless attachment. Not a processing checkpoint.</summary>
     public Cursor? LastDeliveredCursor => queue.LastDeliveredPosition;
     internal SubscriptionId Id { get; }
 
     internal NativeSubscription(TEstablishment establishment, SubscriptionId id,
-        ObservationQueue<TEvent, Cursor> queue, Func<TEvent, Cursor> validate,
+        ObservationQueue<TEvent, Cursor> queue, Func<TEvent, Cursor?> validate,
         Func<SubscriptionId, bool, Task> detach)
     {
         Establishment = establishment; Id = id; this.queue = queue; this.validate = validate; this.detach = detach;

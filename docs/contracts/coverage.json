@@ -267,14 +267,18 @@
       "id": "oecp:run/attach",
       "transport": "OECP",
       "bindingOwnerIssue": 22,
-      "status": "unimplemented",
+      "status": "implemented",
       "supportPrerequisites": "Exactly one live execution; no history, cursor, replay, or input channel. Unknown execution \u2192 `NOT_FOUND`; inactive/not-live \u2192 `GONE`. [Types][observation], [error mapping][cloud-errors]",
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
-      "typeClosure": "`RunAttachParams {runId, execution}` \u2192 `RunAttachResult {subscriptionId, runId, execution}`",
+      "typeClosure": "`RunAttachParams {runId, execution}` \u2192 `RunAttachResult {subscriptionId, runId, execution}`; `RunAttachEventNotification {subscriptionId, runId, execution, event: AgentAttachEvent}` with working/output {text: BoundedAssistantOutput}/settled; shared SubscriptionClosedNotification and cancellation",
       "evidence": {
-        "status": "source-inventoried; no .NET binding or native conformance evidence",
-        "inventory": "native-inventory.md#L62"
-      }
+        "status": "complete exact-execution live read-only attachment binding using shared subscription lifecycle and bounds",
+        "inventory": "native-inventory.md#L62",
+        "deterministic": "tests/Zeroshot.Sdk.Tests/AttachmentTests.cs",
+        "nativeConformance": "tools/native-witness/run.sh, attachment.sh and examples/AttachmentConsumer: stock 10.9.0 controlled active execution, genuinely live working/output/settled, cursorless close, inactive GONE and unknown NOT_FOUND",
+        "limitations": "No replay, input channel or automatic recovery. Settlement is attachment data, not a terminal run result. Controlled provider and local source in a private mount namespace; live hosted/private authorities and external provider services remain unverified."
+      },
+      "binding": "OecpConnection.Runs.AttachAsync"
     },
     {
       "id": "oecp:run/force",
