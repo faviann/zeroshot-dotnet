@@ -21,6 +21,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     internal ObservationDelivery Observations { get; }
     public Uri Origin { get; }
     public NativeTargetClient Target { get; }
+    public NativeConnectionsClient Connections { get; }
 
     private NativeClient(NativeClientOptions options, HttpClient? supplied, bool ownsHttpClient)
     {
@@ -44,6 +45,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         }
         else { http = supplied; this.ownsHttpClient = ownsHttpClient; }
         Target = new NativeTargetClient(this);
+        Connections = new NativeConnectionsClient(this);
     }
 
     /// <summary>Creates a safe owned HTTP transport, or borrows a caller-compliant client by default.</summary>
@@ -126,7 +128,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
 
     private async Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
-        Action<Guid>? onDispatch = null, Action<T>? onResponse = null)
+        Action<Guid>? onDispatch = null, Action<T>? onResponse = null, bool noStore = false)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var responseGate = new object();
@@ -148,6 +150,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 }
+                if (noStore) request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
                 if (credentials is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.BearerToken);
                 request.Options.Set(ContextKey, context);
@@ -199,6 +202,42 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus); }
+    }
+
+    /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
+    private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptJsonAsync<T>(
+        OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
+        Func<NativeHttpException, bool> isRefusal, CancellationToken cancellationToken, bool noStore = false) where T : class
+    {
+        var dispatched = 0;
+        var correlationId = Guid.Empty;
+        T? response = null;
+        Exception? failure = null;
+        try
+        {
+            await ExecuteJsonAsync<T>(operation, requestUri, body, credentials, _ => { }, cancellationToken,
+                onDispatch: id => { correlationId = id; Interlocked.Exchange(ref dispatched, 1); },
+                onResponse: value => Volatile.Write(ref response, value), noStore: noStore).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
+        {
+            failure = error;
+            correlationId = error switch
+            {
+                NativeHttpException httpFailure => httpFailure.CorrelationId,
+                OperationCancelled cancelled => cancelled.CorrelationId,
+                _ => correlationId
+            };
+        }
+
+        // ExecuteJsonAsync has finished its bounded cleanup. A response already validated
+        // by the adapter wins a cancellation race, including cancellation during cleanup.
+        var captured = Volatile.Read(ref response);
+        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
+            : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
+            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus, Problem: not null } refused && isRefusal(refused)
+                ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
+        return (correlationId, outcome, captured, captured is null ? failure : null);
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, OperationContext context)

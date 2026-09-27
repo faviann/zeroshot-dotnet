@@ -214,3 +214,66 @@ fresh credentials. The [native witness](../../tools/native-witness/README.md) ru
 the packed submission binding against stock native with a complete software-change
 PR asset and proves native normalization, deduplication and exact replay. Hosted
 and private submission interoperability remains unverified.
+
+## Hosted connection records
+
+```csharp
+var discovery = await native.Target.DiscoverAsync();
+var access = new TargetControlCredentials(TargetAuthentication.HostedOauth, currentAccessToken);
+var records = await native.Connections.ListAsync(discovery, new ConnectionListRequest { Scope = ConnectionScope.User }, access);
+var set = await native.Connections.SetAsync(discovery, new ConnectionSetRequest
+{
+    Key = new ConnectionKey("github"), Scope = ConnectionScope.Org,
+    Values = ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", token)
+}, access);
+if (set.Outcome == NativeAttemptOutcome.Unknown) { /* the record may or may not have changed */ }
+var deleted = await native.Connections.DeleteAsync(discovery,
+    new ConnectionDeleteRequest { Key = new ConnectionKey("github"), Scope = ConnectionScope.Org }, access);
+```
+
+`NativeClient.Connections` binds the three native hosted connection-management
+operations. Each call makes one JSON POST to the route advertised by the explicitly
+supplied discovery, with `Accept: application/json`, `Cache-Control: no-store` and
+the caller's current hosted OAuth access bearer. There is no rediscovery, token
+refresh, retry, secret store, "show secret" operation or generic dynamic-kind
+creation.
+
+Before sending anything, the binding requires `hosted_oauth` discovery with kind
+`zeroshot.native-v2-target/v2` and audience `controller`, matching `HostedOauth`
+credentials, and a `connections` extension. Native refuses direct targets and a
+private target cannot carry this hosted capability. The descriptor must have kind
+`zeroshot.connections/v1`; `dynamicKinds` must be distinct, nonempty, at most 128
+UTF-8 bytes and free of control characters; `baseUrl` must be same-origin; and all
+four templates, including `resolve`, must be bounded literal routes. The resolve
+declaration is validated as native does but is never compiled into a caller
+operation: it names the host's run-scoped resolver callback, a separate contract.
+A wrong target, absent capability or invalid descriptor throws `ArgumentException`
+without dispatch, like other invalid use.
+
+Requests and results are strict camelCase records. `ConnectionScope` is `user` or
+`org`. `ConnectionSummary.Kind` is an open string: native names
+`ConnectionKinds.Static` and `ConnectionKinds.GithubAppInstallation`, but a host
+can report others. Summaries carry field names only. `ConnectionSetRequest.Values`
+applies the native static-value bounds shared with run submission: 1–64 environment
+field names, each value nonempty, NUL-free and at most 64 KiB, and at most 256 KiB
+in aggregate including names. Hosts may answer with any 2xx status; the response
+must be valid JSON within 64 KiB (or the smaller configured limit).
+
+`ListAsync` returns the result or throws `NativeHttpException`. `SetAsync` and
+`DeleteAsync` return the shared `NativeAttempt<T>`: `Acknowledged` with a valid
+result, `NotSent` when nothing was dispatched, and `Rejected` only for a valid
+`TargetHttpProblem` whose status/code pair is one of native's own pre-effect
+refusals: 400 `invalid_request`, 401 `unauthorized`, 403 `forbidden` or 404
+`not_found`. Every other received failure, including 409 `request_conflict`, 429
+`rate_limited`, 503 and malformed results, is `Unknown`. `Failure.Problem` keeps
+the received problem for the caller to decide.
+
+Secret values are ordinary request data: the caller can read them and they are
+sent in the set body. Default formatting of requests, attempts, exceptions and
+credentials omits values, bearers and remote problem text; explicit property
+access, `NativeJson` serialization and opted-in raw diagnostics reveal them.
+
+`HttpConnectionTests.cs` covers every operation against controlled hosted
+authorities. Stock native 10.9.0 only consumes these routes and serves none, so
+the native witness cannot exercise them. Live hosted interoperability is
+unverified.

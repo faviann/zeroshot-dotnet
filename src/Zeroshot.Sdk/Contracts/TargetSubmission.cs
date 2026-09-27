@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -22,16 +21,7 @@ public record TargetRunCredentials : TargetHttpContract
         foreach (var (key, values) in Connections)
         {
             _ = new ConnectionKey(key);
-            if (values is null || values.Count is < 1 or > 64) throw new JsonException();
-            long bytes = 0;
-            foreach (var (name, value) in values)
-            {
-                _ = new EnvironmentVariableName(name);
-                if (string.IsNullOrEmpty(value) || value.Contains('\0') || Encoding.UTF8.GetByteCount(value) > 64 * 1024)
-                    throw new JsonException();
-                bytes += Encoding.UTF8.GetByteCount(name) + Encoding.UTF8.GetByteCount(value);
-            }
-            if (bytes > 256 * 1024) throw new JsonException();
+            StaticConnectionValues.Validate(values);
         }
     }
 }
