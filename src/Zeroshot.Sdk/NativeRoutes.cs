@@ -41,8 +41,8 @@ internal static class NativeRoutes
     }
 
     // Native contract/history.rs compile_route: literal segments, at most one whole {run_id}
-    // segment and an optional {?after} suffix, appended to the capability base path.
-    internal static Uri RunHistoryRoute(Uri baseUrl, string template, string? runId, string? after, bool allowsAfter)
+    // segment and an optional {?after} suffix. Returns the path template without the query.
+    internal static string RunHistoryPath(string template, bool requiresRunId, bool allowsAfter)
     {
         if (string.IsNullOrEmpty(template) || template.Length > 2048 || !template.StartsWith('/') ||
             template.StartsWith("//", StringComparison.Ordinal) || template.IndexOfAny(['\\', '#']) >= 0 ||
@@ -51,9 +51,16 @@ internal static class NativeRoutes
         var path = template.EndsWith("{?after}", StringComparison.Ordinal) ? template[..^"{?after}".Length] : template;
         var segments = path.Split('/').Skip(1).ToArray();
         if ((path != template) != allowsAfter || path.Contains('?') ||
-            segments.Count(segment => segment == "{run_id}") != (runId is null ? 0 : 1) ||
+            segments.Count(segment => segment == "{run_id}") != (requiresRunId ? 1 : 0) ||
             !segments.All(segment => segment == "{run_id}" || IsLiteralSegment(segment)))
             throw Invalid();
+        return path;
+    }
+
+    // Segments append to the capability base path.
+    internal static Uri RunHistoryRoute(Uri baseUrl, string template, string? runId, string? after, bool allowsAfter)
+    {
+        var path = RunHistoryPath(template, runId is not null, allowsAfter);
         var prefix = baseUrl.AbsoluteUri.EndsWith('/') ? baseUrl.AbsoluteUri[..^1] : baseUrl.AbsoluteUri;
         var url = SameOriginUrl(baseUrl, prefix + (runId is null ? path : path.Replace("{run_id}", runId, StringComparison.Ordinal)));
         if (after is null) return url;

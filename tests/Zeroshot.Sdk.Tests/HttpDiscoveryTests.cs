@@ -291,28 +291,31 @@ public sealed class HttpDiscoveryTests
     }
 
     [Test]
-    public async Task SharedHeadBindingReportsHeadersAndUiRoutedRequestsCloseTheirConnection()
+    public async Task SharedCoreReportsHeadHeadersBoundsProblemsAndClosesUiRoutedConnections()
     {
-        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.head", Zeroshot.Native.Execution.OperationTransport.Http,
+        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.ui", Zeroshot.Native.Execution.OperationTransport.Http,
             problemBytes: 8, uiRouter: true);
-        var status = HttpStatusCode.OK;
         using var handler = new Handler((request, _) =>
         {
-            Check(request.Method == HttpMethod.Head && request.Headers.ConnectionClose == true && request.Content is null);
-            var reply = new HttpResponseMessage(status) { RequestMessage = request, Content = new ByteArrayContent(status == HttpStatusCode.OK ? [] : "{\"code\":\"x\",\"message\":\"y\"}"u8.ToArray()) };
-            reply.Content.Headers.ContentType = new("application/json");
-            reply.Content.Headers.ContentLength = 29;
-            return Task.FromResult(reply);
+            Check(request.Headers.ConnectionClose == true && request.Content is null);
+            if (request.Method == HttpMethod.Head)
+            {
+                var head = new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new ByteArrayContent([]) };
+                head.Content.Headers.ContentType = new("application/json");
+                head.Content.Headers.ContentLength = 29;
+                return Task.FromResult(head);
+            }
+            return Task.FromResult(Reply(request, "{\"code\":\"x\",\"message\":\"y\"}", HttpStatusCode.NotFound));
         });
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
         var uri = new Uri("https://target.example/ui-routed");
-        var head = await native.ExecuteHeadAsync(operation, uri, null, default);
-        Check(head.StatusCode == HttpStatusCode.OK && head.ContentLength == 29 && head.MediaType == "application/json");
-        status = HttpStatusCode.NotFound;
+        var result = await native.ExecuteHeadAsync(operation, uri, null, default);
+        Check(result.StatusCode == HttpStatusCode.OK && result.ContentLength == 29 && result.MediaType == "application/json");
         // The operation's refusal-body bound applies below the shared diagnostic ceiling.
-        var refused = await Failure(native.ExecuteHeadAsync(operation, uri, null, default), NativeHttpFailureKind.SizeLimit);
-        Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null);
+        var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, uri, null, null, _ => { }, default),
+            NativeHttpFailureKind.SizeLimit);
+        Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null && refused.UiProblem is null);
     }
 
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler

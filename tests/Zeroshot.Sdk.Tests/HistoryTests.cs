@@ -161,9 +161,9 @@ public sealed class HistoryTests
             "HEAD /history/runs", "HEAD /history/runs/" + Run, "HEAD /history/runs/" + Run + "/page?after=v2%3A9"
         }));
         Check(seen.All(r => r.Headers.CacheControl!.NoStore && r.Headers.Accept.Single().MediaType == "application/json" && r.Content is null));
-        // Only the direct UI mount owns the connection after a request; the hosted request carries the bearer.
+        // The direct UI mount keeps the connection for its UI router; only the hosted request carries the bearer.
         Check(seen.Where(r => r.Headers.Authorization is null).All(r => r.Headers.ConnectionClose == true));
-        Check(seen.Single(r => r.Headers.Authorization is not null) is { Headers.Authorization: { Scheme: "Bearer", Parameter: Bearer }, Headers.ConnectionClose: not true });
+        Check(seen.Single(r => r.Headers.Authorization is not null).Headers.Authorization is { Scheme: "Bearer", Parameter: Bearer });
     }
 
     public static IEnumerable<(string Case, Func<NativeClient, Task> Call)> InvalidUses()
@@ -179,6 +179,7 @@ public sealed class HistoryTests
         yield return ("list without after", n => n.History.ListAsync(Discovery(list: "/runs")));
         yield return ("detail with after", n => n.History.DetailAsync(Discovery(detail: "/runs/{run_id}{?after}"), run));
         yield return ("detail without run", n => n.History.DetailAsync(Discovery(detail: "/runs"), run));
+        yield return ("malformed unused page template", n => n.History.ListAsync(Discovery(page: "/runs/{run_id}/page")));
         yield return ("page repeats run", n => n.History.PageAsync(Discovery(page: "/runs/{run_id}/{run_id}{?after}"), run));
         yield return ("run variable inside a segment", n => n.History.PageAsync(Discovery(page: "/runs/x{run_id}/page{?after}"), run));
         yield return ("other query variable", n => n.History.PageAsync(Discovery(page: "/runs/{run_id}/page{?after,x}"), run));

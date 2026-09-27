@@ -36,12 +36,6 @@ public sealed record UiProblem : TargetHttpContract
     public required string Code { get; init; }
     [JsonPropertyName("message")]
     public required string Message { get; init; }
-
-    internal void Validate()
-    {
-        if (string.IsNullOrEmpty(Code) || Code.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')))
-            throw new JsonException();
-    }
 }
 
 /// <summary>Bounded remote refusal facts. Explicit property inspection may reveal remote data.</summary>

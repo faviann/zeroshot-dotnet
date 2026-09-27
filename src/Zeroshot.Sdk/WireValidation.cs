@@ -13,7 +13,8 @@ internal static class WireValidation
     private static readonly JsonObject Definitions = LoadDefinitions();
     private static readonly ConcurrentDictionary<string, JsonSchema> Schemas = new();
 
-    internal static void Validate(JsonElement value, Type type)
+    /// <summary>Validates native wire data; returns the typed instance when validation already decoded it.</summary>
+    internal static object? Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
         if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
@@ -21,7 +22,6 @@ internal static class WireValidation
             // Required fields, nullability, exact field names and per-type extension strictness.
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
             if (result is TargetHttpProblem problem) problem.Validate();
-            if (result is UiProblem uiProblem) uiProblem.Validate();
             if (result is TargetRunCredentials credentials) credentials.Validate();
             if (result is ConnectionSetRequest connection) StaticConnectionValues.Validate(connection.Values);
             if (result is TargetRunRequest request)
@@ -30,18 +30,19 @@ internal static class WireValidation
                 Validate(value.GetProperty("submission"), typeof(RunSubmission));
             }
             CheckDiscovery(value, type);
-            return;
+            return result;
         }
         if (typeof(HistoryContract).IsAssignableFrom(type))
         {
             // Typed decoding owns field names, presence and nullability; nested pinned-schema values still validate.
-            CheckHistory(value, JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException());
-            return;
+            var history = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+            CheckHistory(value, history);
+            return history;
         }
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         if (name is null)
         {
-            if (typeof(NativeString).IsAssignableFrom(type)) return;
+            if (typeof(NativeString).IsAssignableFrom(type)) return null;
             throw new ArgumentException("Unsupported native contract type.");
         }
         var schema = Schemas.GetOrAdd(name, key => JsonSchema.FromText(new JsonObject
@@ -52,6 +53,7 @@ internal static class WireValidation
         }.ToJsonString()));
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
+        return null;
     }
 
     private static void CheckDiscovery(JsonElement value, Type type)

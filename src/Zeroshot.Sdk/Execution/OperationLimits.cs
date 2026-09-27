@@ -64,10 +64,12 @@ internal sealed class OperationDescriptor
     public int? ProblemBytes { get; }
     /// <summary>Served by a direct target's UI router, which keeps the connection for itself.</summary>
     public bool UiRouter { get; }
+    /// <summary>Refusals carry the closed native run-history problem vocabulary.</summary>
+    public bool HistoryProblems { get; }
 
     // Name is a binding-owned operation identifier, never a URL, remote string or caller payload.
     public OperationDescriptor(string name, OperationTransport transport, bool isControl = false,
-        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null, int? problemBytes = null, bool uiRouter = false)
+        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null, int? problemBytes = null, bool uiRouter = false, bool historyProblems = false)
     {
         if (string.IsNullOrEmpty(name) || name.Length > 128 ||
             name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '/' or '.' or '_' or '-')))
@@ -83,5 +85,6 @@ internal sealed class OperationDescriptor
         MessageBytes = messageBytes;
         ProblemBytes = problemBytes;
         UiRouter = uiRouter;
+        HistoryProblems = historyProblems;
     }
 }

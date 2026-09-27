@@ -29,24 +29,19 @@ public sealed class NativeHistoryClient
     private static readonly HistoryOperation HeadList = new("history.list.head", 4);
     private static readonly HistoryOperation HeadDetail = new("history.detail.head", 8);
     private static readonly HistoryOperation HeadPage = new("history.page.head", 8);
-    private static readonly HashSet<string> Operations =
-        [List.Name, Detail.Name, Page.Name, HeadList.Name, HeadDetail.Name, HeadPage.Name];
     private readonly NativeClient client;
 
     internal NativeHistoryClient(NativeClient client) => this.client = client;
 
     private sealed class HistoryOperation(string name, int responseMebibytes)
     {
-        public string Name => name;
-        private readonly OperationDescriptor direct = Create(name, responseMebibytes, uiRouter: true);
+            private readonly OperationDescriptor direct = Create(name, responseMebibytes, uiRouter: true);
         private readonly OperationDescriptor hosted = Create(name, responseMebibytes, uiRouter: false);
         private static OperationDescriptor Create(string name, int responseMebibytes, bool uiRouter) => new(name, OperationTransport.Http,
-            responseBytes: responseMebibytes * 1024 * 1024, problemBytes: ProblemBytes, uiRouter: uiRouter);
+            responseBytes: responseMebibytes * 1024 * 1024, problemBytes: ProblemBytes, uiRouter: uiRouter, historyProblems: true);
         public OperationDescriptor For(TargetDiscoveryDocument discovery)
             => discovery.Authentication == TargetAuthentication.HostedOauth ? hosted : direct;
     }
-
-    internal static bool IsHistoryOperation(string operation) => Operations.Contains(operation);
 
     /// <summary>Reads one list page, optionally strictly after a canonical UUIDv7 run ID.</summary>
     public Task<RunHistoryList> ListAsync(TargetDiscoveryDocument discovery, RunId? after = null,
@@ -138,7 +133,12 @@ public sealed class NativeHistoryClient
         if (capability is null || capability.Kind != Kind)
             throw new ArgumentException("Discovery does not advertise compatible run history.");
         var baseUrl = NativeRoutes.CapabilityBaseUrl(client.Origin, capability.BaseUrl);
-        return NativeRoutes.RunHistoryRoute(baseUrl, select(capability.RouteTemplates), runId, after, allowsAfter);
+        // Native build_run_history_descriptor compiles all three routes before any is used.
+        var routes = capability.RouteTemplates;
+        _ = NativeRoutes.RunHistoryPath(routes.List, requiresRunId: false, allowsAfter: true);
+        _ = NativeRoutes.RunHistoryPath(routes.Detail, requiresRunId: true, allowsAfter: false);
+        _ = NativeRoutes.RunHistoryPath(routes.Page, requiresRunId: true, allowsAfter: true);
+        return NativeRoutes.RunHistoryRoute(baseUrl, select(routes), runId, after, allowsAfter);
     }
 }
 

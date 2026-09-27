@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Zeroshot.Native.Execution;
 using Zeroshot.Native.Contracts;
 
@@ -77,7 +76,8 @@ public sealed class NativeHttpException : Exception
     /// An unknown or malformed history problem leaves it null and keeps the observed status.</summary>
     public RunHistoryProblemCode? HistoryProblem { get; }
     internal NativeHttpException(OperationFailure failure, TargetHttpProblem? problem = null,
-        HttpStatusCode? receivedStatus = null, UiProblem? uiProblem = null) : base(failure.Message)
+        HttpStatusCode? receivedStatus = null, UiProblem? uiProblem = null, RunHistoryProblemCode? historyProblem = null)
+        : base(failure.Message)
     {
         Operation = failure.Operation;
         CorrelationId = failure.CorrelationId;
@@ -86,10 +86,7 @@ public sealed class NativeHttpException : Exception
         StatusCode = failure.StatusCode ?? receivedStatus;
         Problem = problem;
         UiProblem = uiProblem;
-        // The direct UI mount and hosted hosts send the same closed code in their respective problem shapes.
-        if (NativeHistoryClient.IsHistoryOperation(Operation) && (uiProblem?.Code ?? problem?.Code) is { } code)
-            HistoryProblem = Enum.GetValues<RunHistoryProblemCode>().Cast<RunHistoryProblemCode?>()
-                .FirstOrDefault(value => JsonNamingPolicy.SnakeCaseLower.ConvertName(value!.Value.ToString()) == code);
+        HistoryProblem = historyProblem;
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();

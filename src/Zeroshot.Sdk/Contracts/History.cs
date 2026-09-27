@@ -30,6 +30,22 @@ public enum RunHistoryProblemCode
     [JsonStringEnumMemberName("history_incompatible")] HistoryIncompatible
 }
 
+internal static class RunHistoryProblems
+{
+    private static readonly Dictionary<string, RunHistoryProblemCode> Codes = new(StringComparer.Ordinal)
+    {
+        ["run_not_found"] = RunHistoryProblemCode.RunNotFound, ["not_found"] = RunHistoryProblemCode.NotFound,
+        ["forbidden"] = RunHistoryProblemCode.Forbidden, ["invalid_cursor"] = RunHistoryProblemCode.InvalidCursor,
+        ["history_gap"] = RunHistoryProblemCode.HistoryGap, ["runtime_unavailable"] = RunHistoryProblemCode.RuntimeUnavailable,
+        ["history_unavailable"] = RunHistoryProblemCode.HistoryUnavailable, ["history_incomplete"] = RunHistoryProblemCode.HistoryIncomplete,
+        ["history_pending"] = RunHistoryProblemCode.HistoryPending, ["history_invalid"] = RunHistoryProblemCode.HistoryInvalid,
+        ["history_expired"] = RunHistoryProblemCode.HistoryExpired, ["history_incompatible"] = RunHistoryProblemCode.HistoryIncompatible
+    };
+
+    internal static RunHistoryProblemCode? Parse(string? code)
+        => code is not null && Codes.TryGetValue(code, out var value) ? value : null;
+}
+
 /// <summary>Host-only queue state plus the native phases used after admission.</summary>
 public enum RunHistoryPhase
 {

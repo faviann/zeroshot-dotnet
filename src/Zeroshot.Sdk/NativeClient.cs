@@ -233,7 +233,9 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 response?.Dispose(); // Response owns its content stream. Cleanup cannot replace a valid result.
             }), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem); }
+        catch (OperationFailure failure) { throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
+            // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
+            operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null); }
     }
 
     /// <summary>Sends one mutation and classifies its evidence without retrying.</summary>
