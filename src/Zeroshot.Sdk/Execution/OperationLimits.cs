@@ -60,16 +60,20 @@ internal sealed class OperationDescriptor
     public int? RequestBytes { get; }
     public int? ResponseBytes { get; }
     public int? MessageBytes { get; }
+    /// <summary>A native refusal-body bound below the shared diagnostic ceiling.</summary>
+    public int? ProblemBytes { get; }
+    /// <summary>Served by a direct target's UI router, which keeps the connection for itself.</summary>
+    public bool UiRouter { get; }
 
     // Name is a binding-owned operation identifier, never a URL, remote string or caller payload.
     public OperationDescriptor(string name, OperationTransport transport, bool isControl = false,
-        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null)
+        int? requestBytes = null, int? responseBytes = null, int? messageBytes = null, int? problemBytes = null, bool uiRouter = false)
     {
         if (string.IsNullOrEmpty(name) || name.Length > 128 ||
             name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '/' or '.' or '_' or '-')))
             throw new ArgumentException("A bounded operation identifier is required.", nameof(name));
         if (!Enum.IsDefined(transport)) throw new ArgumentOutOfRangeException(nameof(transport));
-        if (requestBytes <= 0 || responseBytes <= 0 || messageBytes <= 0)
+        if (requestBytes <= 0 || responseBytes <= 0 || messageBytes <= 0 || problemBytes <= 0)
             throw new ArgumentOutOfRangeException(nameof(requestBytes), "Operation limits must be positive.");
         Name = name;
         Transport = transport;
@@ -77,5 +81,7 @@ internal sealed class OperationDescriptor
         RequestBytes = requestBytes;
         ResponseBytes = responseBytes;
         MessageBytes = messageBytes;
+        ProblemBytes = problemBytes;
+        UiRouter = uiRouter;
     }
 }

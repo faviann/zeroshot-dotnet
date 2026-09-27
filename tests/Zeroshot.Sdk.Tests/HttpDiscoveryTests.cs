@@ -290,6 +290,31 @@ public sealed class HttpDiscoveryTests
         Check(failure.Stage == "Connect");
     }
 
+    [Test]
+    public async Task SharedHeadBindingReportsHeadersAndUiRoutedRequestsCloseTheirConnection()
+    {
+        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.head", Zeroshot.Native.Execution.OperationTransport.Http,
+            problemBytes: 8, uiRouter: true);
+        var status = HttpStatusCode.OK;
+        using var handler = new Handler((request, _) =>
+        {
+            Check(request.Method == HttpMethod.Head && request.Headers.ConnectionClose == true && request.Content is null);
+            var reply = new HttpResponseMessage(status) { RequestMessage = request, Content = new ByteArrayContent(status == HttpStatusCode.OK ? [] : "{\"code\":\"x\",\"message\":\"y\"}"u8.ToArray()) };
+            reply.Content.Headers.ContentType = new("application/json");
+            reply.Content.Headers.ContentLength = 29;
+            return Task.FromResult(reply);
+        });
+        using var http = new HttpClient(handler);
+        using var native = NativeClient.ForHttp(Options(), http);
+        var uri = new Uri("https://target.example/ui-routed");
+        var head = await native.ExecuteHeadAsync(operation, uri, null, default);
+        Check(head.StatusCode == HttpStatusCode.OK && head.ContentLength == 29 && head.MediaType == "application/json");
+        status = HttpStatusCode.NotFound;
+        // The operation's refusal-body bound applies below the shared diagnostic ceiling.
+        var refused = await Failure(native.ExecuteHeadAsync(operation, uri, null, default), NativeHttpFailureKind.SizeLimit);
+        Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null);
+    }
+
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         public int Calls { get; private set; }
