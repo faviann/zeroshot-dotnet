@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
+using Zeroshot.Native.Observations;
 
 namespace Zeroshot.Native;
 
@@ -17,6 +18,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     private readonly OperationLimits limits;
     private int disposed;
     private readonly TransportOptions transportOptions;
+    internal ObservationDelivery Observations { get; }
     public Uri Origin { get; }
     public NativeTargetClient Target { get; }
 
@@ -32,6 +34,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         if (supplied is not null && supplied.Timeout != Timeout.InfiniteTimeSpan && supplied.Timeout < limits.UnaryTimeout)
             throw new ArgumentException("A supplied HttpClient timeout must be infinite or at least RequestTimeout.", nameof(supplied));
         executor = new OperationExecutor(limits);
+        Observations = new ObservationDelivery(options.Transport);
         if (supplied is null)
         {
             var handler = CreateHttpHandler(options.Transport);
@@ -245,6 +248,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        Observations.Dispose();
         executor.Dispose();
         foreach (var connection in oecpConnections.Keys) connection.Dispose();
         if (ownsHttpClient) http.Dispose();

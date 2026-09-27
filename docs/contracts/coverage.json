@@ -10,6 +10,13 @@
     "validationEvidence": "tests/Zeroshot.Sdk.Tests/ContractTests.cs; examples/ContractsConsumer",
     "nativeConformance": "not claimed"
   },
+  "observationDelivery": {
+    "ownerIssue": 20,
+    "status": "internal seam implemented; transport observation bindings remain separate",
+    "binding": "NativeClient-owned ObservationDelivery and generic ObservationQueue",
+    "validationEvidence": "tests/Zeroshot.Sdk.Tests/ObservationDeliveryTests.cs",
+    "nativeConformance": "not claimed"
+  },
   "operations": [
     {
       "id": "oecp:initialize",

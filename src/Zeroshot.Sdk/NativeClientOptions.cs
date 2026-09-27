@@ -25,6 +25,10 @@ public sealed record TransportOptions
     public int MaxOecpConnections { get; init; } = 18;
     public int MaxOecpRequestBytes { get; init; } = 1024 * 1024;
     public int MaxOecpMessageBytes { get; init; } = 8 * 1024 * 1024;
+    public int MaxConcurrentSubscriptions { get; init; } = 16;
+    public int MaxQueuedObservationRecords { get; init; } = 256;
+    public int MaxQueuedObservationBytes { get; init; } = 8 * 1024 * 1024;
+    public long MaxAggregateObservationBytes { get; init; } = 32 * 1024 * 1024;
     public bool EnableWebSocketLiveness { get; init; } = true;
     public TimeSpan WebSocketPingInterval { get; init; } = TimeSpan.FromSeconds(30);
     public TimeSpan WebSocketPongTimeout { get; init; } = TimeSpan.FromSeconds(15);
@@ -32,6 +36,10 @@ public sealed record TransportOptions
 
     internal OperationLimits Limits()
     {
+        if (MaxConcurrentSubscriptions <= 0) throw new ArgumentOutOfRangeException(nameof(MaxConcurrentSubscriptions));
+        if (MaxQueuedObservationRecords <= 0) throw new ArgumentOutOfRangeException(nameof(MaxQueuedObservationRecords));
+        if (MaxQueuedObservationBytes <= 0) throw new ArgumentOutOfRangeException(nameof(MaxQueuedObservationBytes));
+        if (MaxAggregateObservationBytes <= 0) throw new ArgumentOutOfRangeException(nameof(MaxAggregateObservationBytes));
         OperationLimits.ValidateTimeout(WebSocketPingInterval, nameof(WebSocketPingInterval));
         OperationLimits.ValidateTimeout(WebSocketPongTimeout, nameof(WebSocketPongTimeout));
         var limits = new OperationLimits

@@ -5,8 +5,8 @@
 definitions, local wire validation, immutable credential-free prepared submissions,
 [bounded HTTP discovery, session acquisition and direct submission attempts](docs/http/README.md), and
 [WebSocket OECP inspection](docs/oecp/README.md) of existing targets. An
-[internal operation seam](docs/execution/README.md) supplies deadlines, resource
-admission and safe failures. Remaining transport bindings and SDK run workflows
+[internal operation and observation seam](docs/execution/README.md) supplies deadlines,
+resource admission, shared bounded observation queues and safe failures. Remaining transport bindings and SDK run workflows
 are tracked in the [coverage manifest](docs/contracts/coverage.json).
 
 Public namespaces are `Zeroshot`, `Zeroshot.Native` and
