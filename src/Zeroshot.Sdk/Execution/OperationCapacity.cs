@@ -4,7 +4,7 @@ namespace Zeroshot.Native.Execution;
 internal sealed class OperationCapacity(OperationLimits limits)
 {
     private readonly object gate = new();
-    private readonly Dictionary<string, int> http = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string Scheme, string Host, int Port), int> http = [];
     private int requests;
     private int ordinaryRequests;
     private int oecp;
@@ -43,7 +43,7 @@ internal sealed class OperationCapacity(OperationLimits limits)
     {
         if (!origin.IsAbsoluteUri || (origin.Scheme != "http" && origin.Scheme != "https"))
             throw new ArgumentException("An absolute HTTP origin is required.", nameof(origin));
-        var key = origin.GetComponents(UriComponents.SchemeAndServer, UriFormat.UriEscaped);
+        var key = (origin.Scheme, origin.IdnHost.ToLowerInvariant(), origin.Port);
         lock (gate)
         {
             var count = http.GetValueOrDefault(key);

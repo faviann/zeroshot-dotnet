@@ -306,6 +306,20 @@ public sealed class OperationExecutionTests
     }
 
     [Test]
+    public async Task HttpConnectionCapacitySharesUnicodeAndPunycodeOrigins()
+    {
+        using var executor = new OperationExecutor();
+        var unicode = new Uri("https://bücher.example");
+        var ascii = new Uri("https://XN--BCHER-KVA.EXAMPLE:443/other");
+        var leases = Enumerable.Range(0, 8).Select(_ => executor.RegisterHttpConnection(Http, unicode)).ToArray();
+        await Fails(Task.Run(() => executor.RegisterHttpConnection(Http, ascii)), OperationFailureKind.Capacity);
+        leases[0].Dispose();
+        using var replacement = executor.RegisterHttpConnection(Http, ascii);
+        await Fails(Task.Run(() => executor.RegisterHttpConnection(Http, unicode)), OperationFailureKind.Capacity);
+        foreach (var lease in leases) lease.Dispose();
+    }
+
+    [Test]
     public async Task RequestsEnforceDefaultAndSmallerOperationCeilingsBeforeDispatch()
     {
         using var executor = new OperationExecutor();
