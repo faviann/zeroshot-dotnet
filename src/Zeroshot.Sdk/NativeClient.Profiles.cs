@@ -43,10 +43,10 @@ public sealed partial class NativeClient
 public sealed class NativeProfilesClient
 {
     internal const string Kind = "zeroshot.run-profiles/v1";
-    // List, show and set results carry profile graphs and runtimes, so they keep the transport response ceiling.
-    internal static readonly OperationDescriptor ListOperation = new("run_profiles.list", OperationTransport.Http);
-    internal static readonly OperationDescriptor ShowOperation = new("run_profiles.show", OperationTransport.Http);
-    internal static readonly OperationDescriptor SetOperation = new("run_profiles.set", OperationTransport.Http);
+    // Native hosted_json reads every profile result under its 64 KiB MAX_RESPONSE_BYTES.
+    internal static readonly OperationDescriptor ListOperation = new("run_profiles.list", OperationTransport.Http, responseBytes: 64 * 1024);
+    internal static readonly OperationDescriptor ShowOperation = new("run_profiles.show", OperationTransport.Http, responseBytes: 64 * 1024);
+    internal static readonly OperationDescriptor SetOperation = new("run_profiles.set", OperationTransport.Http, responseBytes: 64 * 1024);
     internal static readonly OperationDescriptor DeleteOperation = new("run_profiles.delete", OperationTransport.Http, responseBytes: 64 * 1024);
     internal static readonly OperationDescriptor DefaultOperation = new("run_profiles.default", OperationTransport.Http, responseBytes: 64 * 1024);
     internal static readonly OperationDescriptor RunOperation = new("run_profiles.run", OperationTransport.Http, responseBytes: 64 * 1024);

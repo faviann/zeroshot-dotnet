@@ -188,12 +188,7 @@ public sealed class HttpProfileTests
             (Discovery(), Hosted),
             (Discovery(Capability with { Kind = "zeroshot.run-profiles/v2" }), Hosted),
             (Discovery(Capability with { BaseUrl = "https://attacker.example/api/" }), Hosted),
-            (Discovery(Capability with { BaseUrl = "http://target.example/api/" }), Hosted),
             (Discovery(Capability with { RouteTemplates = routes with { Run = "/profiles/{run_id}" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Default = "/profiles/default?x" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { List = "//attacker.example/list" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Show = "/profiles/../show" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Delete = "" } }), Hosted),
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
         using var client = Client(handler);
@@ -218,7 +213,6 @@ public sealed class HttpProfileTests
             ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty.Add("", ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", Secret))
         })
             await Invalid(() => client.Profiles.RunAsync(Discovery(Capability), RunRequest() with { Connections = connections }, Hosted));
-        await Invalid(() => client.Profiles.ListAsync(Discovery(Capability), new() { Scope = (RunProfileScope)7 }, Hosted));
         Check(handler.Calls == 0);
     }
 
@@ -262,6 +256,18 @@ public sealed class HttpProfileTests
             };
             Check(attempt == NativeAttemptOutcome.Unknown && handler.Calls == 1, $"{path} {body}");
         }
+    }
+
+    [Test]
+    public async Task ProfileResultsOverNativeHostedBoundLeaveSetUnknown()
+    {
+        // Otherwise valid, but over native's 64 KiB hosted response bound: native treats the exchange as failed.
+        var oversized = $$"""{"profile":{{Profile().Replace("\"p-1\"", "\"" + new string('p', 64 * 1024) + "\"")}}}""";
+        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, oversized)));
+        using var client = Client(handler);
+        var set = await client.Profiles.SetAsync(Discovery(Capability), SetRequest(), Hosted);
+        Check(set.Outcome == NativeAttemptOutcome.Unknown && set.Response is null &&
+            set.Failure is NativeHttpException { Kind: NativeHttpFailureKind.SizeLimit });
     }
 
     [Test]

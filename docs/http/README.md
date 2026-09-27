@@ -341,8 +341,8 @@ deduplication; comparing them is the caller's job.
 only for a valid `TargetHttpProblem` with 400 `invalid_request`, 401
 `unauthorized`, 403 `forbidden` or 404 `not_found`. Every other received failure,
 including malformed results, is `Unknown`. `NotSent` means nothing was dispatched.
-Delete, default and run results must fit in 64 KiB. List, show and set results
-carry profiles and use the transport response ceiling.
+Every result must fit in 64 KiB (or the smaller configured limit), native's hosted
+response bound, including list, show and set results that carry profiles.
 
 Default formatting of requests, attempts and exceptions omits connection values,
 the GitHub token, bearers and remote problem text. Explicit property access and
