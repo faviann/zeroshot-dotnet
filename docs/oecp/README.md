@@ -90,9 +90,10 @@ inline token-counter schema.
 unsupported negotiation reaches the target; successful responses must use v1.
 The stock Linux witness separately proves populated inventory, exact run/source
 status, unsupported protocol rejection and empty cluster get. Its recorded native
-terminal failure is inspection evidence, not a provider execution claim. Live
-hosted/private authorities remain unverified; controlled peers and source-backed
-fixtures cover those shapes. The recovery witness below observes populated
+terminal failure is inspection evidence, not a provider execution claim. The private
+witness initializes, reads the empty get and checks run status over a private-capability
+session. Live hosted authority remains unverified; controlled peers and source-backed
+fixtures cover that shape. The recovery witness below observes populated
 workspace recovery metadata.
 
 ## One watch or log subscription

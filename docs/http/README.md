@@ -148,8 +148,9 @@ bodies keep the HTTP status without inventing native facts. Remote text, endpoin
 and tokens never appear in default exception, contract or credential formatting;
 explicit `Problem` property inspection and optional raw export can expose them.
 `HttpSessionTests.cs` covers controlled direct/hosted/private behavior, trusted HTTPS,
-WSS authority rules, refusal facts and credential canaries. Live hosted/private
-interoperability is unverified.
+WSS authority rules, refusal facts and credential canaries. The native witness
+acquires a private-mode session with a bootstrapped capability and inspects a run over
+it. Live hosted interoperability is unverified.
 
 ## Direct submission attempts
 
@@ -214,8 +215,9 @@ Submission uses ordinary request capacity and the smaller of configured and nati
 races, status/code classification, identity mismatch and exact retained text with
 fresh credentials. The [native witness](../../tools/native-witness/README.md) runs
 the packed submission binding against stock native with a complete software-change
-PR asset and proves native normalization, deduplication and exact replay. Hosted
-and private submission interoperability remains unverified.
+PR asset and proves native normalization, deduplication and exact replay. The private
+phase admits a run with a bootstrapped capability. Hosted submission interoperability
+remains unverified.
 
 ## Hosted connection records
 

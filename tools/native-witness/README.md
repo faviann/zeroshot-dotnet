@@ -29,6 +29,10 @@ Pinned provenance:
 - Linux x64 musl archive SHA-256: `ca7305a0a165f3909481ccfcccce367d3bc2c40a9ab65760f6d6cad2a38d002d` (official release asset digest / `SHA256SUMS`).
 - Actual extracted `zeroshot` executable SHA-256: `f39952b98652301db58a89c4132a0476ae4ec570749b5945cc5200c2d22fad94` (measured and independently rechecked each run).
 
+Each run also appends the SDK build under test to `provenance.txt`: the repository
+commit, whether the worktree was clean, `dotnet --version` and the SHA-256 of the packed
+`Zeroshot.Client` package that every consumer restores.
+
 These are release provenance and local execution evidence, not remote executable
 attestation or a reproducible-build claim. Discovery itself publishes no product
 version or checksum.
@@ -267,8 +271,13 @@ private exports:
 - `invalid_cursor` for a cursor ahead of the run.
 - 401 `request.unauthorized` on all three exports for a wrong capability.
 
-The `exports` object in `private-bootstrap.json` retains this evidence. This phase
-proves no private session or OECP authority.
+The `exports` object in `private-bootstrap.json` retains this evidence.
+
+The consumer then acquires an OECP session for that run with the same capability. Native
+issues a session bearer, which is not recorded. Over that WebSocket it checks initialize,
+native's empty cluster get and the exact run/source finished status, and records them in
+the `oecp` object. This proves private session authority for inspection only; no other
+private OECP operation is exercised.
 
 `controller.sh` then exercises the NDJSON bindings against a stock local-run
 portable controller. It seeds a local Git repository with a fixture GitHub origin

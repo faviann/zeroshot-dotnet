@@ -19,6 +19,8 @@ jobs:
       - run: dotnet pack src/Zeroshot.Sdk/Zeroshot.Sdk.csproj --configuration Release --no-build --output artifacts/packages
       - run: dotnet restore examples/ContractsConsumer/ContractsConsumer.csproj --source artifacts/packages --source https://api.nuget.org/v3/index.json
       - run: dotnet run --project examples/ContractsConsumer/ContractsConsumer.csproj --configuration Release --no-restore
+      - run: dotnet restore examples/BindingsConsumer/BindingsConsumer.csproj --source artifacts/packages --source https://api.nuget.org/v3/index.json
+      - run: dotnet run --project examples/BindingsConsumer/BindingsConsumer.csproj --configuration Release --no-restore -- docs/contracts/coverage.json
 
   windows-pipes:
     strategy:
