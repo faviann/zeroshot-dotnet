@@ -15,7 +15,8 @@ var status = await oecp.Runs.StatusAsync(runId, expectedSource);
 ```
 
 Connection, initialization and each unary call consume separate complete request
-budgets. They reuse the native client's admission and deadlines, including across
+budgets. Initialize and run status are control operations and can use the client's
+reserved control request slots. They reuse the native client's admission and deadlines, including across
 HTTP and WebSocket connections. `TransportOptions` defaults to 18 OECP connections,
 1 MiB encoded OECP requests, 8 MiB complete messages/responses, 64 KiB error data,
 30 s requests, 10 s connection setup and 5 s cleanup. Concurrent writes are serialized

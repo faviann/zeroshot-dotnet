@@ -19,6 +19,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     private int disposed;
     private readonly TransportOptions transportOptions;
     internal ObservationDelivery Observations { get; }
+    /// <summary>OECP connection accounting shared by every ZeroshotClient over this client.</summary>
+    internal SdkConnectionBudget SdkConnections { get; }
     public Uri Origin { get; }
     public NativeTargetClient Target { get; }
     public NativeConnectionsClient Connections { get; }
@@ -39,6 +41,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             throw new ArgumentException("A supplied HttpClient timeout must be infinite or at least RequestTimeout.", nameof(supplied));
         executor = new OperationExecutor(limits);
         Observations = new ObservationDelivery(options.Transport);
+        SdkConnections = new SdkConnectionBudget(limits.OecpConnections);
         if (supplied is null)
         {
             var handler = CreateHttpHandler(options.Transport);
@@ -363,7 +366,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         }
     }
 
-    private static Uri ValidateOrigin(Uri origin)
+    internal static Uri ValidateOrigin(Uri origin)
     {
         ArgumentNullException.ThrowIfNull(origin);
         var raw = origin.OriginalString;

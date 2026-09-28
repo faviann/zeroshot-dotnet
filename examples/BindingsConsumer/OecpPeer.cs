@@ -25,6 +25,12 @@ sealed class OecpPeer
     private readonly object gate = new();
     private readonly HashSet<string> cancelledSubscriptions = new();
     private readonly List<string> cancelledRequests = new();
+    private readonly List<string> methods = new();
+
+    /// <summary>Status bodies by run ID; other runs answer with <see cref="Status"/>.</summary>
+    public Dictionary<string, string> Statuses { get; } = new();
+    /// <summary>Every received method, in order, across all connections.</summary>
+    public IReadOnlyList<string> Methods { get { lock (gate) return methods.ToList(); } }
 
     public OecpPeer(string fixtures)
     {
@@ -55,6 +61,7 @@ sealed class OecpPeer
             var method = message["method"]!.GetValue<string>();
             var id = message["id"]?.ToJsonString();
             var parameters = message["params"];
+            lock (gate) methods.Add(method);
             Task Reply(string result) => send($$"""{"jsonrpc":"2.0","id":{{id}},"result":{{result}}}""");
             Task Notify(string name, string body) => send($$"""{"jsonrpc":"2.0","method":"{{name}}","params":{{body}}}""");
             async Task Session(string establishment, IEnumerable<string> events, string? closed)
@@ -87,7 +94,7 @@ sealed class OecpPeer
                     await Reply($$"""{"runs":[{{Status}}]}""");
                     break;
                 case "run/status":
-                    await Reply(Status);
+                    await Reply(Statuses.GetValueOrDefault(parameters!["runId"]!.GetValue<string>(), Status));
                     break;
                 case "$/cancelRequest":
                     lock (gate) cancelledRequests.Add(parameters!["id"]!.ToJsonString());
@@ -101,6 +108,11 @@ sealed class OecpPeer
                     var open = parameters!["fromCursor"]?.GetValue<string>() == "held";
                     await Session($$"""{"subscriptionId":"logs","runId":"run-1","atCursor":{{parameters["fromCursor"]!.ToJsonString()}}}""", [RunLogRecord],
                         open ? null : """{"subscriptionId":"logs","reason":"done","lastDeliveredCursor":"log-end"}""");
+                    break;
+                case "run/attach" when parameters!["execution"]!.GetValue<string>() == "held":
+                    // A live attachment that stays open after one event, so the caller ends it.
+                    var held = $$"""{"subscriptionId":"held","runId":{{parameters["runId"]!.ToJsonString()}},"execution":"held"}""";
+                    await Session(held, [held[..^1] + ""","event":{"type":"working"}}"""], null);
                     break;
                 case "run/attach":
                     await Session(Attach, new[] { """{"type":"working"}""", """{"type":"output","text":"visible output"}""", """{"type":"settled"}""" }
@@ -152,10 +164,24 @@ sealed class OecpPeer
         }
     }, token);
 
+    /// <summary>Serves every WebSocket upgrade accepted on a loopback TCP listener until cancelled.</summary>
+    public Task ListenWebSocketsAsync(TcpListener listener, CancellationToken token) => Task.Run(async () =>
+    {
+        while (!token.IsCancellationRequested)
+        {
+            TcpClient accepted;
+            try { accepted = await listener.AcceptTcpClientAsync(token); } catch (OperationCanceledException) { return; }
+            _ = ServeWebSocketAsync(accepted, token);
+        }
+    }, token);
+
     /// <summary>Accepts one WebSocket upgrade on a loopback TCP listener and serves OECP text messages.</summary>
     public async Task ServeWebSocketAsync(TcpListener listener, CancellationToken token)
+        => await ServeWebSocketAsync(await listener.AcceptTcpClientAsync(token), token);
+
+    private async Task ServeWebSocketAsync(TcpClient accepted, CancellationToken token)
     {
-        using var client = await listener.AcceptTcpClientAsync(token);
+        using var client = accepted;
         var stream = client.GetStream();
         var header = new List<byte>();
         var one = new byte[1];

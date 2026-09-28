@@ -11,6 +11,8 @@
     <None Include="Fixtures/*.json;Fixtures/cluster/*" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="TUnit" Version="1.68.17" />
     <ProjectReference Include="../../src/Zeroshot.Sdk/Zeroshot.Sdk.csproj" />
+    <!-- Controlled HTTP and multi-connection WebSocket peers shared with the packed consumers. -->
+    <Compile Include="../../examples/BindingsConsumer/HttpPeer.cs;../../examples/BindingsConsumer/OecpPeer.cs" LinkBase="Peers" />
   </ItemGroup>
 
 </Project>

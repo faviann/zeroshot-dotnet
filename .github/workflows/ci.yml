@@ -21,6 +21,8 @@ jobs:
       - run: dotnet run --project examples/ContractsConsumer/ContractsConsumer.csproj --configuration Release --no-restore
       - run: dotnet restore examples/BindingsConsumer/BindingsConsumer.csproj --source artifacts/packages --source https://api.nuget.org/v3/index.json
       - run: dotnet run --project examples/BindingsConsumer/BindingsConsumer.csproj --configuration Release --no-restore -- docs/contracts/coverage.json
+      - run: dotnet restore examples/RunHandleConsumer/RunHandleConsumer.csproj --source artifacts/packages --source https://api.nuget.org/v3/index.json
+      - run: dotnet run --project examples/RunHandleConsumer/RunHandleConsumer.csproj --configuration Release --no-restore
 
   windows-pipes:
     strategy:
