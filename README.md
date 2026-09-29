@@ -31,9 +31,9 @@ explicit serialization/export remains the caller's responsibility.
 | Project | Purpose |
 | --- | --- |
 | `src/Zeroshot.Sdk` | `Zeroshot.Client` execution-contract library. |
-| `src/Zeroshot.Cli` | CLI scaffold; currently provides help only. |
+| `src/Zeroshot.Cli` | `zeroshot-dotnet` command (local `Zeroshot.Cli` tool package); see the [CLI guide](docs/cli/README.md). |
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
-| `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
+| `tests/Zeroshot.Cli.Tests` | Process-level CLI fixtures against the built command. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
 | `examples/RunHandleConsumer` | Packed-library SDK ordinary and retained explicit submission, run-to-completion and zero waits, force-stop, reconnection, binding refusals, results, checkpointed watch/logs and attachment cancellation against controlled peers. |
 | `examples/DiscoveryConsumer` | Packed-library discovery/session, native OECP inspection and stock cluster/run-submit refusal witness. |
