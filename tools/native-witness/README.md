@@ -230,8 +230,17 @@ later status query must report that terminal result. A repeated force of the
 terminal run is acknowledged with its existing status; an unknown canonical run ID
 is a rejected `NOT_FOUND` attempt. `force.json` retains the active status, the
 acknowledgement, every history record, terminal status and both follow-up attempts.
-This proves native force against a controlled execution, not physical-cessation
-guarantees, provider service behavior or hosted force routes.
+
+The same consumer then admits a third controlled run through the SDK, waits for its
+active execution and calls `Run.ForceStopAsync`, which sends one force and returns
+the acknowledgement's terminal result or waits through the common helper. It
+requires `force_stopped` from the result and a later status. On the first, already
+terminal run, `ForceStopAsync` with a zero wait budget must return the
+acknowledgement's result without observing, and `ForceAttemptAsync` on the stopped
+run is an acknowledged attempt. The `sdk` object in `force.json` records these,
+including the result's evidence kind, which shows whether native's reply was
+already terminal. This proves native force against a controlled execution, not
+physical-cessation guarantees, provider service behavior or hosted force routes.
 
 `recovery.sh` then reuses the same target and sets a gate that makes the
 controlled provider fail each worker after checkout. The sixth packed consumer

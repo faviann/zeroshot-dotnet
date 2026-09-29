@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sourced by run.sh after attachment.sh. Reuses its live target and controlled provider,
-# whose closed first gate keeps a second worker active until native force stops it.
+# whose closed first gate keeps each later worker active until native force stops it.
 rm -f -- "$witness_dir/attachment-output" "$witness_dir/attachment-release"
 : > "$witness_dir/attachment-provider-ready"
 python3 - "$witness_dir" <<'PY'
@@ -11,8 +11,13 @@ request['runId'] = '0195af77-2200-7000-8000-000000000002'
 request['submission']['title'] = 'Native force witness'
 request['submission']['submissionKey'] = 'native-force-witness'
 (directory / 'force-request.json').write_text(json.dumps(request, separators=(',', ':')) + '\n')
+# A third controlled run for the SDK's composed stop; recovery uses IDs 3 to 6.
+request['runId'] = '0195af77-2200-7000-8000-000000000007'
+request['submission']['title'] = 'Native SDK force witness'
+request['submission']['submissionKey'] = 'native-sdk-force-witness'
+(directory / 'force-sdk-request.json').write_text(json.dumps(request, separators=(',', ':')) + '\n')
 PY
-sha256sum "$witness_dir/force-request.json" >> "$witness_dir/provenance.txt"
+sha256sum "$witness_dir/force-request.json" "$witness_dir/force-sdk-request.json" >> "$witness_dir/provenance.txt"
 mkdir -p "$witness_dir/force-consumer"
 cp "$repo_dir/examples/ForceConsumer/"*.cs* "$witness_dir/force-consumer/"
 dotnet restore "$witness_dir/force-consumer/ForceConsumer.csproj" --packages "$witness_dir/packages" \

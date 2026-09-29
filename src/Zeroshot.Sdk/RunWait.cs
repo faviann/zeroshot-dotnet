@@ -1,3 +1,4 @@
+using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot;
@@ -43,10 +44,16 @@ public class RunWaitException : Exception
     public RunWaitFailureKind Kind { get; }
     public Run Run { get; }
     public RunWaitEvidence Evidence { get; }
+    /// <summary>
+    /// The acknowledged force attempt when <see cref="Run.ForceStopAsync"/> composed this wait; otherwise null.
+    /// Acknowledgement records stop intent, not that the run has finished or physically ceased.
+    /// </summary>
+    public NativeAttempt<RunForceResult>? ForceAttempt { get; }
 
-    internal RunWaitException(RunWaitFailureKind kind, Run run, RunWaitEvidence evidence, string message, Exception? inner)
+    internal RunWaitException(RunWaitFailureKind kind, Run run, RunWaitEvidence evidence, string message, Exception? inner,
+        NativeAttempt<RunForceResult>? force = null)
         : base(message, inner)
-    { Kind = kind; Run = run; Evidence = evidence; }
+    { Kind = kind; Run = run; Evidence = evidence; ForceAttempt = force; }
 }
 
 /// <summary>The wait's observation budget expired. The run was not stopped and may still finish.</summary>
@@ -54,8 +61,9 @@ public sealed class RunWaitTimeoutException : RunWaitException
 {
     public TimeSpan Timeout { get; }
 
-    internal RunWaitTimeoutException(Run run, TimeSpan timeout, RunWaitEvidence evidence, Exception? inner)
-        : base(RunWaitFailureKind.Timeout, run, evidence, "The run did not report a terminal result within the wait timeout.", inner)
+    internal RunWaitTimeoutException(Run run, TimeSpan timeout, RunWaitEvidence evidence, Exception? inner,
+        NativeAttempt<RunForceResult>? force = null)
+        : base(RunWaitFailureKind.Timeout, run, evidence, "The run did not report a terminal result within the wait timeout.", inner, force)
         => Timeout = timeout;
 }
 
@@ -64,10 +72,13 @@ public sealed class RunWaitCanceledException : OperationCanceledException
 {
     public Run Run { get; }
     public RunWaitEvidence Evidence { get; }
+    /// <summary>The acknowledged force attempt when <see cref="Run.ForceStopAsync"/> composed this wait; otherwise null.</summary>
+    public NativeAttempt<RunForceResult>? ForceAttempt { get; }
 
-    internal RunWaitCanceledException(Run run, RunWaitEvidence evidence, Exception inner, CancellationToken token)
+    internal RunWaitCanceledException(Run run, RunWaitEvidence evidence, Exception inner, CancellationToken token,
+        NativeAttempt<RunForceResult>? force = null)
         : base("Waiting for the run was cancelled.", inner, token)
-    { Run = run; Evidence = evidence; }
+    { Run = run; Evidence = evidence; ForceAttempt = force; }
 }
 
 internal static class RunWait
