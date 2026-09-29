@@ -17,7 +17,7 @@ public sealed class ForceStopException : Exception
 
 /// <summary>
 /// <see cref="Run.ForceStopAsync"/> was cancelled before force was acknowledged. <see cref="Attempt"/> says whether the
-/// request was not sent or its effect is unknown. Its token is the caller's, or the client's lifetime when it was disposed.
+/// request was not sent or its effect is unknown. Its token is the caller's when the caller cancelled.
 /// </summary>
 public sealed class ForceStopCanceledException : OperationCanceledException
 {

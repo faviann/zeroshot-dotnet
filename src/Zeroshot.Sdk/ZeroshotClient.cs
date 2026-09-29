@@ -446,7 +446,8 @@ public sealed class Run
     /// Sends one native force request for this run over the control connection and returns the lower attempt:
     /// acknowledged with the returned status (which can still be stopping), rejected, not sent or unknown, including
     /// cancellation. It never retries or waits. A missing or mismatched binding is a not-sent attempt whose failure is
-    /// the <see cref="NativeBindingException"/>; disposal throws instead.
+    /// the <see cref="NativeBindingException"/>. A disposed client throws; disposal during the attempt makes it not sent
+    /// while the control connection is opening, or unknown once the request may have been sent.
     /// </summary>
     public async Task<NativeAttempt<RunForceResult>> ForceAttemptAsync(CancellationToken cancellationToken = default)
     {
@@ -478,7 +479,7 @@ public sealed class Run
         var attempt = await ForceAttemptAsync(cancellationToken).ConfigureAwait(false);
         if (attempt.Response is not { } acknowledgement)
         {
-            // The failure's token is the caller's, or the client's lifetime when it was disposed mid-flight.
+            // Prefer the caller's token; otherwise the failure's own (such as disposal while connecting).
             if (attempt.Failure is OperationCanceledException cancelled)
                 throw new ForceStopCanceledException(this, attempt, cancellationToken.IsCancellationRequested ? cancellationToken : cancelled.CancellationToken);
             throw new ForceStopException(this, attempt);

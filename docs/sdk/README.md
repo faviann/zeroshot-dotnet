@@ -170,7 +170,10 @@ returned status, `Rejected`, `NotSent` or `Unknown`, with correlation ID and saf
 evidence, including cancellation. Classification is the lower client's: only pinned
 pre-effect refusals are rejections, and a lost reply, malformed reply or cancellation after
 possible dispatch is `Unknown`. It never retries or waits. A missing or mismatched binding,
-or a failure to open the control connection, is `NotSent`; disposal throws.
+or a failure to open the control connection, is `NotSent`. Calling it on a disposed client
+throws `ObjectDisposedException`. Disposing the client during the attempt ends it as `NotSent`
+while the control connection is still opening, or as `Unknown` once the request may have been
+sent, because disposal closes that connection.
 
 `run.ForceStopAsync(timeout, ct)` validates `timeout`, makes that one attempt, and then:
 
@@ -179,9 +182,11 @@ or a failure to open the control connection, is `NotSent`; disposal throws.
 - after an acknowledged nonterminal status such as `stopping`, waits exactly as
   `WaitAsync(timeout, ct)` does. The budget starts after acknowledgement.
 
-An unacknowledged attempt throws `ForceStopCanceledException` (an
-`OperationCanceledException` with the caller's token, or the client's lifetime on disposal)
-or `ForceStopException`, each carrying the `Run` and the `Attempt`. An `Unknown` attempt may
+An unacknowledged attempt throws `ForceStopException`, or `ForceStopCanceledException` (an
+`OperationCanceledException`) when the attempt's failure is a cancellation, each carrying the
+`Run` and the `Attempt`. The canceled exception has the caller's token when the caller
+cancelled. Disposal while force is pending is usually `ForceStopException` with an `Unknown`
+attempt. An `Unknown` attempt may
 still have stopped the run. Once acknowledged, every later wait exception
 (`RunWaitTimeoutException`, `RunWaitException`, `RunWaitCanceledException`) carries it as
 `ForceAttempt` together with the wait's latest `Evidence`, including when cancellation lands

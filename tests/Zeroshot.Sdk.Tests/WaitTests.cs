@@ -451,6 +451,18 @@ public sealed class WaitTests
             Check(target.Forces == 1 && target.StatusReads.Count == 0, "No resend and no wait.");
         }
 
+        // The client is disposed while the request is pending: closing the control connection leaves the effect unknown.
+        var disposing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using (var target = new Target([], force: [Hold(disposing)]))
+        {
+            var stop = target.Run.ForceStopAsync();
+            await disposing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await target.Sdk.DisposeAsync();
+            var error = await CatchAsync<ForceStopException>(() => stop.WaitAsync(TimeSpan.FromSeconds(10)));
+            Check(error.Attempt is { Outcome: NativeAttemptOutcome.Unknown, Response: null }, "Unknown effect after disposal.");
+            Check(target.Forces == 1 && target.StatusReads.Count == 0, "No resend and no wait.");
+        }
+
         // Cancelled before anything is sent.
         await using (var target = new Target([]))
         {
