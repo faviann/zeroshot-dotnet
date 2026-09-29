@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 namespace Zeroshot.Cli.Tests;
@@ -46,7 +47,16 @@ internal sealed class CliWorkspace : IDisposable
 
     public CliProcess Start(params string[] args) => Start(new Dictionary<string, string>(), args);
 
-    public CliProcess Start(IReadOnlyDictionary<string, string> environment, params string[] args)
+    public CliProcess Start(IReadOnlyDictionary<string, string> environment, params string[] args) => Start(environment, null, args);
+
+    /// <summary>
+    /// Runs the command and closes the read end of its stdout pipe once <paramref name="lines"/> complete lines have
+    /// arrived, as a reader such as <c>head</c> does. Whatever the process writes afterwards meets a closed pipe.
+    /// </summary>
+    public Task<CliResult> RunClosingStdoutAsync(int lines, params string[] args)
+        => Start(new Dictionary<string, string>(), lines, args).Completion;
+
+    private CliProcess Start(IReadOnlyDictionary<string, string> environment, int? closeStdoutAfter, string[] args)
     {
         var start = new ProcessStartInfo(DotnetHost())
         {
@@ -59,7 +69,7 @@ internal sealed class CliWorkspace : IDisposable
         foreach (var arg in args) start.ArgumentList.Add(arg);
         foreach (var (name, value) in environment) start.Environment[name] = value;
 
-        return new CliProcess(Process.Start(start)!);
+        return new CliProcess(Process.Start(start)!, closeStdoutAfter);
     }
 
     private static string DotnetHost()
@@ -77,15 +87,31 @@ internal sealed class CliWorkspace : IDisposable
 internal sealed class CliProcess
 {
     private readonly Process process;
+    private readonly int? closeStdoutAfter;
+    /// <summary>Stdout exactly as read, and the complete lines in it.</summary>
+    private readonly StringBuilder stdout = new();
+    private int stdoutLines;
     public Task<CliResult> Completion { get; }
 
-    public CliProcess(Process process)
+    public CliProcess(Process process, int? closeStdoutAfter = null)
     {
         this.process = process;
+        this.closeStdoutAfter = closeStdoutAfter;
         Completion = CompleteAsync();
     }
 
-    /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process.</summary>
+    /// <summary>Completes once the process has written <paramref name="count"/> complete stdout lines.</summary>
+    public async Task StdoutLines(int count)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (Volatile.Read(ref stdoutLines) < count)
+        {
+            if (Completion.IsCompleted) throw new InvalidOperationException("zeroshot-dotnet exited first.");
+            await Task.Delay(20, timeout.Token);
+        }
+    }
+
+    /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process. Tests using it exclude Windows.</summary>
     public async Task InterruptAsync()
     {
         if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("SIGINT delivery needs a POSIX host.");
@@ -98,12 +124,37 @@ internal sealed class CliProcess
     {
         using (process)
         {
-            var stdout = process.StandardOutput.ReadToEndAsync();
+            var reading = ReadStdoutAsync(process.StandardOutput);
             var stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try { await process.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("zeroshot-dotnet did not exit."); }
-            return new CliResult(process.ExitCode, await stdout, await stderr);
+            await reading;
+            return new CliResult(process.ExitCode, stdout.ToString(), await stderr);
+        }
+    }
+
+    private async Task ReadStdoutAsync(StreamReader reader)
+    {
+        var buffer = new char[4096];
+        int read;
+        if (closeStdoutAfter == 0) { reader.Dispose(); return; } // a reader that never reads, such as `| true`
+        while ((read = await reader.ReadAsync(buffer)) > 0)
+        {
+            stdout.Append(buffer, 0, read);
+            var lines = Volatile.Read(ref stdoutLines) + buffer.AsSpan(0, read).Count('\n');
+            Volatile.Write(ref stdoutLines, lines);
+            if (lines >= closeStdoutAfter)
+            {
+                reader.Dispose(); // the reader has gone: later writes meet a closed pipe
+                // Like head, the reader keeps exactly its first lines; the chunk may have held more, or part of one.
+                var text = stdout.ToString();
+                var end = -1;
+                for (var kept = 0; kept < closeStdoutAfter; kept++) end = text.IndexOf('\n', end + 1);
+                stdout.Length = end + 1;
+                Volatile.Write(ref stdoutLines, closeStdoutAfter.Value);
+                return;
+            }
         }
     }
 }

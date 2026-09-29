@@ -58,11 +58,48 @@ cli_step() {
   printf '%s %s\n' "$name" "$code" >> "$cli_dir/exits.txt"
   [[ $code == "$expected" ]] || { echo "CLI $name exited $code, expected $expected." >&2; cat "$cli_dir/$name.stderr" >&2; exit 1; }
 }
+# Prints one value from a CLI step's JSON records: python3 expression over `records`.
+cli_value() {
+  python3 - "$cli_dir/$1.stdout" "$2" <<'PY'
+import json, sys
+records = [json.loads(line) for line in open(sys.argv[1]).read().splitlines()]
+value = eval(sys.argv[2])
+print(value if isinstance(value, str) else json.dumps(value))
+PY
+}
+# Starts an attachment, waits for its first live record, then sends Ctrl+C (SIGINT) as a terminal would.
+cli_attach_interrupted() {
+  local name=$1
+  shift
+  (cd "$cli_dir/work" && python3 - "$cli_dir" "$name" dotnet "$cli_dir/bin/zeroshot-dotnet.dll" "$@" --json) <<'PY'
+import pathlib, signal, subprocess, sys, threading
+cli, name, command = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3:]
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+deadline = threading.Timer(60, process.kill)
+deadline.start()
+first = process.stdout.readline()
+process.send_signal(signal.SIGINT)
+rest, stderr = process.communicate(timeout=60)
+deadline.cancel()
+(cli / (name + '.stdout')).write_text(first + rest)
+(cli / (name + '.stderr')).write_text(stderr)
+with open(cli / 'exits.txt', 'a') as exits: exits.write(f'{name} {process.returncode}\n')
+if process.returncode != 130: sys.exit(f'CLI {name} exited {process.returncode}, expected 130.\n{stderr}')
+PY
+}
 cli_history runs > "$cli_dir/runs-before.json"
 # A submitted run that native finishes as worker_failed: submission and result records, exit 3.
 cli_step run-failed 3 run --config target.json --request failed-request.json --save-request failed-saved.json --save-run failed-run.json
 cli_step status-failed 0 status --run-file failed-run.json
 cli_step wait-failed 3 wait --run-file failed-run.json
+# Its retained history: native closes each finished stream, so every command ends with 0 and no result record.
+cli_step watch-failed 0 watch --run-file failed-run.json
+cli_step watch-after 0 watch --run-file failed-run.json "--after=$(cli_value watch-failed 'records[-2]["cursor"]')"
+cli_step logs-failed 0 logs --run-file failed-run.json
+cli_value logs-failed 'records[-1]["checkpoint"]' > "$cli_dir/work/logs-checkpoint.json"
+cli_step logs-checkpoint 0 logs --run-file failed-run.json --checkpoint logs-checkpoint.json
+failed_execution=$(cli_value watch-failed 'next(e["execution"] for r in records for e in r["data"]["status"].get("activeExecutions", []))')
+cli_step logs-execution 0 logs --run-file failed-run.json --execution "$failed_execution"
 # A detached run from a prepared file, kept active by the provider's closed first gate.
 rm -f -- "$witness_dir/attachment-fail"
 : > "$witness_dir/attachment-provider-ready"
@@ -79,7 +116,11 @@ sys.exit(0 if status["phase"] == "running" and status["activeExecutions"] else 1
   sleep 0.2
 done
 [[ $active == true ]] || { echo 'The controlled CLI run never became active.' >&2; exit 1; }
+# Live attachment to the active execution, detached by Ctrl+C; once force has stopped it, native refuses it.
+forced_execution=$(cli_value status-forced 'records[0]["status"]["status"]["activeExecutions"][0]["execution"]')
+cli_attach_interrupted attach-forced attach --run-file forced-run.json "$forced_execution"
 cli_step force-stop 3 force-stop --run-file forced-run.json --wait-timeout 60s
+cli_step attach-stopped 1 attach --run-file forced-run.json "$forced_execution"
 cli_history events 0195af77-2300-7000-8000-000000000002 > "$cli_dir/forced-history.json"
 cli_step force-request-only 0 force-stop --run-file forced-run.json --request-only
 cli_history runs > "$cli_dir/runs-after.json"
@@ -101,6 +142,30 @@ detached, = records('run-forced')
 assert detached['kind'] == 'submission' and detached['runId'] == forced, detached
 stopped, = records('force-stop')
 assert stopped['kind'] == 'result' and stopped['result']['failureReason'] == 'force_stopped', stopped
+# Watch replays the whole finished history and ends on native's close: no synthesized result record.
+watched = records('watch-failed')
+assert watched and all(r['kind'] == 'watch' and r['runId'] == failed for r in watched), watched
+assert watched[-1]['data']['status']['terminalResult']['reason'] == 'worker_failed', watched[-1]
+assert all(r['checkpoint']['stream'] == 'watch' and r['checkpoint']['cursor'] == r['cursor'] == r['data']['cursor'] for r in watched), watched
+assert len({r['cursor'] for r in watched}) == len(watched), watched
+# --after is exclusive: only the final record follows the one before it.
+assert [r['cursor'] for r in records('watch-after')] == [watched[-1]['cursor']], records('watch-after')
+logged = records('logs-failed')
+assert logged and all(r['kind'] == 'log' and r['runId'] == failed and r['timestamp'] == r['data']['timestamp'] for r in logged), logged
+assert records('logs-checkpoint') == [], records('logs-checkpoint')
+filtered = records('logs-execution')
+assert filtered, filtered
+assert all(r['execution'] == r['checkpoint']['execution'] == filtered[0]['execution'] for r in filtered), filtered
+assert {r['cursor'] for r in filtered} <= {r['cursor'] for r in logged}, (filtered, logged)
+# Attachment is live and cursorless; after force stopped the execution, native refuses it as GONE.
+attached = records('attach-forced')
+assert attached and attached[0]['kind'] == 'attachment' and attached[0]['data']['event']['type'] == 'working', attached
+assert all('cursor' not in r and 'checkpoint' not in r for r in attached), attached
+interrupted = json.loads((cli / 'attach-forced.stderr').read_text())
+assert interrupted['category'] == 'cancelled', interrupted
+assert records('attach-stopped') == [], records('attach-stopped')
+refused = json.loads((cli / 'attach-stopped.stderr').read_text())
+assert refused['category'] == 'operational' and refused['native']['domainCode'] == 'GONE', refused
 repeated, = records('force-request-only')
 assert repeated['kind'] == 'force' and repeated['attempt']['outcome'] == 'acknowledged' and repeated['status']['status']['phase'] == 'finished', repeated
 # Native admitted exactly the two CLI runs, each once, and recorded one force request for the forced run.

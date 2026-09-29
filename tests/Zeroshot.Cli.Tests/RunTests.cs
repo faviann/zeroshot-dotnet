@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using TUnit.Assertions;
 using TUnit.Core;
+using TUnit.Core.Enums;
 using Zeroshot;
 
 namespace Zeroshot.Cli.Tests;
@@ -285,6 +286,7 @@ public sealed class RunTests
     }
 
     [Test]
+    [ExcludeOn(OS.Windows)] // SIGINT delivery
     public async Task CtrlCAfterTheSubmissionWasSentIsAnUnknownOutcome()
     {
         await using var peer = new TargetPeer();
@@ -307,6 +309,7 @@ public sealed class RunTests
     }
 
     [Test]
+    [ExcludeOn(OS.Windows)] // SIGINT delivery
     public async Task CtrlCWhileWaitingAfterAcknowledgementIsExit130AndKeepsTheAcknowledgedRun()
     {
         await using var peer = Acknowledging(Acknowledged);
@@ -345,6 +348,21 @@ public sealed class RunTests
         await Assert.That(result.Stderr).Contains(Acknowledged);
         await Assert.That(peer.Submissions.Count).IsEqualTo(1);
         await Assert.That(peer.Methods).IsEmpty();
+    }
+
+    [Test]
+    public async Task AClosedStdoutReaderDoesNotKeepAnAcknowledgedRunFromBeingSaved()
+    {
+        await using var peer = Acknowledging(Acknowledged);
+        using var workspace = Workspace(peer);
+
+        // As in `run ... | true`: the reader is gone before the submission record is written.
+        var result = await workspace.RunClosingStdoutAsync(0, Run("--detach", "--save-run", "run.json"));
+
+        await Assert.That(result.ExitCode).IsEqualTo(0);
+        await Assert.That(result.Stderr).IsEmpty();
+        await Assert.That(RunReference.Parse(await File.ReadAllTextAsync(workspace.PathOf("run.json"))).RunId.Value).IsEqualTo(Acknowledged);
+        await Assert.That(peer.Submissions.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -417,6 +435,7 @@ public sealed class RunTests
     }
 
     [Test]
+    [ExcludeOn(OS.Windows)] // SIGINT delivery
     public async Task CtrlCBeforeTheForceIsSentIsExit130WithNothingSent()
     {
         await using var peer = new TargetPeer();

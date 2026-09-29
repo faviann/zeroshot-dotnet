@@ -118,6 +118,9 @@ public static class CliApp
         var requestTimeout = invocation.Duration("--request-timeout");
         TimeSpan? timeout = null;
         bool? recover = null;
+        ExecutionRef? execution = null;
+        Cursor? after = null;
+        HistoryCheckpoint? checkpoint = null;
         switch (invocation.Command)
         {
             case "wait":
@@ -132,10 +135,10 @@ public static class CliApp
                 if (invocation.Value("--recovery") is { } mode)
                     recover = TargetConfiguration.Recovery(mode)
                         ?? throw CliFailure.Invocation("--recovery must be 'established-interruptions' or 'none'.");
-                if (invocation.Value("--after") is { } after) _ = Value(() => new Cursor(after), "--after must be a native cursor.");
-                if (invocation.Value("--execution") is { } execution) _ = Value(() => new ExecutionRef(execution), "--execution must be a native execution reference.");
-                if (invocation.Value("--checkpoint") is { } checkpoint)
-                    _ = Value(() => HistoryCheckpoint.Parse(Utf8(checkpoint, "checkpoint")), $"The checkpoint file '{checkpoint}' is not a valid history checkpoint.", CliFailure.Input);
+                if (invocation.Value("--after") is { } cursor) after = Value(() => new Cursor(cursor), "--after must be a native cursor.");
+                if (invocation.Value("--execution") is { } filter) execution = Value(() => new ExecutionRef(filter), "--execution must be a native execution reference.");
+                if (invocation.Value("--checkpoint") is { } path)
+                    checkpoint = Value(() => HistoryCheckpoint.Parse(Utf8(path, "checkpoint")), $"The checkpoint file '{path}' is not a valid history checkpoint.", CliFailure.Input);
                 break;
         }
 
@@ -145,7 +148,7 @@ public static class CliApp
             throw CliFailure.Invocation(attach
                 ? "'attach' takes RUN_ID EXECUTION, or EXECUTION with --run-file FILE."
                 : $"'{invocation.Command}' takes one RUN_ID, or --run-file FILE instead.");
-        if (attach) _ = Value(() => new ExecutionRef(invocation.Positionals[^1]), "EXECUTION must be a native execution reference.");
+        if (attach) execution = Value(() => new ExecutionRef(invocation.Positionals[^1]), "EXECUTION must be a native execution reference.");
 
         var reference = runFile is null ? null
             : Value(() => RunReference.Parse(Utf8(runFile, "run")), $"The run file '{runFile}' is not a valid run reference.", CliFailure.Input);
@@ -178,12 +181,54 @@ public static class CliApp
                     return ExitCodes.Success;
                 case "force-stop":
                     return Completed(output, await run.ForceStopAsync(timeout, cancellationToken));
-                default:
-                    // Watch, logs and attach have validated everything they need locally; their workflows are not in this build.
-                    throw new CliFailure("unavailable", $"'{invocation.Command}' is not available in this build; nothing was sent.", ExitCodes.Invalid);
+                case "attach":
+                    return await StreamAsync(invocation.Command, run.Id, run.AttachAsync(execution!, cancellationToken),
+                        output.Attachment, _ => null, cancellationToken);
             }
+            var stream = invocation.Command == "watch" ? HistoryStream.Watch : HistoryStream.Logs;
+            var start = checkpoint ?? (after is null ? null : new HistoryCheckpoint(client.Target, run.Id, stream, execution, after));
+            // The SDK checks a checkpoint's scope before any I/O; --after is scoped here, so only a file can mismatch.
+            T Scoped<T>(Func<T> open) => Value(open,
+                $"The checkpoint file '{invocation.Value("--checkpoint")}' belongs to another target, run, stream or execution filter.", CliFailure.Input);
+            return stream == HistoryStream.Watch
+                ? await StreamAsync(invocation.Command, run.Id, Scoped(() => run.WatchAsync(start, cancellationToken)),
+                    output.Watch, record => record.Checkpoint.Cursor, cancellationToken)
+                : await StreamAsync(invocation.Command, run.Id, Scoped(() => run.LogsAsync(execution, start, cancellationToken)),
+                    output.Log, record => record.Checkpoint.Cursor, cancellationToken);
         }
         catch (Exception error) when (error is not CliFailure) { throw Classify(error, invocation.Command, run.Id); }
+    }
+
+    /// <summary>
+    /// Writes each record as the SDK delivers it. A normal native close exits 0 with no further record: it ends the
+    /// stream, not the run. Every failure keeps the cursor of the last record written, after which a later command
+    /// resumes; a closed stdout detaches. Nothing here stops the run.
+    /// </summary>
+    private static async Task<int> StreamAsync<T>(string command, RunId runId, IAsyncEnumerable<T> records, Action<T> write,
+        Func<T, Cursor?> cursorOf, CancellationToken cancellationToken)
+    {
+        Cursor? delivered = null;
+        try
+        {
+            await foreach (var record in records)
+            {
+                try { write(record); }
+                catch (IOException)
+                {
+                    throw new CliFailure("output", $"Standard output was closed; the {command} of run {runId.Value} was detached and the run was not stopped.",
+                        ExitCodes.Failure) { RunId = runId, Observation = delivered is null ? null : new(null, null, delivered) };
+                }
+                delivered = cursorOf(record);
+            }
+            return ExitCodes.Success;
+        }
+        // Ctrl+C can surface as the failure of whatever it interrupted, such as a connection being opened.
+        catch (Exception error) when (error is not CliFailure && cancellationToken.IsCancellationRequested)
+        {
+            throw new CliFailure("cancelled", $"The {command} of run {runId.Value} was cancelled; the run was not stopped.", ExitCodes.Cancelled)
+                { RunId = runId, Observation = delivered is null ? null : new(null, null, delivered) };
+        }
+        catch (Exception error) when (error is not CliFailure) { throw Classify(error, command, runId, delivered: delivered); }
     }
 
     /// <summary>A completion command succeeds only when the run did; a failed run is still reported as its result.</summary>
@@ -198,7 +243,8 @@ public static class CliApp
     /// known run, the acknowledged attempt that produced it (<paramref name="acknowledged"/> or a composed force)
     /// and the wait's latest evidence.
     /// </summary>
-    private static CliFailure Classify(Exception error, string command, RunId runId, AttemptEvidence? acknowledged = null)
+    private static CliFailure Classify(Exception error, string command, RunId runId, AttemptEvidence? acknowledged = null,
+        Cursor? delivered = null)
     {
         if (error is ForceStopException force) return AttemptFailure(force.Attempt, $"The force request for run {runId.Value}", runId);
         if (error is ForceStopCanceledException forceCancelled)
@@ -216,6 +262,16 @@ public static class CliApp
                 ("operational", $"Watching run {runId.Value} failed while waiting ({Name(wait.InnerException)}).", ExitCodes.Failure),
             RunWaitException => ("operational",
                 $"The watch of run {runId.Value} ended without a terminal result and its status is not terminal.", ExitCodes.Failure),
+            RunObservationException observation => ("operational", $"The {command} of run {runId.Value} failed: " + observation.Kind switch
+            {
+                RunObservationFailureKind.Establishment => "it could not be established.",
+                RunObservationFailureKind.Interrupted => "it was interrupted and recovery is disabled.",
+                RunObservationFailureKind.SourceUnavailable => "native reported its retained history unavailable.",
+                RunObservationFailureKind.Protocol => "the target sent malformed or foreign data.",
+                _ => "a local size or queue limit was reached.",
+            }, ExitCodes.Failure),
+            NativeSubscriptionException subscription => ("operational",
+                $"The attachment to run {runId.Value} failed ({Kebab(subscription.Kind)}); it is not reopened and missed output is not replayed.", ExitCodes.Failure),
             OperationCanceledException => ("cancelled", $"'{command}' for run {runId.Value} was cancelled; nothing was stopped.", ExitCodes.Cancelled),
             _ => ("operational", $"'{command}' for run {runId.Value} failed ({Name(error)}).", ExitCodes.Failure),
         };
@@ -225,8 +281,17 @@ public static class CliApp
             RunWaitCanceledException wait => (wait.Evidence, wait.ForceAttempt),
             _ => (null, null),
         };
+        var observed = error switch
+        {
+            RunObservationException observation => new ObservationEvidence(Kebab(observation.Kind), observation.Recoveries, delivered),
+            NativeSubscriptionException subscription => new ObservationEvidence(Kebab(subscription.Kind), null, null),
+            _ => delivered is null ? null : new ObservationEvidence(null, null, delivered),
+        };
         return new CliFailure(category, message, exit)
-            { RunId = runId, Evidence = evidence, Attempt = forced is null ? acknowledged : AttemptEvidence.Of(forced), Native = NativeFailure.Of(error) };
+        {
+            RunId = runId, Evidence = evidence, Attempt = forced is null ? acknowledged : AttemptEvidence.Of(forced),
+            Native = NativeFailure.Of(error), Observation = observed,
+        };
     }
 
     /// <summary>An unacknowledged mutation attempt, by the SDK's outcome. An unknown outcome is never resent or replaced.</summary>
@@ -252,6 +317,10 @@ public static class CliApp
         : "A native binding does not match: the configuration and any run file must declare the supported native 10.9.0 source revision.";
 
     private static string Name(Exception? error) => error?.GetType().Name ?? "no detail";
+
+    /// <summary>An SDK enum member as a record value: SourceUnavailable becomes source-unavailable.</summary>
+    private static string Kebab(Enum value)
+        => string.Concat(value.ToString().Select((c, i) => char.IsUpper(c) ? (i > 0 ? "-" : "") + char.ToLowerInvariant(c) : c.ToString()));
 
     private static RunRequest ReadRequest(string path)
         => Value(() => RunRequest.ParseUtf8(CliFiles.Read(path, "request")), $"The request file '{path}' is not a valid run request.", CliFailure.Input);
