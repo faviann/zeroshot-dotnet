@@ -37,6 +37,8 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
     public NativeBinding? NativeBinding { get; }
     /// <summary>The clock for wait budgets; replaced only by tests.</summary>
     internal TimeProvider Time { get; init; } = TimeProvider.System;
+    /// <summary>Runs once a force acknowledgement is captured, before its call completes; set only by tests.</summary>
+    internal Action? AfterForceCapture { get; init; }
 
     public ZeroshotClient(ZeroshotClientOptions options)
         : this(NativeClient.ForHttp(new NativeClientOptions { Origin = Checked(options).Target, Transport = options.Transport }),
@@ -337,7 +339,8 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
 }
 
 /// <summary>
-/// A client-side handle to a known run. Its lifetime is independent of the native run; nothing here stops it.
+/// A client-side handle to a known run. Its lifetime is independent of the native run; only an explicit
+/// <see cref="ForceAttemptAsync"/> or <see cref="ForceStopAsync"/> requests a stop.
 /// </summary>
 public sealed class Run
 {
@@ -387,11 +390,17 @@ public sealed class Run
     {
         RunWait.ValidateTimeout(timeout);
         client.EnsureBinding(binding);
+        return await WaitAsync(timeout, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The common wait; every exception it throws carries <paramref name="force"/> when composed after force.</summary>
+    private async Task<RunResult> WaitAsync(TimeSpan? timeout, NativeAttempt<RunForceResult>? force, CancellationToken cancellationToken)
+    {
         RunStatusResult? status = null;
         RunWatchEventNotification? lastEvent = null;
         HistoryCheckpoint? resumeAfter = null;
         RunWaitEvidence Evidence() => new(status, lastEvent, resumeAfter);
-        if (timeout == TimeSpan.Zero) throw new RunWaitTimeoutException(this, TimeSpan.Zero, Evidence(), null);
+        if (timeout == TimeSpan.Zero) throw new RunWaitTimeoutException(this, TimeSpan.Zero, Evidence(), null, force);
 
         using var budget = timeout is { } finite ? new CancellationTokenSource(finite, client.Time) : new CancellationTokenSource();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
@@ -417,20 +426,65 @@ public sealed class Run
         }
         // Budget or caller cancellation can surface as any failure of the interrupted operation.
         catch (Exception error) when (budget.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-        { throw new RunWaitTimeoutException(this, timeout!.Value, Evidence(), error); }
+        { throw new RunWaitTimeoutException(this, timeout!.Value, Evidence(), error, force); }
         // The caller's token, or the client's lifetime when it was disposed mid-wait.
         catch (Exception error) when (cancellationToken.IsCancellationRequested || error is OperationCanceledException)
         {
             throw new RunWaitCanceledException(this, Evidence(), error, cancellationToken.IsCancellationRequested
-                ? cancellationToken : ((OperationCanceledException)error).CancellationToken);
+                ? cancellationToken : ((OperationCanceledException)error).CancellationToken, force);
         }
         catch (Exception error)
         {
             throw new RunWaitException(stage, this, Evidence(), stage == RunWaitFailureKind.Status
-                ? "Reading the run's status failed while waiting." : "Watching the run failed while waiting.", error);
+                ? "Reading the run's status failed while waiting." : "Watching the run failed while waiting.", error, force);
         }
         return RunResult.FromStatus(status) ?? throw new RunWaitException(RunWaitFailureKind.Incomplete, this, Evidence(),
-            "The run's watch ended without a terminal event and its status is not terminal.", null);
+            "The run's watch ended without a terminal event and its status is not terminal.", null, force);
+    }
+
+    /// <summary>
+    /// Sends one native force request for this run over the control connection and returns the lower attempt:
+    /// acknowledged with the returned status (which can still be stopping), rejected, not sent or unknown, including
+    /// cancellation. It never retries or waits. A missing or mismatched binding is a not-sent attempt whose failure is
+    /// the <see cref="NativeBindingException"/>. A disposed client throws; disposal during the attempt makes it not sent
+    /// while the control connection is opening, or unknown once the request may have been sent.
+    /// </summary>
+    public async Task<NativeAttempt<RunForceResult>> ForceAttemptAsync(CancellationToken cancellationToken = default)
+    {
+        OecpConnection control;
+        try
+        {
+            client.EnsureBinding(binding);
+            control = await client.ControlAsync(cancellationToken).ConfigureAwait(false);
+        }
+        // Nothing was dispatched: a binding refusal, cancellation, or a failure to (re)open the control connection.
+        catch (Exception error) when (error is not ObjectDisposedException)
+        {
+            return new(client.Target, OecpRunsClient.ForceMethod, Guid.NewGuid(), NativeAttemptOutcome.NotSent, null, error);
+        }
+        return await control.Runs.ForceAsync(Id, null, client.AfterForceCapture, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Makes one force attempt as <see cref="ForceAttemptAsync"/> does, then returns the terminal result already in
+    /// the acknowledgement or waits as <see cref="WaitAsync(TimeSpan?, CancellationToken)"/> does. Acknowledged
+    /// stopping is not terminal. <paramref name="timeout"/> bounds only the wait and starts after acknowledgement; it
+    /// is not a deadline for the force request or the run. An unacknowledged attempt throws
+    /// <see cref="ForceStopException"/>, or <see cref="ForceStopCanceledException"/> on cancellation; every later wait
+    /// exception carries the acknowledgement as <see cref="RunWaitException.ForceAttempt"/>. Force is never resent.
+    /// </summary>
+    public async Task<RunResult> ForceStopAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        RunWait.ValidateTimeout(timeout); // before anything is sent
+        var attempt = await ForceAttemptAsync(cancellationToken).ConfigureAwait(false);
+        if (attempt.Response is not { } acknowledgement)
+        {
+            // Prefer the caller's token; otherwise the failure's own (such as disposal while connecting).
+            if (attempt.Failure is OperationCanceledException cancelled)
+                throw new ForceStopCanceledException(this, attempt, cancellationToken.IsCancellationRequested ? cancellationToken : cancelled.CancellationToken);
+            throw new ForceStopException(this, attempt);
+        }
+        return RunResult.FromForce(acknowledgement) ?? await WaitAsync(timeout, attempt, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

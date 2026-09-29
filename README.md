@@ -13,8 +13,9 @@ and [security-validated Windows controller pipes](docs/oecp/README.md#windows-co
 resource admission, shared bounded observation queues and safe failures. The
 [SDK run handle](docs/sdk/README.md) prepares and submits requests, returning an acknowledged
 handle or explicit attempt evidence, runs them to a terminal result within an optional
-wait budget, and reopens known runs for status, waiting, checkpointed watch/logs with
-delivered-cursor recovery, and live attachment under a caller-supplied native binding. Remaining SDK run workflows follow;
+wait budget, and reopens known runs for status, waiting, one-attempt force-stop with an
+optional wait, checkpointed watch/logs with delivered-cursor recovery, and live attachment
+under a caller-supplied native binding. Remaining SDK run workflows follow;
 native bindings are tracked in the [coverage manifest](docs/contracts/coverage.json).
 
 Public namespaces are `Zeroshot`, `Zeroshot.Native` and
@@ -34,12 +35,12 @@ explicit serialization/export remains the caller's responsibility.
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
 | `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
-| `examples/RunHandleConsumer` | Packed-library SDK ordinary and retained explicit submission, run-to-completion and zero waits, reconnection, binding refusals, results, checkpointed watch/logs and attachment cancellation against controlled peers. |
+| `examples/RunHandleConsumer` | Packed-library SDK ordinary and retained explicit submission, run-to-completion and zero waits, force-stop, reconnection, binding refusals, results, checkpointed watch/logs and attachment cancellation against controlled peers. |
 | `examples/DiscoveryConsumer` | Packed-library discovery/session, native OECP inspection and stock cluster/run-submit refusal witness. |
 | `examples/SubmissionConsumer` | Packed-library complete-asset admission, normalization and replay witness. |
 | `examples/ObservationConsumer` | Packed-library watch/log replay (lower client and SDK checkpoints), live records, live dashboard SSE and target-restart witness. |
 | `examples/AttachmentConsumer` | Packed-library exact active execution, live output, settlement and refusal witness. |
-| `examples/ForceConsumer` | Packed-library active-run force acknowledgement, terminal history and refusal witness. |
+| `examples/ForceConsumer` | Packed-library active-run force acknowledgement, terminal history, refusal and SDK composed force-stop witness. |
 | `examples/RecoveryConsumer` | Packed-library checkpoint paging, successor resume, workspace discard and refusal witness. |
 | `examples/ControllerConsumer` | Packed-library Unix controller socket or Windows controller pipe, and borrowed NDJSON stream witness. |
 | `examples/DashboardConsumer` | Packed-library stock UI mount static routes, bootstrap, draft transformations, profile create/update/conflict/race, run history/SSE and browser refusals witness. |

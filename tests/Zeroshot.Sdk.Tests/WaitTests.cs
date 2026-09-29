@@ -8,8 +8,8 @@ using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Sdk.Tests;
 
-// Run.WaitAsync and ZeroshotClient.RunAsync over a loopback direct target whose run/status and run/watch answers
-// follow a per-call script. Wait budgets run on ManualTime, so no test depends on wall-clock timing.
+// Run.WaitAsync and its compositions, ZeroshotClient.RunAsync and Run.ForceStopAsync, over a loopback direct target
+// whose run/force, run/status and run/watch answers follow a per-call script. Wait budgets run on ManualTime, so no test depends on wall-clock timing.
 public sealed class WaitTests
 {
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
@@ -18,6 +18,8 @@ public sealed class WaitTests
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 
     private const string Running = """{"phase":"running","activeExecutions":[]}""";
+    private const string Stopping = """{"phase":"stopping","activeExecutions":[]}""";
+    private const string ForceStopped = """{"status":"failed","reason":"force_stopped"}""";
     private static string Finished(string terminal) => $$"""{"phase":"finished","terminalResult":{{terminal}}}""";
     private const string NullOutput = """{"status":"succeeded","output":null}""";
     private const string RuntimeFailed = """{"status":"failed","reason":"runtime_failed"}""";
@@ -61,10 +63,12 @@ public sealed class WaitTests
         /// <summary>The requested watch positions, in order.</summary>
         public IReadOnlyList<string?> Watches => Requested("run/watch");
         public IReadOnlyList<string?> StatusReads => Requested("run/status");
+        public int Forces => Requested("run/force").Count;
 
-        public Target(Call[] status, Call[]? watch = null, ObservationOptions? observation = null)
+        public Target(Call[] status, Call[]? watch = null, ObservationOptions? observation = null, Call[]? force = null,
+            Action? afterForceCapture = null)
         {
-            var scripts = new Dictionary<string, Call[]> { ["run/status"] = status, ["run/watch"] = watch ?? [] };
+            var scripts = new Dictionary<string, Call[]> { ["run/status"] = status, ["run/watch"] = watch ?? [], ["run/force"] = force ?? [] };
             Peer.Script = async request =>
             {
                 if (!scripts.TryGetValue(request.Method, out var calls)) return false;
@@ -86,7 +90,8 @@ public sealed class WaitTests
             http = new HttpClient(Http);
             // Two connections: this client's control slot and one observation, so a leaked observation is detectable.
             Native = NativeClient.ForHttp(new NativeClientOptions { Origin = Origin, Transport = new() { MaxOecpConnections = 2 } }, http);
-            Sdk = new ZeroshotClient(Native, Supported, observation: observation ?? new() { ReopenDelay = TimeSpan.Zero }) { Time = Time };
+            Sdk = new ZeroshotClient(Native, Supported, observation: observation ?? new() { ReopenDelay = TimeSpan.Zero })
+                { Time = Time, AfterForceCapture = afterForceCapture };
             Run = Sdk.GetRun(RunOne);
         }
 
@@ -380,6 +385,175 @@ public sealed class WaitTests
             Acknowledged(error.Run);
             Check(error.CancellationToken == cancel.Token && cancelled.Http.Count == 1 && !cancelled.Peer.Methods.Contains("run/force"),
                 "One submission, no stop.");
+        }
+    }
+
+    private static void Acknowledged(NativeAttempt<RunForceResult>? attempt, string cursor)
+        => Check(attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Failure: null, Response.Status: StoppingRunStatus } &&
+            attempt.Response.AtCursor.Value == cursor, "The stopping force acknowledgement is kept.");
+
+    [Test]
+    public async Task ForceAttemptReturnsTheLowerEvidenceAndNeverWaits()
+    {
+        await using var target = new Target([], force: [Reply(Status("f1", Stopping))]);
+        var attempt = await target.Run.ForceAttemptAsync();
+        Acknowledged(attempt, "f1");
+        Check(attempt.Operation == "run/force" && attempt.CorrelationId != Guid.Empty, "The lower OECP attempt.");
+        Check(RunResult.FromForce(attempt.Response!) is null, "Stopping is not terminal.");
+        Check(target.Forces == 1 && target.StatusReads.Count == 0 && target.Watches.Count == 0, "One force and no observation.");
+    }
+
+    [Test]
+    public async Task AStoppingAcknowledgementWaitsThroughTheCommonHelper()
+    {
+        await using var target = new Target([Reply(Status("s1", Stopping))],
+            [Open("w1", [Watch("w1", "c2", Stopping), Watch("w1", "c3", Finished(ForceStopped))])],
+            force: [Reply(Status("f1", Stopping))]);
+        var result = await target.Run.ForceStopAsync();
+        Check(result is { IsSuccess: false, Evidence.Kind: TerminalEvidenceKind.RetainedTerminalEvent } &&
+            result.FailureReason!.Value == "force_stopped" && result.Evidence.Cursor.Value == "c3", "The retained terminal event decides.");
+        Check(target.Forces == 1 && target.StatusReads.Count == 1 && target.Watches.SequenceEqual(["s1"]), "One force, then status and watch.");
+        await target.CheckReleasedAsync();
+    }
+
+    [Test]
+    public async Task AnAlreadyTerminalAcknowledgementIsTheResult()
+    {
+        await using var target = new Target([], force: [Reply(Status("f1", Finished(ForceStopped)))]);
+        var result = await target.Run.ForceStopAsync(TimeSpan.FromSeconds(30));
+        Check(result is { IsSuccess: false, Evidence.Kind: TerminalEvidenceKind.StatusReport } && result.RunId == RunOne &&
+            result.FailureReason!.Value == "force_stopped" && result.Evidence.Cursor.Value == "f1", "The acknowledgement's terminal status.");
+        Check(target.Forces == 1 && target.StatusReads.Count == 0 && target.Watches.Count == 0, "No observation after a terminal acknowledgement.");
+    }
+
+    [Test]
+    public async Task UnacknowledgedAttemptsThrowTheirEvidenceAndAreNeverResent()
+    {
+        // A lost reply: the connection drops after the request arrived, so the effect is unknown.
+        await using (var target = new Target([], force: [(_, _) => throw new IOException("Scripted reply loss.")]))
+        {
+            var error = await CatchAsync<ForceStopException>(() => target.Run.ForceStopAsync());
+            Check(error.Attempt is { Outcome: NativeAttemptOutcome.Unknown, Response: null, Failure: NativeOecpException } &&
+                ReferenceEquals(error.Run, target.Run) && error.InnerException == error.Attempt.Failure, "Unknown effect, with its failure.");
+            Check(target.Forces == 1 && target.StatusReads.Count == 0, "No resend and no wait.");
+        }
+
+        // Cancelled while the request is pending: unknown, reported as cancellation.
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using (var target = new Target([], force: [Hold(pending)]))
+        {
+            using var cancel = new CancellationTokenSource();
+            var stop = target.Run.ForceStopAsync(cancellationToken: cancel.Token);
+            await pending.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            cancel.Cancel();
+            var error = await CatchAsync<ForceStopCanceledException>(() => stop.WaitAsync(TimeSpan.FromSeconds(10)));
+            Check(error.Attempt.Outcome == NativeAttemptOutcome.Unknown && error.CancellationToken == cancel.Token, "Unknown effect, caller's token.");
+            Check(target.Forces == 1 && target.StatusReads.Count == 0, "No resend and no wait.");
+        }
+
+        // The client is disposed while the request is pending: closing the control connection leaves the effect unknown.
+        var disposing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using (var target = new Target([], force: [Hold(disposing)]))
+        {
+            var stop = target.Run.ForceStopAsync();
+            await disposing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await target.Sdk.DisposeAsync();
+            var error = await CatchAsync<ForceStopException>(() => stop.WaitAsync(TimeSpan.FromSeconds(10)));
+            Check(error.Attempt is { Outcome: NativeAttemptOutcome.Unknown, Response: null }, "Unknown effect after disposal.");
+            Check(target.Forces == 1 && target.StatusReads.Count == 0, "No resend and no wait.");
+        }
+
+        // Cancelled before anything is sent.
+        await using (var target = new Target([]))
+        {
+            using var cancel = new CancellationTokenSource();
+            cancel.Cancel();
+            var error = await CatchAsync<ForceStopCanceledException>(() => target.Run.ForceStopAsync(cancellationToken: cancel.Token));
+            Check(error.Attempt.Outcome == NativeAttemptOutcome.NotSent && error.CancellationToken == cancel.Token, "Not sent.");
+            Check(target.Peer.Methods.Count == 0, "Nothing was sent.");
+        }
+    }
+
+    [Test]
+    public async Task RefusedInputsSendNothing()
+    {
+        await using var target = new Target([]);
+        await CatchAsync<ArgumentOutOfRangeException>(() => target.Run.ForceStopAsync(TimeSpan.FromTicks(-1)));
+        await using (var unbound = new ZeroshotClient(target.Native, null))
+        {
+            var run = unbound.GetRun(RunOne);
+            var attempt = await run.ForceAttemptAsync();
+            Check(attempt is { Outcome: NativeAttemptOutcome.NotSent, Failure: NativeBindingException { Reason: NativeBindingProblem.Missing } },
+                "A missing binding is a not-sent attempt.");
+            var error = await CatchAsync<ForceStopException>(() => run.ForceStopAsync());
+            Check(error.Attempt is { Outcome: NativeAttemptOutcome.NotSent, Failure: NativeBindingException }, "And throws with it.");
+        }
+        Check(target.Peer.Methods.Count == 0, "Nothing was sent.");
+    }
+
+    [Test]
+    public async Task TheWaitBudgetStartsAfterTheAcknowledgementWhichSurvivesTimeout()
+    {
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var target = new Target([Hold(held)], force:
+        [
+            // Time spent before acknowledgement is not charged to the wait.
+            async (request, t) => { t.Time.Advance(TimeSpan.FromHours(1)); await request.Reply(Status("f1", Stopping)); },
+        ]);
+        var stop = target.Run.ForceStopAsync(TimeSpan.FromSeconds(30));
+        await held.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        target.Time.Advance(TimeSpan.FromSeconds(29));
+        Check(!stop.IsCompleted, "Within the wait budget.");
+        target.Time.Advance(TimeSpan.FromSeconds(1));
+        var error = await CatchAsync<RunWaitTimeoutException>(() => stop.WaitAsync(TimeSpan.FromSeconds(10)));
+        Acknowledged(error.ForceAttempt, "f1");
+        Check(error.Timeout == TimeSpan.FromSeconds(30) && error.Evidence.Status is null && target.Forces == 1, "Timed out after one force.");
+    }
+
+    [Test]
+    public async Task ASubsequentObservationFailureKeepsTheAcknowledgementAndLatestEvidence()
+    {
+        await using var target = new Target([Reply(Status("s1", Stopping))],
+            [Open("w1", [Watch("w1", "c2", Stopping)], Closed("w1", "SOURCE_UNAVAILABLE"))], force: [Reply(Status("f1", Stopping))]);
+        var error = await CatchAsync<RunWaitException>(() => target.Run.ForceStopAsync());
+        Acknowledged(error.ForceAttempt, "f1");
+        Check(error is { Kind: RunWaitFailureKind.Observation, InnerException: RunObservationException { Kind: RunObservationFailureKind.SourceUnavailable } },
+            "The observation failure.");
+        Check(error.Evidence.Status!.AtCursor.Value == "s1" && error.Evidence.ResumeAfter == target.Checkpoint("c2"), "Latest wait evidence.");
+        Check(target.Forces == 1, "No resend.");
+    }
+
+    [Test]
+    public async Task CancellationAndCleanupAfterCaptureKeepTheAcknowledgement()
+    {
+        // Cancelled once the acknowledgement is captured, before its call completes: it is kept and the wait detaches.
+        using (var cancel = new CancellationTokenSource())
+        await using (var target = new Target([], force: [Reply(Status("f1", Stopping))], afterForceCapture: cancel.Cancel))
+        {
+            var error = await CatchAsync<RunWaitCanceledException>(() => target.Run.ForceStopAsync(cancellationToken: cancel.Token));
+            Acknowledged(error.ForceAttempt, "f1");
+            Check(error.CancellationToken == cancel.Token && target.Forces == 1 && target.StatusReads.Count == 0, "One force; the wait detached.");
+        }
+
+        // The same race with a terminal acknowledgement still returns its result.
+        using (var cancel = new CancellationTokenSource())
+        await using (var target = new Target([], force: [Reply(Status("f1", Finished(ForceStopped)))], afterForceCapture: cancel.Cancel))
+        {
+            var result = await target.Run.ForceStopAsync(cancellationToken: cancel.Token);
+            Check(cancel.IsCancellationRequested && result.FailureReason!.Value == "force_stopped" && target.Forces == 1, "The captured result wins.");
+        }
+
+        // The client is disposed while the wait reads status: closing its control connection fails the read.
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using (var target = new Target([Hold(held)], force: [Reply(Status("f1", Stopping))]))
+        {
+            var stop = target.Run.ForceStopAsync();
+            await held.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await target.Sdk.DisposeAsync();
+            var error = await CatchAsync<RunWaitException>(() => stop.WaitAsync(TimeSpan.FromSeconds(10)));
+            Acknowledged(error.ForceAttempt, "f1");
+            Check(error is { Kind: RunWaitFailureKind.Status, InnerException: NativeOecpException } && target.Forces == 1,
+                "A status failure after one force.");
         }
     }
 }

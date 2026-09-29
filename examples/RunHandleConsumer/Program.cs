@@ -7,7 +7,7 @@ using Zeroshot.Native.Contracts;
 
 // Exercises the SDK run handle through the packed Zeroshot.Client package against controlled peers:
 // exact reconnection, binding refusals, generic and null output, failed results, attachment cancellation,
-// checkpointed watch/log observation, ordinary and explicit submission, and run-to-completion through the same client.
+// checkpointed watch/log observation, ordinary and explicit submission, run-to-completion and force-stop through the same client.
 // This is deterministic consumer evidence, not live-native conformance.
 var fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
 using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -170,6 +170,11 @@ var methodsBefore = oecp.Methods.Count;
 var zero = await Refused<RunWaitTimeoutException>(() => submitted.WaitAsync(TimeSpan.Zero, token));
 Check(zero is { Kind: RunWaitFailureKind.Timeout, Evidence.Status: null } && ReferenceEquals(zero.Run, submitted) &&
     oecp.Methods.Count == methodsBefore, "A zero wait performs no observation.");
+
+// Force-stop: one force; the peer's acknowledgement is already terminal, so it is the result and nothing is observed.
+var stopped = await sdk.GetRun(new RunId("run-1")).ForceStopAsync(TimeSpan.FromMinutes(1), token);
+Check(stopped is { IsSuccess: false, Evidence.Kind: TerminalEvidenceKind.StatusReport } && stopped.FailureReason!.Value == "force_stopped" &&
+    oecp.Methods.Skip(methodsBefore).SequenceEqual(["run/force"]), "ForceStopAsync sends one force and returns its terminal acknowledgement.");
 Console.WriteLine("RunHandleConsumer passed.");
 
 static T Catch<T>(Action action) where T : Exception

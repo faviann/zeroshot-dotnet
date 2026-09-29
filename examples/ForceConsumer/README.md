@@ -13,4 +13,13 @@ status query supply the separate `stopping` and `force_stopped` terminal evidenc
 A repeated force of the terminal run is acknowledged, and an unknown run is a
 rejected `NOT_FOUND` attempt.
 
+It then admits a third controlled run through the SDK's `SubmitAsync`, waits for
+its active execution and stops it with `Run.ForceStopAsync`: one force, then the
+acknowledgement's terminal result or the common wait. The result must be
+`force_stopped`, as must a later status. `ForceStopAsync` with a zero wait budget on
+the already terminal first run must return its acknowledgement's result without
+observing, and `Run.ForceAttemptAsync` on the stopped run returns the acknowledged
+lower attempt. The `sdk` object in `force.json` records the result's evidence kind
+and cursor, which shows the path native's reply took.
+
 The consumer performs no process or provider management and never retries force.

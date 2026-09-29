@@ -6,7 +6,10 @@ namespace Zeroshot;
 /// <summary>Where a terminal result was observed. Neither kind proves retained completion or physical cessation.</summary>
 public enum TerminalEvidenceKind
 {
-    /// <summary>A status report. Native can report status-only terminal failure without a durable event.</summary>
+    /// <summary>
+    /// A status report, including the status returned by a force acknowledgement. Native can report status-only
+    /// terminal failure without a durable event.
+    /// </summary>
     StatusReport,
     /// <summary>A terminal event read from the target's retained native history.</summary>
     RetainedTerminalEvent
@@ -53,6 +56,19 @@ public sealed class RunResult
         ArgumentNullException.ThrowIfNull(status);
         return status.Status is FinishedRunStatus finished
             ? new RunResult(status.RunId, finished.TerminalResult, finished.Metadata, new(TerminalEvidenceKind.StatusReport, status.AtCursor))
+            : null;
+    }
+
+    /// <summary>
+    /// The terminal result already reported by a force acknowledgement, labelled as status-report evidence at the
+    /// acknowledgement's cursor; null while it reports a nonterminal phase such as stopping.
+    /// </summary>
+    public static RunResult? FromForce(RunForceResult acknowledgement)
+    {
+        ArgumentNullException.ThrowIfNull(acknowledgement);
+        return acknowledgement.Status is FinishedRunStatus finished
+            ? new RunResult(acknowledgement.RunId, finished.TerminalResult, finished.Metadata,
+                new(TerminalEvidenceKind.StatusReport, acknowledgement.AtCursor))
             : null;
     }
 

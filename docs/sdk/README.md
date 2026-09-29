@@ -1,7 +1,7 @@
 # SDK run handles
 
 `ZeroshotClient` prepares and submits requests, runs them to completion, and opens exact known runs for
-status, waiting, watch, logs or live attachment. It uses one `NativeClient` for every native call; direct `NativeClient` use
+status, waiting, force-stop, watch, logs or live attachment. It uses one `NativeClient` for every native call; direct `NativeClient` use
 needs none of the SDK's binding, waiting or recovery policy.
 
 ```csharp
@@ -14,6 +14,7 @@ await using var zeroshot = new ZeroshotClient(new ZeroshotClientOptions
 RunResult done = await zeroshot.RunAsync(request, runCredentials, timeout: null, ct); // submit, then wait
 Run submitted = await zeroshot.SubmitAsync(request, runCredentials, ct);    // acknowledged run, or throws
 RunResult result = await submitted.WaitAsync(TimeSpan.FromMinutes(30), ct); // optional observation budget
+RunResult stopped = await submitted.ForceStopAsync(timeout: null, ct);     // one force, then wait if needed
 
 PreparedSubmission prepared = RunRequest.ParseUtf8(requestBytes).Prepare(); // or zeroshot.Prepare(request)
 Run run = zeroshot.GetRun(knownRunId);                                      // no I/O
@@ -161,6 +162,66 @@ observation only; it is not a native run deadline. Every wait exception carries 
 `Run`, so `Run.Submission` survives a later timeout, failure or cancellation, including a
 cancellation that races the acknowledgement.
 
+## Force-stop
+
+`run.ForceAttemptAsync(ct)` sends one native `run/force` for the exact run over the control
+connection and returns the lower `NativeAttempt<RunForceResult>`: `Acknowledged` with the
+returned status, `Rejected`, `NotSent` or `Unknown`, with correlation ID and safe `Failure`
+evidence, including cancellation. Classification is the lower client's: only pinned
+pre-effect refusals are rejections, and a lost reply, malformed reply or cancellation after
+possible dispatch is `Unknown`. It never retries or waits. A missing or mismatched binding,
+or a failure to open the control connection, is `NotSent`. Calling it on a disposed client
+throws `ObjectDisposedException`. Disposing the client during the attempt ends it as `NotSent`
+while the control connection is still opening, or as `Unknown` once the request may have been
+sent, because disposal closes that connection.
+
+`run.ForceStopAsync(timeout, ct)` validates `timeout`, makes that one attempt, and then:
+
+- returns the terminal result already in the acknowledgement (`RunResult.FromForce`, with
+  `StatusReport` evidence at the acknowledgement's cursor), without observing; or
+- after an acknowledged nonterminal status such as `stopping`, waits exactly as
+  `WaitAsync(timeout, ct)` does. The budget starts after acknowledgement.
+
+An unacknowledged attempt throws `ForceStopException`, or `ForceStopCanceledException` (an
+`OperationCanceledException`) when the attempt's failure is a cancellation, each carrying the
+`Run` and the `Attempt`. The canceled exception has the caller's token when the caller
+cancelled. Disposal while force is pending is usually `ForceStopException` with an `Unknown`
+attempt. An `Unknown` attempt may
+still have stopped the run. Once acknowledged, every later wait exception
+(`RunWaitTimeoutException`, `RunWaitException`, `RunWaitCanceledException`) carries it as
+`ForceAttempt` together with the wait's latest `Evidence`, including when cancellation lands
+just after the acknowledgement is captured or the client is disposed during the wait.
+Force is never resent, and timeout, cancellation and disposal never send force. An
+acknowledgement records native stop intent; neither it nor a `force_stopped` result claims
+physical cessation.
+
+### A deadline across precheck, force and observation
+
+`ForceStopAsync`'s timeout covers only observation after acknowledgement, and the force
+request keeps its own finite request timeout. A caller with a total stop budget, such as
+Broodling's retirement, composes the separate APIs under its own deadline instead:
+
+```csharp
+var elapsed = Stopwatch.StartNew();
+using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+stop.CancelAfter(totalBudget);
+
+RunStatusResult current = await run.StatusAsync(stop.Token);            // intended-ID and phase precheck
+if (RunResult.FromStatus(current) is { } already) return already;
+NativeAttempt<RunForceResult> attempt = await run.ForceAttemptAsync(stop.Token);
+await store.RecordStopAttemptAsync(attempt);                             // yours: Unknown needs your policy
+if (attempt.Response is not { } acknowledgement) return Unresolved(attempt); // never resend automatically
+if (RunResult.FromForce(acknowledgement) is { } terminal) return terminal;
+var remaining = totalBudget - elapsed.Elapsed;
+return await run.WaitAsync(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, stop.Token);
+```
+
+The linked token bounds the precheck and force request. Passing the remaining time as the
+wait's `timeout` makes the wait end at the same deadline with `RunWaitTimeoutException`, or
+`RunWaitCanceledException` when the token fires first; both carry the latest evidence, and a
+zero remainder times out without observing. Authorization, intended-ID policy, handling an unknown
+effect and retaining the attempt stay with the caller.
+
 ## Watch and logs
 
 `run.WatchAsync` and `run.LogsAsync` replay retained history and then follow it live until
@@ -214,9 +275,9 @@ Queues stay bounded by the native client's per-stream and aggregate limits durin
 
 ## Connections
 
-Status uses one lazily opened control connection per `ZeroshotClient`. The next
-operation reopens it after a failure; the failed call is not retried. Initialize and
-status use reserved control request capacity. Each `AttachAsync` enumeration opens its
+Status and force use one lazily opened control connection per `ZeroshotClient`. The next
+operation reopens it after a failure; the failed call is not retried. Initialize, status
+and force use reserved control request capacity. Each `AttachAsync` enumeration opens its
 own connection and live attachment, which it closes when enumeration ends. Cancelling
 or disposing an open attachment also sends `subscription/cancel`. It never sends force,
 reopens or replays; a new enumeration is a new live view.
