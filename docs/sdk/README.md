@@ -1,7 +1,7 @@
 # SDK run handles
 
-`ZeroshotClient` prepares and submits requests, and opens exact known runs for status, watch, logs or live
-attachment. It uses one `NativeClient` for every native call; direct `NativeClient` use
+`ZeroshotClient` prepares and submits requests, runs them to completion, and opens exact known runs for
+status, waiting, watch, logs or live attachment. It uses one `NativeClient` for every native call; direct `NativeClient` use
 needs none of the SDK's binding, waiting or recovery policy.
 
 ```csharp
@@ -11,12 +11,14 @@ await using var zeroshot = new ZeroshotClient(new ZeroshotClientOptions
     NativeBinding = NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"),
 });
 
+RunResult done = await zeroshot.RunAsync(request, runCredentials, timeout: null, ct); // submit, then wait
 Run submitted = await zeroshot.SubmitAsync(request, runCredentials, ct);    // acknowledged run, or throws
+RunResult result = await submitted.WaitAsync(TimeSpan.FromMinutes(30), ct); // optional observation budget
 
 PreparedSubmission prepared = RunRequest.ParseUtf8(requestBytes).Prepare(); // or zeroshot.Prepare(request)
 Run run = zeroshot.GetRun(knownRunId);                                      // no I/O
 RunStatusResult status = await run.StatusAsync(ct);
-if (RunResult.FromStatus(status) is { } result) result.EnsureSuccess();
+if (RunResult.FromStatus(status) is { } reported) reported.EnsureSuccess();
 
 await File.WriteAllTextAsync("run.json", run.Reference.ToJson(), ct);
 Run reopened = zeroshot.GetRun(RunReference.Parse(await File.ReadAllTextAsync("run.json", ct)));
@@ -116,9 +118,48 @@ generic JSON `Output` (a JSON null for a successful null output, C# null only on
 `FailureReason`, native `Metadata` and `Evidence`. Status yields
 `TerminalEvidenceKind.StatusReport` with the status cursor. Native can report a status-only
 terminal failure without a durable event, so this is distinct from
-`RetainedTerminalEvent`, which only waiting on retained history will produce. Neither kind
+`RetainedTerminalEvent`, which only `WaitAsync` produces, from a terminal watch record and its cursor. Neither kind
 proves retained completion or physical cessation. `EnsureSuccess()` throws
 `RunFailedException` carrying the result.
+
+## Waiting
+
+`run.WaitAsync(timeout, ct)` returns the run's `RunResult`; a failed run is a result, not an
+exception. It reads status and returns an already reported terminal result. Otherwise it watches
+from that status's cursor, with the recovery described under [Watch and logs](#watch-and-logs),
+and returns the first terminal watch record as `RetainedTerminalEvent` evidence. If the watch
+ends normally without one, it reads status once more and returns a reported terminal result as
+`StatusReport` evidence, which is how native's status-only `runtime_failed` fallback appears. A
+nonterminal final status is incomplete observation: the end of a stream is never success.
+
+`timeout` is `null` by default: the wait lasts until the run finishes or the caller cancels. A
+finite budget covers every status read, watch setup, reopen delay and recovery; per-operation
+timeouts cannot extend it. `TimeSpan.Zero` performs no observation and times out at once.
+Negative or `Timeout.InfiniteTimeSpan` values throw `ArgumentOutOfRangeException`; `null` is
+the only indefinite spelling. A quiet run is never failed for silence.
+
+A wait that ends without a result throws with the exact `Run` and `RunWaitEvidence`: the latest
+validated `Status`, the latest delivered watch record (`LastEvent`) and the `ResumeAfter`
+checkpoint, each possibly null.
+
+| Exception | Kind | Cause |
+| --- | --- | --- |
+| `RunWaitTimeoutException` | `Timeout` | The budget expired |
+| `RunWaitException` | `Status` | A status read failed, including malformed status |
+| `RunWaitException` | `Observation` | The watch failed; the inner `RunObservationException` has the reason |
+| `RunWaitException` | `Incomplete` | The watch ended normally and the final status was not terminal |
+| `RunWaitCanceledException` | | Caller cancellation (an `OperationCanceledException`), or disposal of the client |
+
+None of these is a claim about the run's outcome. Timeout, cancellation and disposal detach the
+observation and never send force; the run continues. A missing or mismatched binding throws
+`NativeBindingException` before any I/O.
+
+`zeroshot.RunAsync(request or prepared, credentials, timeout, ct)` validates `timeout`, submits
+once as `SubmitAsync` does, and then waits. Submission failures throw `SubmissionException` or
+`SubmissionCanceledException` as before. The wait budget starts after acknowledgement and bounds
+observation only; it is not a native run deadline. Every wait exception carries the acknowledged
+`Run`, so `Run.Submission` survives a later timeout, failure or cancellation, including a
+cancellation that races the acknowledgement.
 
 ## Watch and logs
 

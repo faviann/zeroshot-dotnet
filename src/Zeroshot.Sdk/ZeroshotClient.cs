@@ -35,6 +35,8 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
 
     public Uri Target => native.Origin;
     public NativeBinding? NativeBinding { get; }
+    /// <summary>The clock for wait budgets; replaced only by tests.</summary>
+    internal TimeProvider Time { get; init; } = TimeProvider.System;
 
     public ZeroshotClient(ZeroshotClientOptions options)
         : this(NativeClient.ForHttp(new NativeClientOptions { Origin = Checked(options).Target, Transport = options.Transport }),
@@ -111,6 +113,28 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
                 NativeAttemptOutcome.NotSent, null, refused));
         }
         return native.Target.SubmitAttemptAsync(prepared, credentials ?? NoRunCredentials, this.credentials, cancellationToken);
+    }
+
+    /// <summary>
+    /// Prepares <paramref name="request"/> and runs it as
+    /// <see cref="RunAsync(PreparedSubmission, TargetRunCredentials?, TimeSpan?, CancellationToken)"/> does.
+    /// </summary>
+    public Task<RunResult> RunAsync(RunRequest request, TargetRunCredentials? credentials = null, TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+        => RunAsync(Prepare(request), credentials, timeout, cancellationToken);
+
+    /// <summary>
+    /// Submits as <see cref="SubmitAsync(PreparedSubmission, TargetRunCredentials?, CancellationToken)"/> does, then
+    /// waits as <see cref="Run.WaitAsync"/> does. <paramref name="timeout"/> bounds only the wait and starts after
+    /// acknowledgement; it is not a native run deadline. Every wait exception carries the acknowledged
+    /// <see cref="Run"/>, so its <see cref="Run.Submission"/> survives a later timeout, failure or cancellation.
+    /// </summary>
+    public async Task<RunResult> RunAsync(PreparedSubmission prepared, TargetRunCredentials? credentials = null,
+        TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        RunWait.ValidateTimeout(timeout); // before anything is sent
+        var run = await SubmitAsync(prepared, credentials, cancellationToken).ConfigureAwait(false);
+        return await run.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
     }
 
     private static readonly TargetRunCredentials NoRunCredentials =
@@ -345,6 +369,68 @@ public sealed class Run
         client.EnsureBinding(binding);
         var control = await client.ControlAsync(cancellationToken).ConfigureAwait(false);
         return await control.Runs.StatusAsync(Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Waits for this run's terminal result: reads status and returns a reported terminal result, otherwise watches
+    /// from that status's cursor (recovering eligible interruptions per <see cref="ObservationOptions"/>) and returns
+    /// the first retained terminal event. If the watch ends normally without one, status is read once more; a
+    /// nonterminal status is <see cref="RunWaitFailureKind.Incomplete"/>. A failed run is a result, not an exception.
+    /// <para>
+    /// <paramref name="timeout"/> null (the default) waits until cancelled. A finite budget covers every status read,
+    /// watch setup, reopen delay and recovery, and expiry throws <see cref="RunWaitTimeoutException"/>; zero reads
+    /// nothing. Other failures throw <see cref="RunWaitException"/> and cancellation throws
+    /// <see cref="RunWaitCanceledException"/>, each with the latest validated evidence. Nothing here stops the run.
+    /// </para>
+    /// </summary>
+    public async Task<RunResult> WaitAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        RunWait.ValidateTimeout(timeout);
+        client.EnsureBinding(binding);
+        RunStatusResult? status = null;
+        RunWatchEventNotification? lastEvent = null;
+        HistoryCheckpoint? resumeAfter = null;
+        RunWaitEvidence Evidence() => new(status, lastEvent, resumeAfter);
+        if (timeout == TimeSpan.Zero) throw new RunWaitTimeoutException(this, TimeSpan.Zero, Evidence(), null);
+
+        using var budget = timeout is { } finite ? new CancellationTokenSource(finite, client.Time) : new CancellationTokenSource();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
+        var token = linked.Token;
+        var stage = RunWaitFailureKind.Status;
+        try
+        {
+            status = await StatusAsync(token).ConfigureAwait(false);
+            if (RunResult.FromStatus(status) is { } reported) return reported;
+
+            resumeAfter = new HistoryCheckpoint(client.Target, Id, HistoryStream.Watch, null, status.AtCursor);
+            stage = RunWaitFailureKind.Observation;
+            await foreach (var record in WatchAsync(resumeAfter, token).ConfigureAwait(false))
+            {
+                lastEvent = record.Event;
+                resumeAfter = record.Checkpoint;
+                if (RunResult.FromEvent(record.Event) is { } retained) return retained;
+            }
+
+            // Native "done" ends the stream only; the final status decides, and EOF is never success.
+            stage = RunWaitFailureKind.Status;
+            status = await StatusAsync(token).ConfigureAwait(false);
+        }
+        // Budget or caller cancellation can surface as any failure of the interrupted operation.
+        catch (Exception error) when (budget.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        { throw new RunWaitTimeoutException(this, timeout!.Value, Evidence(), error); }
+        // The caller's token, or the client's lifetime when it was disposed mid-wait.
+        catch (Exception error) when (cancellationToken.IsCancellationRequested || error is OperationCanceledException)
+        {
+            throw new RunWaitCanceledException(this, Evidence(), error, cancellationToken.IsCancellationRequested
+                ? cancellationToken : ((OperationCanceledException)error).CancellationToken);
+        }
+        catch (Exception error)
+        {
+            throw new RunWaitException(stage, this, Evidence(), stage == RunWaitFailureKind.Status
+                ? "Reading the run's status failed while waiting." : "Watching the run failed while waiting.", error);
+        }
+        return RunResult.FromStatus(status) ?? throw new RunWaitException(RunWaitFailureKind.Incomplete, this, Evidence(),
+            "The run's watch ended without a terminal event and its status is not terminal.", null);
     }
 
     /// <summary>

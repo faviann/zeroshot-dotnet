@@ -56,6 +56,12 @@ public sealed class RunResult
             : null;
     }
 
+    /// <summary>The terminal result carried by a retained watch event; null for a nonterminal event.</summary>
+    internal static RunResult? FromEvent(RunWatchEventNotification record)
+        => record.Status is FinishedRunStatus finished
+            ? new RunResult(record.RunId, finished.TerminalResult, finished.Metadata, new(TerminalEvidenceKind.RetainedTerminalEvent, record.Cursor))
+            : null;
+
     /// <summary>Throws <see cref="RunFailedException"/> when the run failed.</summary>
     public void EnsureSuccess()
     {

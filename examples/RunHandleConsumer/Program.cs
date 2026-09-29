@@ -7,7 +7,7 @@ using Zeroshot.Native.Contracts;
 
 // Exercises the SDK run handle through the packed Zeroshot.Client package against controlled peers:
 // exact reconnection, binding refusals, generic and null output, failed results, attachment cancellation,
-// checkpointed watch/log observation, and ordinary and explicit submission through the same client.
+// checkpointed watch/log observation, ordinary and explicit submission, and run-to-completion through the same client.
 // This is deterministic consumer evidence, not live-native conformance.
 var fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
 using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -160,6 +160,16 @@ try
 }
 finally { File.Delete(retainedPath); }
 Check(http.Calls - callsBeforeSubmission == 2, "One HTTP send per dispatched submission.");
+
+// Run to completion: one submission, then the common wait. An already finished run completes from status alone.
+peer.PreparedRunId = ObjectOutput;
+var completed = await sdk.RunAsync(request, timeout: TimeSpan.FromMinutes(1), cancellationToken: token);
+Check(completed is { IsSuccess: true, Evidence.Kind: TerminalEvidenceKind.StatusReport } && http.Calls - callsBeforeSubmission == 3,
+    "RunAsync submits once and returns the terminal result.");
+var methodsBefore = oecp.Methods.Count;
+var zero = await Refused<RunWaitTimeoutException>(() => submitted.WaitAsync(TimeSpan.Zero, token));
+Check(zero is { Kind: RunWaitFailureKind.Timeout, Evidence.Status: null } && ReferenceEquals(zero.Run, submitted) &&
+    oecp.Methods.Count == methodsBefore, "A zero wait performs no observation.");
 Console.WriteLine("RunHandleConsumer passed.");
 
 static T Catch<T>(Action action) where T : Exception
