@@ -135,10 +135,11 @@ public sealed class RunObservationException : Exception
     public HistoryStream Stream { get; }
     /// <summary>
     /// The last record delivered to the caller, else the starting checkpoint, else null (from the start).
-    /// A new enumeration after it misses nothing; buffered and server-reported positions never advance it.
+    /// Buffered and server-reported positions never advance it. A new enumeration after it skips no record the
+    /// target still retains; after <see cref="RunObservationFailureKind.SourceUnavailable"/> that history is incomplete.
     /// </summary>
     public HistoryCheckpoint? ResumeAfter { get; }
-    /// <summary>Reopens performed by this enumeration before the failure.</summary>
+    /// <summary>Reopen attempts made by this enumeration before the failure.</summary>
     public int Recoveries { get; }
 
     internal RunObservationException(RunObservationFailureKind kind, RunId runId, HistoryStream stream,

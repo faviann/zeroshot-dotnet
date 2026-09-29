@@ -112,8 +112,8 @@ public sealed class HistoryObservationTests
         Check(records[2].Event.SubscriptionId.Value == "w2" && records[0].Event.Source.Repository.Value == "acme/project", "Complete native identity and data.");
         var requests = target.Requests;
         Check(requests.Select(r => r.From).SequenceEqual(["c0", "c2", "c3"]), "Reopens resume after the last delivered cursor, never the server's.");
-        Check(requests[1].Connection != requests[0].Connection && requests[2].Connection == requests[1].Connection,
-            "A dropped connection is replaced; a slow-consumer close reuses the live one.");
+        Check(requests[1].Connection != requests[0].Connection,
+            "A dropped connection is replaced.");
         Check(!target.Peer.Methods.Contains("run/force"), "Observation never stops the run.");
         target.CheckReleased();
     }
@@ -191,15 +191,42 @@ public sealed class HistoryObservationTests
         // The setup budget covers establishment; a subscription that is never acknowledged fails setup.
         Target? silent = null;
         silent = new Target("run/logs", [async (_, _) => await Task.Delay(Timeout.Infinite, silent!.Stopping)],
-            new() { SetupTimeout = TimeSpan.FromMilliseconds(300) });
+            new() { SetupTimeout = TimeSpan.FromSeconds(1) });
         await using (silent)
         {
+            // A status read first warms discovery, session and connect, so the short budget measures the subscription.
+            await silent.Run.StatusAsync();
             var start = silent.Checkpoint(HistoryStream.Logs, "c0");
             var (_, failure) = await Collect(silent.Run.LogsAsync(null, start)).WaitAsync(TimeSpan.FromSeconds(10));
             Check(failure is { Kind: RunObservationFailureKind.Establishment, InnerException: TimeoutException } && failure.ResumeAfter == start,
                 "The setup budget bounds establishment.");
+            Check(silent.Requests.Count == 1, "The deadline was reached while the subscription was pending.");
             silent.CheckReleased();
         }
+    }
+
+    [Test]
+    public async Task AnAcknowledgementAfterTheSetupDeadlineFailsSetupAndReleasesTheObservation()
+    {
+        // The peer holds the subscription request until the client has already failed setup, then acknowledges it.
+        var setupFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var target = new Target("run/logs", [async (request, call) =>
+        {
+            await setupFailed.Task;
+            try { await Open("late", [Log("late", "c1")])(request, call); }
+            finally { acknowledged.TrySetResult(); }
+        }], new() { SetupTimeout = TimeSpan.FromSeconds(1) });
+        await target.Run.StatusAsync(); // warms discovery, session and connect, as above
+
+        var (records, failure) = await Collect(target.Run.LogsAsync()).WaitAsync(TimeSpan.FromSeconds(10));
+        setupFailed.TrySetResult();
+        Check(records.Count == 0 && failure is { Kind: RunObservationFailureKind.Establishment, InnerException: TimeoutException, Recoveries: 0 },
+            "A late acknowledgement is a setup failure, never a delivered stream.");
+        await acknowledged.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Check(target.Requests.Count == 1, "Setup failure is not retried.");
+        target.CheckReleased();
+        Check((await target.Run.StatusAsync()).RunId == RunOne, "Control stays usable.");
     }
 
     [Test]

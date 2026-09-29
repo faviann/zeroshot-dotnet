@@ -148,8 +148,8 @@ Each enumeration opens its own connection. After an established stream is interr
 disconnection, unexpected EOF or remote `SLOW_CONSUMER`, records already validated and
 queued are delivered first. The SDK then waits `ReopenDelay` (250 ms, cancellable) and
 reopens exclusively after the last record it yielded. It never resumes from a received,
-buffered or server-reported (`lastDeliveredCursor`) position, and a watch keeps the source it
-first saw. Recovery repeats for as long as the enumeration stays active. Every
+buffered or server-reported (`lastDeliveredCursor`) position, and a watch keeps the source of
+the first delivered record. Recovery repeats for as long as the enumeration stays active. Every
 (re)establishment has one `SetupTimeout` budget (30 s) covering discovery, session, connect,
 initialize and subscription. Set `ObservationOptions.Recover = false` to receive the
 interruption instead. Configure these through `ZeroshotClientOptions.Observation` or the

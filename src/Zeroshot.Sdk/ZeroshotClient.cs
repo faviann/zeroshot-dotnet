@@ -227,12 +227,7 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
                     setup.CancelAfter(observation.SetupTimeout);
                     try
                     {
-                        if (connection is { Completion.IsCompleted: true })
-                        {
-                            await connection.DisposeAsync().ConfigureAwait(false);
-                            connection = null;
-                        }
-                        connection ??= await ConnectAsync(setup.Token).ConfigureAwait(false);
+                        connection = await ConnectAsync(setup.Token).ConfigureAwait(false);
                         using (setup.Token.UnsafeRegister(state => ((OecpConnection)state!).Dispose(), connection))
                             subscription = await open(connection, last, resumeAfter?.Cursor, token).ConfigureAwait(false);
                         setup.Token.ThrowIfCancellationRequested();
@@ -268,8 +263,11 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
                     _ => RunObservationFailureKind.ResourceLimit,
                 };
                 if (unrecovered is { } kind) throw Failure(kind, interruption);
+                // Every reopen uses a fresh connection; a dropped one may still be closing.
                 await subscription.DisposeAsync().ConfigureAwait(false);
                 subscription = null;
+                await connection!.DisposeAsync().ConfigureAwait(false);
+                connection = null;
                 recoveries++;
                 await Task.Delay(observation.ReopenDelay, token).ConfigureAwait(false);
             }
