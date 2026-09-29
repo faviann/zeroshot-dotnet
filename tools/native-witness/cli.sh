@@ -154,6 +154,7 @@ logged = records('logs-failed')
 assert logged and all(r['kind'] == 'log' and r['runId'] == failed and r['timestamp'] == r['data']['timestamp'] for r in logged), logged
 assert records('logs-checkpoint') == [], records('logs-checkpoint')
 filtered = records('logs-execution')
+assert filtered, filtered
 assert all(r['execution'] == r['checkpoint']['execution'] == filtered[0]['execution'] for r in filtered), filtered
 assert {r['cursor'] for r in filtered} <= {r['cursor'] for r in logged}, (filtered, logged)
 # Attachment is live and cursorless; after force stopped the execution, native refuses it as GONE.

@@ -253,7 +253,7 @@ public sealed class StreamTests
         var result = await workspace.RunClosingStdoutAsync(1, Known("watch"));
 
         await Failure(result, 1, "output");
-        await Assert.That(Text(result.Records[0], "cursor")).IsEqualTo("c1");
+        await Assert.That(Cursors(result)).IsEqualTo("c1"); // the one line the reader kept
         await Assert.That(Text(result.Error, "observation", "lastDeliveredCursor")).StartsWith("c");
         await Assert.That(peer.Count("run/force")).IsEqualTo(0);
     }

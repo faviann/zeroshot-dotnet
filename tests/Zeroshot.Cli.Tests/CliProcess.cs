@@ -147,6 +147,12 @@ internal sealed class CliProcess
             if (lines >= closeStdoutAfter)
             {
                 reader.Dispose(); // the reader has gone: later writes meet a closed pipe
+                // Like head, the reader keeps exactly its first lines; the chunk may have held more, or part of one.
+                var text = stdout.ToString();
+                var end = -1;
+                for (var kept = 0; kept < closeStdoutAfter; kept++) end = text.IndexOf('\n', end + 1);
+                stdout.Length = end + 1;
+                Volatile.Write(ref stdoutLines, closeStdoutAfter.Value);
                 return;
             }
         }
