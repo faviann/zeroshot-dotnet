@@ -270,8 +270,8 @@ public static class CliApp
                 RunObservationFailureKind.Protocol => "the target sent malformed or foreign data.",
                 _ => "a local size or queue limit was reached.",
             }, ExitCodes.Failure),
-            NativeSubscriptionException => ("operational",
-                $"The attachment to run {runId.Value} ended without a native close; it is not reopened and missed output is not replayed.", ExitCodes.Failure),
+            NativeSubscriptionException subscription => ("operational",
+                $"The attachment to run {runId.Value} failed ({Kebab(subscription.Kind)}); it is not reopened and missed output is not replayed.", ExitCodes.Failure),
             OperationCanceledException => ("cancelled", $"'{command}' for run {runId.Value} was cancelled; nothing was stopped.", ExitCodes.Cancelled),
             _ => ("operational", $"'{command}' for run {runId.Value} failed ({Name(error)}).", ExitCodes.Failure),
         };

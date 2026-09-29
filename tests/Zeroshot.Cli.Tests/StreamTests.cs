@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using TUnit.Assertions;
 using TUnit.Core;
+using TUnit.Core.Enums;
 
 namespace Zeroshot.Cli.Tests;
 
@@ -215,6 +216,7 @@ public sealed class StreamTests
     }
 
     [Test]
+    [ExcludeOn(OS.Windows)] // SIGINT delivery
     public async Task CtrlCDetachesWithExit130AndTheLastDeliveredCursor()
     {
         await using var peer = new TargetPeer();
@@ -248,10 +250,10 @@ public sealed class StreamTests
         };
         using var workspace = Workspace(peer);
 
-        var result = await workspace.RunIntoHeadAsync(Known("watch"));
+        var result = await workspace.RunClosingStdoutAsync(1, Known("watch"));
 
         await Failure(result, 1, "output");
-        await Assert.That(Cursors(result)).IsEqualTo("c1"); // head's one line
+        await Assert.That(Text(result.Records[0], "cursor")).IsEqualTo("c1");
         await Assert.That(Text(result.Error, "observation", "lastDeliveredCursor")).StartsWith("c");
         await Assert.That(peer.Count("run/force")).IsEqualTo(0);
     }

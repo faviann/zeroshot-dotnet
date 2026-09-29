@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 namespace Zeroshot.Cli.Tests;
@@ -46,7 +47,16 @@ internal sealed class CliWorkspace : IDisposable
 
     public CliProcess Start(params string[] args) => Start(new Dictionary<string, string>(), args);
 
-    public CliProcess Start(IReadOnlyDictionary<string, string> environment, params string[] args)
+    public CliProcess Start(IReadOnlyDictionary<string, string> environment, params string[] args) => Start(environment, null, args);
+
+    /// <summary>
+    /// Runs the command and closes the read end of its stdout pipe once <paramref name="lines"/> complete lines have
+    /// arrived, as a reader such as <c>head</c> does. Whatever the process writes afterwards meets a closed pipe.
+    /// </summary>
+    public Task<CliResult> RunClosingStdoutAsync(int lines, params string[] args)
+        => Start(new Dictionary<string, string>(), lines, args).Completion;
+
+    private CliProcess Start(IReadOnlyDictionary<string, string> environment, int? closeStdoutAfter, string[] args)
     {
         var start = new ProcessStartInfo(DotnetHost())
         {
@@ -57,32 +67,9 @@ internal sealed class CliWorkspace : IDisposable
         };
         start.ArgumentList.Add(Entry);
         foreach (var arg in args) start.ArgumentList.Add(arg);
-        return Start(start, environment);
-    }
-
-    /// <summary>
-    /// Runs <c>zeroshot-dotnet ARGS | head -n 1</c>: once head has its line it exits, closing the pipe the CLI writes
-    /// to. The result holds the CLI's exit code and stderr, and head's stdout.
-    /// </summary>
-    public Task<CliResult> RunIntoHeadAsync(params string[] args)
-    {
-        if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("The pipeline needs a POSIX shell.");
-        var start = new ProcessStartInfo("bash")
-        {
-            WorkingDirectory = Root,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        foreach (var arg in (string[])["-c", "set -o pipefail; \"$@\" | head -n 1", "bash", DotnetHost(), Entry, .. args]) start.ArgumentList.Add(arg);
-        return Start(start, new Dictionary<string, string>()).Completion;
-    }
-
-    private static CliProcess Start(ProcessStartInfo start, IReadOnlyDictionary<string, string> environment)
-    {
         foreach (var (name, value) in environment) start.Environment[name] = value;
 
-        return new CliProcess(Process.Start(start)!);
+        return new CliProcess(Process.Start(start)!, closeStdoutAfter);
     }
 
     private static string DotnetHost()
@@ -100,12 +87,16 @@ internal sealed class CliWorkspace : IDisposable
 internal sealed class CliProcess
 {
     private readonly Process process;
-    private readonly List<string> lines = [];
+    private readonly int? closeStdoutAfter;
+    /// <summary>Stdout exactly as read, and the complete lines in it.</summary>
+    private readonly StringBuilder stdout = new();
+    private int stdoutLines;
     public Task<CliResult> Completion { get; }
 
-    public CliProcess(Process process)
+    public CliProcess(Process process, int? closeStdoutAfter = null)
     {
         this.process = process;
+        this.closeStdoutAfter = closeStdoutAfter;
         Completion = CompleteAsync();
     }
 
@@ -113,15 +104,14 @@ internal sealed class CliProcess
     public async Task StdoutLines(int count)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        while (true)
+        while (Volatile.Read(ref stdoutLines) < count)
         {
-            lock (lines) if (lines.Count >= count) return;
             if (Completion.IsCompleted) throw new InvalidOperationException("zeroshot-dotnet exited first.");
             await Task.Delay(20, timeout.Token);
         }
     }
 
-    /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process.</summary>
+    /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process. Tests using it exclude Windows.</summary>
     public async Task InterruptAsync()
     {
         if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("SIGINT delivery needs a POSIX host.");
@@ -134,19 +124,31 @@ internal sealed class CliProcess
     {
         using (process)
         {
-            var stdout = ReadLinesAsync(process.StandardOutput);
+            var reading = ReadStdoutAsync(process.StandardOutput);
             var stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try { await process.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("zeroshot-dotnet did not exit."); }
-            await stdout;
-            return new CliResult(process.ExitCode, string.Concat(lines.Select(line => line + Environment.NewLine)), await stderr);
+            await reading;
+            return new CliResult(process.ExitCode, stdout.ToString(), await stderr);
         }
     }
 
-    private async Task ReadLinesAsync(StreamReader reader)
+    private async Task ReadStdoutAsync(StreamReader reader)
     {
-        while (await reader.ReadLineAsync() is { } line)
-            lock (lines) lines.Add(line);
+        var buffer = new char[4096];
+        int read;
+        if (closeStdoutAfter == 0) { reader.Dispose(); return; } // a reader that never reads, such as `| true`
+        while ((read = await reader.ReadAsync(buffer)) > 0)
+        {
+            stdout.Append(buffer, 0, read);
+            var lines = Volatile.Read(ref stdoutLines) + buffer.AsSpan(0, read).Count('\n');
+            Volatile.Write(ref stdoutLines, lines);
+            if (lines >= closeStdoutAfter)
+            {
+                reader.Dispose(); // the reader has gone: later writes meet a closed pipe
+                return;
+            }
+        }
     }
 }
