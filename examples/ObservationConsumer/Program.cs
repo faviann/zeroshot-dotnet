@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Zeroshot;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -114,10 +115,46 @@ var boundary = new Cursor(File.ReadAllText(Path.Combine(directory, "observation-
 var status = await connection.Runs.StatusAsync(runId, source, cancellationToken: token);
 Check(status.AtCursor == baselineWatch[^1].Cursor && status.Status is FinishedRunStatus, "exact terminal run after observation/restart");
 var replay = await Replay(connection, runId, source, boundary, baselineLogs, baselineWatch, token);
+var sdkReplay = await SdkReplay(native, runId, directory, phase, baselineLogs, baselineWatch, token);
 var retained = NativeJson.DeserializeUtf8<HistoryPage>(File.ReadAllBytes(Path.Combine(directory, "observation-history.json")));
 var restartedPage = await native.History.PageAsync(discovery, runId, cancellationToken: token);
 Check(restartedPage.Complete && Events(restartedPage) == Events(retained), "identical retained history page after restart");
-Console.WriteLine(JsonSerializer.Serialize(new { phase, status = Wire(status), replay }));
+Console.WriteLine(JsonSerializer.Serialize(new { phase, status = Wire(status), replay, sdkReplay }));
+
+// The SDK helpers replay the same retained history. The live phase retains a scoped log checkpoint as JSON;
+// the restarted phase is a new process against the restarted target and resumes exclusively after it.
+static async Task<object> SdkReplay(NativeClient native, RunId runId, string directory, string phase,
+    List<RunLogEventNotification> baselineLogs, List<RunWatchEventNotification> baselineWatch, CancellationToken token)
+{
+    await using var sdk = new ZeroshotClient(native, NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"));
+    var run = sdk.GetRun(runId);
+    var file = Path.Combine(directory, "observation-checkpoint.json");
+    if (phase == "live")
+    {
+        var all = await Collect(run.LogsAsync(token));
+        Check(Same(all.Select(r => r.Event).ToList(), baselineLogs), "SDK log replay equals the retained log history");
+        var ready = all.Single(r => r.Event.Record.Message.Value == "[setup] history-ready");
+        Check(ready.Checkpoint is { Stream: HistoryStream.Logs, Execution: null } && ready.Checkpoint.RunId == runId &&
+            ready.Checkpoint.Cursor == ready.Event.Cursor, "scoped SDK log checkpoint");
+        File.WriteAllText(file, ready.Checkpoint.ToJson());
+    }
+    var checkpoint = HistoryCheckpoint.Parse(File.ReadAllText(file));
+    var logs = await Collect(run.LogsAsync(null, checkpoint, token));
+    var expected = baselineLogs.SkipWhile(entry => entry.Cursor != checkpoint.Cursor).Skip(1).ToList();
+    Check(expected.Count > 0 && Same(logs.Select(r => r.Event).ToList(), expected), "SDK exclusive log replay from a retained checkpoint");
+    var watch = await Collect(run.WatchAsync(token));
+    Check(Same(watch.Select(r => r.Event).ToList(), baselineWatch), "SDK watch history replay");
+    Check((await Collect(run.LogsAsync(null, logs[^1].Checkpoint, token))).Count == 0 &&
+        (await Collect(run.WatchAsync(watch[^1].Checkpoint, token))).Count == 0, "SDK stream boundaries excluded");
+    return new { checkpoint = JsonDocument.Parse(checkpoint.ToJson()).RootElement, logs = logs.Count, watch = watch.Count };
+}
+
+static async Task<List<HistoryRecord<T>>> Collect<T>(IAsyncEnumerable<HistoryRecord<T>> records)
+{
+    var list = new List<HistoryRecord<T>>();
+    await foreach (var record in records) list.Add(record);
+    return list;
+}
 
 static async Task<object> Replay(OecpConnection connection, RunId runId, ResolvedSource source, Cursor boundary,
     List<RunLogEventNotification> baselineLogs, List<RunWatchEventNotification> baselineWatch, CancellationToken token)

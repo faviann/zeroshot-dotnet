@@ -149,6 +149,15 @@ proves terminal observation survives an actual target restart; it does not claim
 automatic reconnect, uninterrupted execution, or provider success. Consumer phases
 have a 30-second budget. Cleanup releases any waiting hook and terminates the target.
 
+Both consumer phases repeat the replay through the SDK's `Run.LogsAsync` and
+`Run.WatchAsync`. After completion, the live phase reads all logs through the SDK. It
+requires them to equal the retained records and saves the scoped `HistoryCheckpoint` of
+the `history-ready` record as `observation-checkpoint.json`. Each phase then parses that
+checkpoint and resumes exclusively after it; the second phase does so in a new process after
+the target restart. Each phase also replays the terminal watch history and requires both
+final checkpoints to return nothing. This exercises checkpointed SDK replay. It does not
+exercise interruption recovery, which deterministic tests cover.
+
 The observation consumer also reads run history before the gate is released, while
 the run is admitted and not terminal: an available definition without a terminal
 result and a complete but unfinished page. After completion it requires the retained
