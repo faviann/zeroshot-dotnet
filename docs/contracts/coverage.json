@@ -37,7 +37,7 @@
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`InitializeParams {protocolVersion}` \u2192 `InitializeResult {protocolVersion, capabilities, status}`",
       "evidence": {
-        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L36",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
         "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
@@ -289,7 +289,7 @@
       "authenticationPrerequisites": "Existing endpoint and its direct, hosted OECP-purpose bearer, private capability, or local stream identity; endpoint-specific support applies.",
       "typeClosure": "`RunStatusParams {runId}` \u2192 `RunStatusResult`",
       "evidence": {
-        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
+        "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L59",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
         "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",

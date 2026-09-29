@@ -91,6 +91,10 @@ sealed class HttpPeer(string fixtures, string profileJson) : HttpMessageHandler
             // Outbound host resolver callback.
             "POST resolver.example/host/resolve" => Json("""{"connections":{"github":{"GH_TOKEN":"resolved"}}}"""),
 
+            // A direct target at a loopback origin; its session endpoint is that origin's WebSocket route.
+            "GET 127.0.0.1/.well-known/zeroshot-native-v2" => Json("""{"kind":"zeroshot.native-v2-target/v2","authentication":"none","runPath":"/native-v2/run","sessionPath":"/native-v2/oecp-session","oecpPath":"/native-v2/oecp","audience":"controller"}"""),
+            "POST 127.0.0.1/native-v2/oecp-session" => Json($$"""{"endpoint":"ws://127.0.0.1:{{uri.Port}}/native-v2/oecp"}"""),
+
             // Browser dashboard mount.
             "GET 127.0.0.1/" or "HEAD 127.0.0.1/" or "GET 127.0.0.1/ui" or "HEAD 127.0.0.1/ui" => Redirect("/ui/"),
             "GET 127.0.0.1/ui/" => Content("<!doctype html>", "text/html; charset=utf-8"),
