@@ -15,10 +15,11 @@ internal static class CliFiles
 
     /// <summary>
     /// Writes exactly <paramref name="bytes"/>. An existing destination is refused unless the invocation gave
-    /// <c>--overwrite</c>; a file this call created is removed again if writing it fails.
+    /// <c>--overwrite</c>; a file this call created (with or without <c>--overwrite</c>) is removed again if writing it fails.
     /// </summary>
     public static void Write(string path, ReadOnlySpan<byte> bytes, bool overwrite, string what)
     {
+        var existed = File.Exists(path) || Directory.Exists(path);
         FileStream stream;
         try { stream = new FileStream(path, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None); }
         catch (IOException) when (!overwrite && (File.Exists(path) || Directory.Exists(path)))
@@ -32,7 +33,7 @@ internal static class CliFiles
         }
         catch (Exception error) when (IsFileError(error))
         {
-            if (!overwrite) try { File.Delete(path); } catch (Exception cleanup) when (IsFileError(cleanup)) { }
+            if (!existed) try { File.Delete(path); } catch (Exception cleanup) when (IsFileError(cleanup)) { }
             throw CliFailure.Output($"Cannot write the {what} file '{path}': {Describe(error)}.");
         }
     }

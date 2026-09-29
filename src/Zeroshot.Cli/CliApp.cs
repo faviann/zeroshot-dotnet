@@ -8,6 +8,7 @@ public static class CliApp
 {
     public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
     {
+        // Until parsing succeeds, a scan decides how a parse error is reported; afterwards the invocation decides.
         var output = new CliOutput(stdout, stderr, args.Contains("--json"));
         var operation = args.Length > 0 && CommandLine.IsCommand(args[0]) ? args[0] : null;
         try
@@ -18,6 +19,7 @@ public static class CliApp
                 return ExitCodes.Success;
             }
             var invocation = CommandLine.Parse(args);
+            output = new CliOutput(stdout, stderr, invocation.Json);
             if (invocation.Help)
             {
                 stdout.WriteLine(CommandLine.Usage);

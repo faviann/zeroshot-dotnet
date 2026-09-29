@@ -76,7 +76,7 @@ internal static class CommandLine
             }
             else if (grammar.Values.Contains(arg))
             {
-                if (i + 1 == args.Length) throw CliFailure.Invocation($"{arg} requires a value.");
+                if (i + 1 == args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal)) throw CliFailure.Invocation($"{arg} requires a value.");
                 if (!values.TryAdd(arg, args[++i])) throw CliFailure.Invocation($"{arg} was given more than once.");
             }
             else if (arg.StartsWith('-'))

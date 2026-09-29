@@ -173,5 +173,19 @@ public sealed class PrepareTests
         await Assert.That(File.Exists(workspace.PathOf("prepared.json"))).IsFalse();
     }
 
+    [Test]
+    public async Task AnOptionIsNeverTakenAsAnotherOptionsValue()
+    {
+        using var workspace = new CliWorkspace();
+        workspace.Write("request.json", Request());
+
+        var result = await workspace.RunAsync("prepare", "--request", "request.json", "--out", "--json");
+
+        await Assert.That(result.ExitCode).IsEqualTo(2);
+        await Assert.That(result.Stdout).IsEmpty();
+        await Assert.That(result.Error.GetProperty("category").GetString()).IsEqualTo("invocation");
+        await Assert.That(File.Exists(workspace.PathOf("--json"))).IsFalse();
+    }
+
     internal static string[] Names(JsonElement record) => [.. record.EnumerateObject().Select(property => property.Name)];
 }

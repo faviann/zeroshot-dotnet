@@ -5,7 +5,7 @@ namespace Zeroshot.Cli.Tests;
 
 /// <summary>
 /// Target commands parse configuration, durations, run files and the credentials their operation needs through the
-/// SDK before any I/O. Until their workflows land they then stop with <c>unavailable</c>, which marks a fully valid invocation.
+/// SDK before any I/O. Until their workflows land they then stop with <c>unavailable</c>, which marks an invocation that passed every local check (the native binding is only checked at dispatch).
 /// </summary>
 public sealed class TargetInputTests
 {
@@ -97,7 +97,11 @@ public sealed class TargetInputTests
     [Arguments("http://target.example/")]
     [Arguments("https://target.example/path")]
     public async Task TargetOriginRulesAreTheSdks(string target)
-        => await Category(await Run(BearerOnly, Config(target: target), "status", PrepareTests.RunId, "--config", "target.json"), "configuration");
+    {
+        var result = await Run(BearerOnly, Config(target: target), "status", PrepareTests.RunId, "--config", "target.json");
+        await Category(result, "configuration");
+        await Assert.That(result.Stderr).DoesNotContain("Parameter"); // CLI-authored, not SDK exception text
+    }
 
     [Test]
     public async Task ConfigurationMustDeclareItsSchemaAndKnownFields()

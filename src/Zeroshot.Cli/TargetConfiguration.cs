@@ -65,8 +65,8 @@ internal sealed class TargetConfiguration
     public static ZeroshotClient CreateClient(ZeroshotClientOptions options, string source)
     {
         try { return new ZeroshotClient(options); }
-        catch (ArgumentException error)
-        { throw CliFailure.Configuration($"{source} has an invalid target, timeout or limit: {error.Message}"); }
+        catch (ArgumentException)
+        { throw CliFailure.Configuration($"{source} has an invalid target origin, timeout or limit; the SDK refused the settings."); }
     }
 
     /// <summary>Resolves the submission-only credentials: GitHub token, provider connections and resolver bearer.</summary>
