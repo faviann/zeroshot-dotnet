@@ -82,7 +82,8 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
     {
         var attempt = await SubmitAttemptAsync(prepared, credentials, cancellationToken).ConfigureAwait(false);
         if (attempt.AcknowledgedRunId is { } acknowledged) return new Run(this, acknowledged, NativeBinding, attempt);
-        if (attempt.Failure is OperationCanceledException) throw new SubmissionCanceledException(attempt, cancellationToken);
+        // The failure's token is the caller's, or the native client's lifetime when it was disposed mid-flight.
+        if (attempt.Failure is OperationCanceledException cancelled) throw new SubmissionCanceledException(attempt, cancelled.CancellationToken);
         throw new SubmissionException(attempt);
     }
 

@@ -140,6 +140,25 @@ public sealed class SubmitTests
     }
 
     [Test]
+    public async Task DisposalMidFlightReportsTheNativeLifetimeToken()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new Handler(async (_, token) =>
+        {
+            entered.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            throw new InvalidOperationException();
+        });
+        var sdk = Client(handler);
+        var pending = CatchAsync<SubmissionCanceledException>(() => sdk.SubmitAsync(Retained()));
+        await entered.Task;
+        sdk.Dispose();
+        var error = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        Check(error.Attempt.Outcome == NativeAttemptOutcome.Unknown && error.CancellationToken.IsCancellationRequested &&
+            handler.Calls == 1, "The cancelling lifetime token is reported, not the caller's uncancelled token.");
+    }
+
+    [Test]
     public async Task ACapturedAcknowledgementWinsACancellationRace()
     {
         using var cancellation = new CancellationTokenSource();

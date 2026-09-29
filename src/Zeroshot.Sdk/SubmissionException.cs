@@ -15,7 +15,8 @@ public sealed class SubmissionException : Exception
 
 /// <summary>
 /// Ordinary submission was cancelled without an acknowledgement. <see cref="Attempt"/> says whether the request was
-/// not sent or its effect is unknown, and holds the prepared request for an explicit replay.
+/// not sent or its effect is unknown, and holds the prepared request for an explicit replay. Its token is the one that
+/// cancelled the attempt: the caller's, or the native client's lifetime when that client was disposed.
 /// </summary>
 public sealed class SubmissionCanceledException : OperationCanceledException
 {
