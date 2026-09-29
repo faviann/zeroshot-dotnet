@@ -93,6 +93,7 @@ sealed class HttpPeer(string fixtures, string profileJson) : HttpMessageHandler
 
             // A direct target at a loopback origin; its session endpoint is that origin's WebSocket route.
             "GET 127.0.0.1/.well-known/zeroshot-native-v2" => Json("""{"kind":"zeroshot.native-v2-target/v2","authentication":"none","runPath":"/native-v2/run","sessionPath":"/native-v2/oecp-session","oecpPath":"/native-v2/oecp","audience":"controller"}"""),
+            "POST 127.0.0.1/native-v2/run" => Json($$"""{"runId":"{{PreparedRunId}}"}"""),
             "POST 127.0.0.1/native-v2/oecp-session" => Json($$"""{"endpoint":"ws://127.0.0.1:{{uri.Port}}/native-v2/oecp"}"""),
 
             // Browser dashboard mount.
