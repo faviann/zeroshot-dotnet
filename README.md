@@ -11,8 +11,9 @@ and [security-validated Windows controller pipes](docs/oecp/README.md#windows-co
 [hosted run list, status, NDJSON watch/logs and force](docs/http/README.md#hosted-run-lifecycle). An
 [internal operation and observation seam](docs/execution/README.md) supplies deadlines,
 resource admission, shared bounded observation queues and safe failures. The
-[SDK run handle](docs/sdk/README.md) prepares requests and reopens known runs for status and
-live attachment under a caller-supplied native binding. Remaining SDK run workflows follow;
+[SDK run handle](docs/sdk/README.md) prepares and submits requests, returning an acknowledged
+handle or explicit attempt evidence, and reopens known runs for status and live attachment
+under a caller-supplied native binding. Remaining SDK run workflows follow;
 native bindings are tracked in the [coverage manifest](docs/contracts/coverage.json).
 
 Public namespaces are `Zeroshot`, `Zeroshot.Native` and
@@ -32,7 +33,7 @@ explicit serialization/export remains the caller's responsibility.
 | `tests/Zeroshot.Sdk.Tests` | Golden contracts, native value boundaries and retained-request ownership. |
 | `tests/Zeroshot.Cli.Tests` | CLI bootstrap smoke tests. |
 | `examples/ContractsConsumer` | External consumer referencing the packed library. |
-| `examples/RunHandleConsumer` | Packed-library SDK reconnection, binding refusals, results and attachment cancellation against controlled peers. |
+| `examples/RunHandleConsumer` | Packed-library SDK ordinary and retained explicit submission, reconnection, binding refusals, results and attachment cancellation against controlled peers. |
 | `examples/DiscoveryConsumer` | Packed-library discovery/session, native OECP inspection and stock cluster/run-submit refusal witness. |
 | `examples/SubmissionConsumer` | Packed-library complete-asset admission, normalization and replay witness. |
 | `examples/ObservationConsumer` | Packed-library watch/log replay, live records, live dashboard SSE and target-restart witness. |

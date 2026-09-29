@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
@@ -62,6 +63,50 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(request);
         return request.Prepare();
     }
+
+    /// <summary>
+    /// Prepares <paramref name="request"/>, generating any omitted identity once, then submits it as
+    /// <see cref="SubmitAsync(PreparedSubmission, TargetRunCredentials?, CancellationToken)"/> does.
+    /// </summary>
+    public Task<Run> SubmitAsync(RunRequest request, TargetRunCredentials? credentials = null,
+        CancellationToken cancellationToken = default)
+        => SubmitAsync(Prepare(request), credentials, cancellationToken);
+
+    /// <summary>
+    /// Sends the prepared request once and returns a handle for the acknowledged run, which can differ from the
+    /// proposed one; <see cref="Run.Submission"/> keeps both. Any other outcome throws
+    /// <see cref="SubmissionException"/>, or <see cref="SubmissionCanceledException"/> on cancellation, with the attempt.
+    /// </summary>
+    public async Task<Run> SubmitAsync(PreparedSubmission prepared, TargetRunCredentials? credentials = null,
+        CancellationToken cancellationToken = default)
+    {
+        var attempt = await SubmitAttemptAsync(prepared, credentials, cancellationToken).ConfigureAwait(false);
+        if (attempt.AcknowledgedRunId is { } acknowledged) return new Run(this, acknowledged, NativeBinding, attempt);
+        if (attempt.Failure is OperationCanceledException) throw new SubmissionCanceledException(attempt, cancellationToken);
+        throw new SubmissionException(attempt);
+    }
+
+    /// <summary>
+    /// Sends the exact prepared bytes once with separately supplied credentials (none by default) and returns
+    /// acknowledged, rejected, not-sent or unknown evidence, including cancellation. Nothing is regenerated or retried.
+    /// A missing or mismatched binding is a not-sent attempt whose failure is the <see cref="NativeBindingException"/>.
+    /// Invalid arguments and disposal throw instead.
+    /// </summary>
+    public Task<TargetSubmissionAttempt> SubmitAttemptAsync(PreparedSubmission prepared,
+        TargetRunCredentials? credentials = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
+        try { EnsureBinding(null); } // Disposal still throws ObjectDisposedException from here.
+        catch (NativeBindingException refused)
+        {
+            return Task.FromResult(new TargetSubmissionAttempt(Target, Guid.NewGuid(), prepared,
+                NativeAttemptOutcome.NotSent, null, refused));
+        }
+        return native.Target.SubmitAttemptAsync(prepared, credentials ?? NoRunCredentials, this.credentials, cancellationToken);
+    }
+
+    private static readonly TargetRunCredentials NoRunCredentials =
+        new() { Connections = ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty };
 
     /// <summary>A handle for a known run on this client's target and binding. No I/O.</summary>
     public Run GetRun(RunId runId)
@@ -179,10 +224,16 @@ public sealed class Run
 {
     private readonly ZeroshotClient client;
     private readonly NativeBinding? binding;
+    /// <summary>The acknowledged run ID when this handle came from submission.</summary>
     public RunId Id { get; }
+    /// <summary>
+    /// The acknowledged attempt that produced this handle, with proposed and acknowledged IDs and whether they match;
+    /// null for a reopened run. A different acknowledged ID is valid native data, not proof of deduplication.
+    /// </summary>
+    public TargetSubmissionAttempt? Submission { get; }
 
-    internal Run(ZeroshotClient client, RunId id, NativeBinding? binding)
-    { this.client = client; Id = id; this.binding = binding; }
+    internal Run(ZeroshotClient client, RunId id, NativeBinding? binding, TargetSubmissionAttempt? submission = null)
+    { this.client = client; Id = id; this.binding = binding; Submission = submission; }
 
     /// <summary>The portable reference for later reconnection. Throws when no native binding is configured.</summary>
     public RunReference Reference => binding is null

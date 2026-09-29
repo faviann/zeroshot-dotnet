@@ -6,7 +6,8 @@ using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
 // Exercises the SDK run handle through the packed Zeroshot.Client package against controlled peers:
-// exact reconnection, binding refusals, generic and null output, failed results and attachment cancellation.
+// exact reconnection, binding refusals, generic and null output, failed results, attachment cancellation,
+// and ordinary and explicit submission through the same client.
 // This is deterministic consumer evidence, not live-native conformance.
 var fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
 using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -32,7 +33,8 @@ oecp.Statuses[FailedRun] = Finished(FailedRun, "c-failed", """{"status":"failed"
 var listener = OecpPeer.LoopbackListener();
 _ = oecp.ListenWebSocketsAsync(listener, token);
 var origin = new Uri($"http://127.0.0.1:{((System.Net.IPEndPoint)listener.LocalEndpoint).Port}/");
-var http = new CountingHandler(new HttpPeer(fixtures, "{}"));
+var peer = new HttpPeer(fixtures, "{}");
+var http = new CountingHandler(peer);
 using var httpClient = new HttpClient(http) { Timeout = Timeout.InfiniteTimeSpan };
 await using var native = NativeClient.ForHttp(new NativeClientOptions { Origin = origin }, httpClient);
 var binding = NativeBinding.CallerSupplied("10.9.0", Revision);
@@ -60,6 +62,9 @@ await using (var missing = new ZeroshotClient(new ZeroshotClientOptions { Target
     var error = await Refused<NativeBindingException>(() => missing.GetRun(run.Id).StatusAsync(token));
     Check(error is { Reason: NativeBindingProblem.Missing, Declared: null }, "Missing binding reason.");
     Check(Catch<NativeBindingException>(() => _ = missing.GetRun(run.Id).Reference).Reason == NativeBindingProblem.Missing, "No reference without a binding.");
+    var unsent = await Refused<SubmissionException>(() => missing.SubmitAsync(request, cancellationToken: token));
+    Check(unsent is { Attempt.Outcome: NativeAttemptOutcome.NotSent, InnerException: NativeBindingException { Reason: NativeBindingProblem.Missing } },
+        "No submission without a binding.");
 }
 await using (var older = new ZeroshotClient(new ZeroshotClientOptions { Target = origin, NativeBinding = NativeBinding.CallerSupplied("10.8.0", Revision) }))
 {
@@ -109,6 +114,38 @@ Check(events is [{ Event: WorkingAgentAttachEvent }, _, { Event: SettledAgentAtt
 Check(oecp.Methods.Count(m => m == "run/attach") == 2 && !oecp.Methods.Contains("run/force"), "No reopen, replay or stop.");
 Check(RunResult.FromStatus(await run.StatusAsync(token))!.IsSuccess, "Control remains usable after observation.");
 Check(raised.Result == failed, "EnsureSuccess carries its result.");
+
+// Ordinary submission: preparation happens inside the call and nothing is persisted. The peer acknowledges an
+// existing run, so the handle follows that ID while both IDs and the mismatch stay available for caller policy.
+var callsBeforeSubmission = http.Calls;
+peer.PreparedRunId = ObjectOutput;
+var submitted = await sdk.SubmitAsync(request, cancellationToken: token);
+Check(submitted.Id.Value == ObjectOutput && submitted.Submission is { RunIdsMatch: false } accepted &&
+    accepted.ProposedRunId != submitted.Id && accepted.AcknowledgedRunId == submitted.Id, "The handle follows the acknowledged run.");
+Check(RunResult.FromStatus(await submitted.StatusAsync(token))!.IsSuccess, "The submitted handle reads its acknowledged run.");
+
+// Explicit attempt: prepare, retain before sending, import the exact bytes and send once. The same retained request
+// can be replayed later with fresh credentials; nothing is regenerated or resent automatically.
+var retainedPath = Path.Combine(Path.GetTempPath(), $"zeroshot-prepared-{Guid.NewGuid():N}.json");
+try
+{
+    File.WriteAllBytes(retainedPath, sdk.Prepare(request).ExportUtf8());
+    var imported = PreparedSubmission.ImportUtf8(File.ReadAllBytes(retainedPath));
+    peer.PreparedRunId = imported.RunId.Value;
+    var attempt = await sdk.SubmitAttemptAsync(imported, cancellationToken: token);
+    Check(attempt is { Outcome: NativeAttemptOutcome.Acknowledged, RunIdsMatch: true } &&
+        attempt.Prepared.ExportUtf8().AsSpan().SequenceEqual(File.ReadAllBytes(retainedPath)), "Explicit attempt sends the retained request.");
+
+    // Cancelled before dispatch: the explicit attempt returns NotSent; the ordinary call throws an
+    // OperationCanceledException subtype carrying the same kind of attempt.
+    using var cancelled = new CancellationTokenSource();
+    cancelled.Cancel();
+    Check((await sdk.SubmitAttemptAsync(imported, cancellationToken: cancelled.Token)).Outcome == NativeAttemptOutcome.NotSent, "Explicit not sent.");
+    var cancelledSubmit = await Refused<SubmissionCanceledException>(() => sdk.SubmitAsync(imported, cancellationToken: cancelled.Token));
+    Check(cancelledSubmit.Attempt.Outcome == NativeAttemptOutcome.NotSent && ReferenceEquals(cancelledSubmit.Attempt.Prepared, imported), "Ordinary not sent.");
+}
+finally { File.Delete(retainedPath); }
+Check(http.Calls - callsBeforeSubmission == 2, "One HTTP send per dispatched submission.");
 Console.WriteLine("RunHandleConsumer passed.");
 
 static T Catch<T>(Action action) where T : Exception
