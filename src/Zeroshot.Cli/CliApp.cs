@@ -226,7 +226,7 @@ public static class CliApp
             _ => (null, null),
         };
         return new CliFailure(category, message, exit)
-            { RunId = runId, Evidence = evidence, Attempt = forced is null ? acknowledged : AttemptEvidence.Of(forced) };
+            { RunId = runId, Evidence = evidence, Attempt = forced is null ? acknowledged : AttemptEvidence.Of(forced), Native = NativeFailure.Of(error) };
     }
 
     /// <summary>An unacknowledged mutation attempt, by the SDK's outcome. An unknown outcome is never resent or replaced.</summary>
@@ -244,7 +244,7 @@ public static class CliApp
             _ => ("unknown-outcome", $"{what} may have taken effect, but no acknowledgement was received" +
                 (evidence.Cancelled ? " before it was cancelled" : "") + "; it was not resent.", ExitCodes.UnknownOutcome),
         };
-        return new CliFailure(category, message, exit) { RunId = runId, Attempt = evidence };
+        return new CliFailure(category, message, exit) { RunId = runId, Attempt = evidence, Native = NativeFailure.Of(attempt.Failure) };
     }
 
     private static string BindingMessage(NativeBindingException binding) => binding.Reason == NativeBindingProblem.Missing

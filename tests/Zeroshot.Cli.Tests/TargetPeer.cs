@@ -83,11 +83,13 @@ internal sealed class TargetPeer : IAsyncDisposable
         public Task Hold() => hold();
     }
 
-    public sealed class Call(JsonNode? parameters, Func<string, Task> reply, Func<string, string, Task> notify)
+    public sealed class Call(JsonNode? parameters, Func<string, Task> respond, Func<string, string, Task> notify)
     {
         public JsonNode? Params { get; } = parameters;
         public string RunId => Params!["runId"]!.GetValue<string>();
-        public Task ReplyAsync(string result) => reply(result);
+        public Task ReplyAsync(string result) => respond("\"result\":" + result);
+        /// <summary>A JSON-RPC error response.</summary>
+        public Task FailAsync(string error) => respond("\"error\":" + error);
         public Task NotifyAsync(string method, string body) => notify(method, body);
     }
 
@@ -184,7 +186,7 @@ internal sealed class TargetPeer : IAsyncDisposable
             methods.Enqueue(method);
             Signal(method).TrySetResult();
             var call = new Call(message["params"],
-                result => Send($$"""{"jsonrpc":"2.0","id":{{id}},"result":{{result}}}"""),
+                member => Send($$"""{"jsonrpc":"2.0","id":{{id}},{{member}}}"""),
                 (name, body) => Send($$"""{"jsonrpc":"2.0","method":"{{name}}","params":{{body}}}"""));
             if (method == "initialize")
                 await call.ReplyAsync("""{"protocolVersion":"openengine.cluster/v1","capabilities":{"graphProfiles":[],"logs":false,"agentAttach":false},"status":{"phase":"empty","observedGeneration":null,"currentRunId":null,"atCursor":null}}""");

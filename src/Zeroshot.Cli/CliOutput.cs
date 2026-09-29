@@ -101,10 +101,23 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
                 if (failure.RunId is { } runId) w.WriteString("runId", runId.Value);
                 if (failure.Attempt is { } attempt) Attempt(w, attempt);
                 if (failure.Evidence is { } evidence) Evidence(w, evidence);
+                if (failure.Native is { } native)
+                {
+                    w.WriteStartObject("native");
+                    w.WriteString("transport", native.Transport);
+                    w.WriteString("kind", native.Kind);
+                    if (native.HttpStatus is { } status) w.WriteNumber("httpStatus", status);
+                    if (native.ProblemCode is { } problem) w.WriteString("problemCode", problem);
+                    if (native.RpcCode is { } rpc) w.WriteNumber("rpcCode", rpc);
+                    if (native.DomainCode is { } domain) w.WriteString("domainCode", domain);
+                    w.WriteEndObject();
+                }
             });
             return;
         }
-        stderr.WriteLine($"zeroshot-dotnet{(operation is null ? "" : " " + operation)}: {failure.Message}");
+        var facts = failure.Native is not { } n ? "" : " [" + string.Join(' ', new object?[]
+            { n.Transport, n.Kind, n.HttpStatus, n.ProblemCode, n.RpcCode, n.DomainCode }.Where(fact => fact is not null)) + "]";
+        stderr.WriteLine($"zeroshot-dotnet{(operation is null ? "" : " " + operation)}: {failure.Message}{facts}");
         if (failure.Category == "invocation") stderr.WriteLine("Run 'zeroshot-dotnet --help' for usage.");
     }
 

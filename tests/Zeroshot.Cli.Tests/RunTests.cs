@@ -160,7 +160,30 @@ public sealed class RunTests
         await Assert.That(Text(result.Error, "attempt", "outcome")).IsEqualTo("rejected");
         await Assert.That(Text(result.Error, "attempt", "proposedRunId")).IsEqualTo(Proposed);
         await Assert.That(Text(result.Error, "runId")).IsNull();
+        await Assert.That(Text(result.Error, "native", "transport")).IsEqualTo("http");
+        await Assert.That(Text(result.Error, "native", "kind")).IsEqualTo("httpStatus");
+        await Assert.That(Text(result.Error, "native", "httpStatus")).IsEqualTo("409");
+        await Assert.That(Text(result.Error, "native", "problemCode")).IsEqualTo("request.conflict");
         await Assert.That(peer.Submissions.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ANativeForceRefusalKeepsItsRpcCodesAndNoRemoteText()
+    {
+        await using var peer = new TargetPeer();
+        peer.Oecp["run/force"] = call => call.FailAsync("""{"code":-32000,"message":"secret-canary-7c2e","data":{"code":"NOT_FOUND"}}""");
+        using var workspace = Workspace(peer);
+
+        var result = await workspace.RunAsync(Known("force-stop", "--request-only"));
+
+        await Failure(result, 1, "rejected");
+        await Assert.That(result.Stderr).DoesNotContain("secret-canary-7c2e");
+        await Assert.That(Text(result.Error, "attempt", "outcome")).IsEqualTo("rejected");
+        await Assert.That(Text(result.Error, "native", "transport")).IsEqualTo("oecp");
+        await Assert.That(Text(result.Error, "native", "kind")).IsEqualTo("rpcError");
+        await Assert.That(Text(result.Error, "native", "rpcCode")).IsEqualTo("-32000");
+        await Assert.That(Text(result.Error, "native", "domainCode")).IsEqualTo("NOT_FOUND");
+        await Assert.That(peer.Count("run/force")).IsEqualTo(1);
     }
 
     [Test]
@@ -185,7 +208,7 @@ public sealed class RunTests
         peer.Oecp["run/watch"] = TargetPeer.Watch(); // established, then quiet
         using var workspace = Workspace(peer);
 
-        var result = await workspace.RunAsync(Known("wait", "--timeout", "3s"));
+        var result = await workspace.RunAsync(Known("wait", "--timeout", "10s"));
 
         await Failure(result, 4, "timeout");
         await Assert.That(result.Stdout).IsEmpty();
@@ -207,6 +230,8 @@ public sealed class RunTests
         await Failure(result, 1, "operational");
         await Assert.That(result.Stdout).IsEmpty();
         await Assert.That(Text(result.Error, "runId")).IsEqualTo(Acknowledged);
+        await Assert.That(Text(result.Error, "native", "transport")).IsEqualTo("oecp");
+        await Assert.That(Text(result.Error, "native", "kind")).IsEqualTo("transport");
     }
 
     [Test]

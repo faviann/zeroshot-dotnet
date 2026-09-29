@@ -76,8 +76,9 @@ give `--config` with a run file, but the configuration must name the same target
 
 Ctrl+C cancels the current operation. It never stops a run, and it never sends a request.
 
-- Before a request is sent, or while the command waits after an acknowledgement, the
-  command exits with 130. Anything that was already acknowledged stays in the output.
+- Before a request is sent, during a read such as `status`, or while the command waits
+  after an acknowledgement, the command exits with 130. Anything that was already
+  acknowledged stays in the output.
 - After a request was sent but before it was acknowledged, the outcome is unknown. The
   command exits with 5, and the error record includes the attempt with `"cancelled": true`.
 
@@ -189,10 +190,22 @@ An error keeps what was already known. `runId` is the acknowledged, reopened or 
 run. It is never a run ID that was only proposed. `attempt` is the attempt that failed,
 or the acknowledged attempt that came before the failure. `evidence` holds the latest
 positions that a wait reached: `statusCursor`, `lastEventCursor` and `resumeAfter`.
+`native` holds the SDK's typed facts about a native HTTP or OECP failure:
+
+- `transport`: `http` or `oecp`.
+- `kind`: the failure kind, such as `httpStatus`, `transport` or `rpcError`.
+- `httpStatus` and `problemCode`: from a native HTTP problem response.
+- `rpcCode` and `domainCode`: from a native JSON-RPC error.
+
+```json
+{"schema":"zeroshot-dotnet/cli/v1","kind":"error","category":"rejected","operation":"run","message":"The submission of proposed run 0195af77-1000-7000-8000-000000000001 was rejected by the target.","attempt":{"operation":"target.submit","outcome":"rejected","correlationId":"6f0c2d1e-8a44-4d2b-9f8e-2b8f1f0f7a10","proposedRunId":"0195af77-1000-7000-8000-000000000001"},"native":{"transport":"http","kind":"httpStatus","httpStatus":409,"problemCode":"request.conflict"}}
+```
+
+In text mode, the same facts follow the message in brackets.
 
 The CLI writes every error message itself. A message can name a file, field, environment
 variable or run ID. It never includes request content, credential values, native status
-content or the text of an underlying exception.
+content, remote error messages or the text of an underlying exception.
 
 ## Exit codes
 
@@ -204,4 +217,4 @@ content or the text of an underlying exception.
 | 3 | `run`, `wait` or `force-stop` observed a failed run (the `result` record is still written) | |
 | 4 | The wait timeout expired; the run was not stopped | `timeout` |
 | 5 | A request was sent, and it is unknown whether it took effect | `unknown-outcome` |
-| 130 | Ctrl+C before a request was sent, or while waiting after an acknowledgement | `cancelled` |
+| 130 | Ctrl+C before a request was sent, during a read such as `status`, or while waiting after an acknowledgement | `cancelled` |
