@@ -24,12 +24,19 @@ internal static partial class CliDuration
         return true;
     }
 
-    /// <summary>A wait budget: a finite duration, or null for <c>infinite</c>, the only indefinite spelling.</summary>
+    /// <summary>
+    /// The SDK's longest finite wait. It is checked while parsing because <c>run</c> waits only after it has
+    /// submitted, and a budget the SDK would refuse must not surface after the mutation.
+    /// </summary>
+    public const string MaxWaitRule = "no longer than 4294967294ms (about 49.7 days)";
+    private static readonly TimeSpan MaxWaitBudget = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
+    /// <summary>A wait budget: a finite duration up to the SDK's limit, or null for <c>infinite</c>, the only indefinite spelling.</summary>
     public static bool TryParseWaitBudget(string text, out TimeSpan? budget)
     {
         budget = null;
         if (text == "infinite") return true;
-        if (!TryParse(text, out var finite)) return false;
+        if (!TryParse(text, out var finite) || finite > MaxWaitBudget) return false;
         budget = finite;
         return true;
     }

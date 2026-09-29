@@ -261,6 +261,32 @@ This does not claim that provider execution succeeds, and it does not cover
 hosted recovery routes or live `INVALID_PHASE`, which needs a target without
 recovery support.
 
+`cli.sh` then reuses the same target and provider to drive the repository-built
+`zeroshot-dotnet` CLI (published from `src/Zeroshot.Cli` with its matching library) as
+separate processes. The recovery gate is still set, so the first CLI run fails its worker:
+
+1. `run --request --save-request --save-run` writes a `submission` record and a
+   `worker_failed` `result` record, and exits with 3.
+2. `status --run-file` reports that failed run and exits with 0.
+3. `wait --run-file` exits with 3.
+
+The harness then clears the gate and empties the ready marker, so a second run keeps its
+worker active at the provider's first gate:
+
+1. `prepare`, then `run --prepared --detach --save-run`, exits with 0.
+2. `status --run-file` is polled until native reports an active execution.
+3. `force-stop --run-file --wait-timeout 60s` writes a `force_stopped` result and exits
+   with 3.
+4. `force-stop --request-only` on the stopped run writes an acknowledged `force` record
+   and exits with 0.
+
+Native's public run history is read independently of the CLI. It must list each CLI
+run exactly once and no other new run. Before the request-only force, the forced run's
+history must hold exactly one `force_stop_requested` event. `cli/` retains every
+command's stdout, stderr and exit code, the history reads, and `result.json`. Native
+deduplicates by run ID, so run history cannot distinguish a duplicate send of the same
+submission. The deterministic CLI tests count sends directly.
+
 `private.sh` then stops that target and starts a separate private-mode target on the
 same port with fresh storage. Native selects private mode only when
 `--bootstrap-key-file` is supplied. The harness generates an isolated 32-byte

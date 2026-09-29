@@ -32,7 +32,7 @@ internal sealed class Invocation(string command, HashSet<string> flags, Dictiona
     {
         if (Value(name) is not { } text) return null;
         return CliDuration.TryParseWaitBudget(text, out var value) ? value
-            : throw CliFailure.Invocation($"{name} must be 'infinite' or {CliDuration.Rule}.");
+            : throw CliFailure.Invocation($"{name} must be 'infinite' or {CliDuration.Rule}, {CliDuration.MaxWaitRule}.");
     }
 }
 
@@ -112,11 +112,16 @@ internal static class CommandLine
           WAIT       A DURATION or 'infinite' (the default).
           MODE       established-interruptions (default) or none.
 
-        prepare needs no target, credentials or network. Existing output files are refused unless
-        --overwrite is given. In this build only prepare runs; the other commands validate their
-        invocation, configuration and required credentials, then stop before any network I/O.
+        prepare needs no target, credentials or network. run submits once and waits for the result
+        unless --detach is given; --save-request is written before submitting and --save-run only
+        after an acknowledgement. force-stop sends one force request, then waits unless
+        --request-only is given. Existing output files are refused unless --overwrite is given.
+        Ctrl+C detaches or abandons the pending request; it never stops a run. In this build watch,
+        logs and attach validate their invocation, configuration and credentials, then stop before
+        any network I/O.
 
-        Exit codes: 0 success, 1 operational failure, 2 invalid invocation, configuration or input,
-        3 failed run, 4 wait timeout, 5 unknown mutation outcome, 130 cancelled.
+        Exit codes: 0 success (including status of a failed run), 1 operational failure or native
+        rejection, 2 invalid invocation, configuration, input or binding, 3 run, wait or force-stop
+        observed a failed run, 4 wait timeout, 5 unknown mutation outcome, 130 cancelled.
         """;
 }
