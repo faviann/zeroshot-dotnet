@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -40,7 +41,7 @@ internal sealed class CliFailure(string category, string message, int exitCode) 
 /// <summary>
 /// The SDK's typed facts about a native HTTP or OECP failure: kind, status and codes. Remote messages and details stay out.
 /// </summary>
-internal sealed record NativeFailure(string Transport, string Kind, int? HttpStatus, string? ProblemCode, long? RpcCode, string? DomainCode)
+internal sealed partial record NativeFailure(string Transport, string Kind, int? HttpStatus, string? ProblemCode, long? RpcCode, string? DomainCode)
 {
     /// <summary>The first native HTTP or OECP failure in <paramref name="error"/> or its inner exceptions.</summary>
     public static NativeFailure? Of(Exception? error)
@@ -48,14 +49,20 @@ internal sealed record NativeFailure(string Transport, string Kind, int? HttpSta
         for (; error is not null; error = error.InnerException)
         {
             if (error is NativeHttpException http)
-                return new("http", Camel(http.Kind.ToString()), (int?)http.StatusCode, http.Problem?.Code, null, null);
+                return new("http", Camel(http.Kind.ToString()), (int?)http.StatusCode, Code(http.Problem?.Code), null, null);
             if (error is NativeOecpException oecp)
-                return new("oecp", Camel(oecp.Kind.ToString()), null, null, oecp.RpcError?.Code, oecp.RpcError?.Data?.Code);
+                return new("oecp", Camel(oecp.Kind.ToString()), null, null, oecp.RpcError?.Code, Code(oecp.RpcError?.Data?.Code));
         }
         return null;
     }
 
     private static string Camel(string name) => char.ToLowerInvariant(name[0]) + name[1..];
+
+    /// <summary>Remote codes are kept only as bounded identifiers; anything else (control characters, prose) is dropped.</summary>
+    private static string? Code(string? code) => code is not null && CodePattern().IsMatch(code) ? code : null;
+
+    [GeneratedRegex(@"^[A-Za-z0-9_.:-]{1,64}\z", RegexOptions.CultureInvariant)]
+    private static partial Regex CodePattern();
 }
 
 /// <summary>What is known of one mutation attempt: the SDK's classification, never re-derived by the CLI.</summary>

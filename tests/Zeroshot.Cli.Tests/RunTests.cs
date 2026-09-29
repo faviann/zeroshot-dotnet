@@ -168,6 +168,37 @@ public sealed class RunTests
     }
 
     [Test]
+    public async Task ARemoteDomainCodeThatIsNotABoundedIdentifierIsOmitted()
+    {
+        await using var peer = new TargetPeer();
+        // Native's JSON-RPC domain code is an unconstrained string: here an escape sequence and free text.
+        peer.Oecp["run/force"] = call => call.FailAsync("""{"code":-32000,"message":"m","data":{"code":"NOT_FOUND\u001b[31m canary-3e9a"}}""");
+        using var workspace = Workspace(peer);
+
+        var result = await workspace.RunAsync("force-stop", Acknowledged, "--config", "target.json", "--request-only");
+
+        await Assert.That(result.ExitCode).IsEqualTo(5); // an unrecognised domain code does not prove refusal
+        await Assert.That(result.Stderr).DoesNotContain("canary-3e9a");
+        await Assert.That(result.Stderr).DoesNotContain("\u001b");
+        await Assert.That(result.Stderr).Contains("[oecp rpcError -32000]");
+    }
+
+    [Test]
+    public async Task AnOverlongProblemCodeIsOmitted()
+    {
+        var code = "request.conflict." + new string('a', 50) + ".canary-3e9a";
+        await using var peer = new TargetPeer { Submit = exchange => exchange.ReplyAsync(409, $$"""{"code":"{{code}}","message":"m"}""") };
+        using var workspace = Workspace(peer);
+
+        var result = await workspace.RunAsync(Run());
+
+        await Assert.That(result.ExitCode).IsEqualTo(5); // an unrecognised 409 code does not prove refusal
+        await Assert.That(result.Stderr).DoesNotContain("canary-3e9a");
+        await Assert.That(Text(result.Error, "native", "httpStatus")).IsEqualTo("409");
+        await Assert.That(Text(result.Error, "native", "problemCode")).IsNull();
+    }
+
+    [Test]
     public async Task ANativeForceRefusalKeepsItsRpcCodesAndNoRemoteText()
     {
         await using var peer = new TargetPeer();
