@@ -70,14 +70,19 @@ internal static class CommandLine
         for (var i = 1; i < args.Length; i++)
         {
             var arg = args[i] == "-h" ? "--help" : args[i];
-            if (arg is "--json" or "--help" || grammar.Flags.Contains(arg))
+            // --name=value takes any value verbatim, including one that begins with "--" (opaque cursors and
+            // references allow it); the separate form refuses such a value as a probably forgotten one.
+            var (name, inline) = arg.IndexOf('=') is > 2 and var at && arg.StartsWith("--", StringComparison.Ordinal)
+                ? (arg[..at], arg[(at + 1)..]) : (arg, null);
+            if (inline is null && (arg is "--json" or "--help" || grammar.Flags.Contains(arg)))
             {
                 if (!flags.Add(arg)) throw CliFailure.Invocation($"{arg} was given more than once.");
             }
-            else if (grammar.Values.Contains(arg))
+            else if (grammar.Values.Contains(name))
             {
-                if (i + 1 == args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal)) throw CliFailure.Invocation($"{arg} requires a value.");
-                if (!values.TryAdd(arg, args[++i])) throw CliFailure.Invocation($"{arg} was given more than once.");
+                if (inline is null && (i + 1 == args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal)))
+                    throw CliFailure.Invocation($"{name} requires a value.");
+                if (!values.TryAdd(name, inline ?? args[++i])) throw CliFailure.Invocation($"{name} was given more than once.");
             }
             else if (arg.StartsWith('-'))
                 throw CliFailure.Invocation($"'{args[0]}' does not accept {arg}.");
@@ -103,22 +108,26 @@ internal static class CommandLine
           zeroshot-dotnet attach RUN EXECUTION
           zeroshot-dotnet force-stop RUN [--wait-timeout WAIT | --request-only]
 
-        Every command accepts --json (versioned zeroshot-dotnet/cli/v1 records) and --help.
+        Every command accepts --json (versioned zeroshot-dotnet/cli/v1 records) and --help. An option
+        value can also be given as --option=VALUE, which is required for a value that begins with --.
 
           RUN        RUN_ID with --config FILE, or --run-file FILE with an optional matching --config FILE.
           --config   Target configuration: address, caller-supplied native binding, transport/observation
                      settings and the names of environment variables that hold credentials.
           DURATION   A whole number with a unit ms, s, m or h, such as 1500ms, 45s or 10m.
           WAIT       A DURATION or 'infinite' (the default).
+          CURSOR     An opaque native cursor from an earlier watch or logs record.
           MODE       established-interruptions (default) or none.
 
         prepare needs no target, credentials or network. run submits once and waits for the result
         unless --detach is given; --save-request is written before submitting and --save-run only
         after an acknowledgement. force-stop sends one force request, then waits unless
         --request-only is given. Existing output files are refused unless --overwrite is given.
-        Ctrl+C detaches or abandons the pending request; it never stops a run. In this build watch,
-        logs and attach validate their invocation, configuration and credentials, then stop before
-        any network I/O.
+        watch and logs replay retained history exclusively after --after or --checkpoint, then follow
+        it live until native closes the stream, reopening an interrupted stream after the last record
+        written unless --recovery none is given. attach streams one active execution live, with no
+        replay and no reopen. A normal close exits 0 and says nothing about the run's outcome.
+        Ctrl+C detaches or abandons the pending request; it never stops a run.
 
         Exit codes: 0 success (including status of a failed run), 1 operational failure or native
         rejection, 2 invalid invocation, configuration, input or binding, 3 run, wait or force-stop

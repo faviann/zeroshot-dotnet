@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native;
@@ -89,6 +90,77 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
         stdout.WriteLine($"Force acknowledged for run {acknowledgement.RunId.Value}; it is {Phase(acknowledgement.Status)}");
     }
 
+    /// <summary>One retained or live run status record: the complete native event and its scoped checkpoint.</summary>
+    public void Watch(HistoryRecord<RunWatchEventNotification> record)
+    {
+        var watched = record.Event;
+        if (json)
+        {
+            Record(stdout, "watch", w =>
+            {
+                w.WriteString("runId", watched.RunId.Value);
+                w.WriteString("cursor", watched.Cursor.Value);
+                Checkpoint(w, record.Checkpoint);
+                Native(w, "data", watched);
+            });
+            return;
+        }
+        var run = $"Run {watched.RunId.Value}";
+        stdout.WriteLine($"{Printable(watched.Cursor.Value)} " + watched.Status switch
+        {
+            FinishedRunStatus { TerminalResult: FailedTerminalResult failed } => $"{run} failed: {failed.Reason.Value}",
+            FinishedRunStatus => $"{run} succeeded",
+            var status => $"{run} is {Phase(status)}",
+        });
+    }
+
+    /// <summary>One retained or live log record: the complete native event, its execution, timestamp and scoped checkpoint.</summary>
+    public void Log(HistoryRecord<RunLogEventNotification> record)
+    {
+        var log = record.Event;
+        if (json)
+        {
+            Record(stdout, "log", w =>
+            {
+                w.WriteString("runId", log.RunId.Value);
+                w.WriteString("cursor", log.Cursor.Value);
+                if (log.Execution is { } execution) w.WriteString("execution", execution.Value); else w.WriteNull("execution");
+                w.WriteNumber("timestamp", log.Timestamp.Value);
+                Checkpoint(w, record.Checkpoint);
+                Native(w, "data", log);
+            });
+            return;
+        }
+        // Native bounds log targets, messages and execution references to text without control characters.
+        var at = log.Timestamp.Value <= MaxTimestamp
+            ? DateTimeOffset.FromUnixTimeMilliseconds((long)log.Timestamp.Value).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)
+            : log.Timestamp.Value.ToString(CultureInfo.InvariantCulture);
+        var execution = log.Execution is { } ex ? $" [{ex.Value}]" : "";
+        stdout.WriteLine($"{Printable(log.Cursor.Value)} {at} {Wire(log.Record.Level)} {log.Record.Target.Value}{execution}: {log.Record.Message.Value}");
+    }
+
+    /// <summary>One live attachment event. It has no cursor: attachment is never replayed.</summary>
+    public void Attachment(RunAttachEventNotification attached)
+    {
+        if (json)
+        {
+            Record(stdout, "attachment", w =>
+            {
+                w.WriteString("runId", attached.RunId.Value);
+                w.WriteString("execution", attached.Execution.Value);
+                Native(w, "data", attached);
+            });
+            return;
+        }
+        var execution = $"Execution {attached.Execution.Value}";
+        stdout.WriteLine(attached.Event switch
+        {
+            OutputAgentAttachEvent output => output.Text.Value,
+            SettledAgentAttachEvent => $"{execution} settled",
+            _ => $"{execution} is working",
+        });
+    }
+
     public void Error(string? operation, CliFailure failure)
     {
         if (json)
@@ -101,6 +173,14 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
                 if (failure.RunId is { } runId) w.WriteString("runId", runId.Value);
                 if (failure.Attempt is { } attempt) Attempt(w, attempt);
                 if (failure.Evidence is { } evidence) Evidence(w, evidence);
+                if (failure.Observation is { } observation)
+                {
+                    w.WriteStartObject("observation");
+                    if (observation.Failure is { } kind) w.WriteString("failure", kind);
+                    if (observation.Recoveries is { } recoveries) w.WriteNumber("recoveries", recoveries);
+                    if (observation.LastDelivered is { } delivered) w.WriteString("lastDeliveredCursor", delivered.Value);
+                    w.WriteEndObject();
+                }
                 if (failure.Native is { } native)
                 {
                     w.WriteStartObject("native");
@@ -117,7 +197,8 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
         }
         var facts = failure.Native is not { } n ? "" : " [" + string.Join(' ', new object?[]
             { n.Transport, n.Kind, n.HttpStatus, n.ProblemCode, n.RpcCode, n.DomainCode }.Where(fact => fact is not null)) + "]";
-        stderr.WriteLine($"zeroshot-dotnet{(operation is null ? "" : " " + operation)}: {failure.Message}{facts}");
+        var resume = failure.Observation?.LastDelivered is { } last ? $" Last delivered cursor: {Printable(last.Value)}." : "";
+        stderr.WriteLine($"zeroshot-dotnet{(operation is null ? "" : " " + operation)}: {failure.Message}{resume}{facts}");
         if (failure.Category == "invocation") stderr.WriteLine("Run 'zeroshot-dotnet --help' for usage.");
     }
 
@@ -177,6 +258,22 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
         if (evidence.LastEvent is { } last) w.WriteString("lastEventCursor", last.Cursor.Value);
         if (evidence.ResumeAfter is { } resume) w.WriteString("resumeAfter", resume.Cursor.Value);
         w.WriteEndObject();
+    }
+
+    /// <summary>The largest Unix millisecond timestamp a <see cref="DateTimeOffset"/> can hold.</summary>
+    private const ulong MaxTimestamp = 253_402_300_799_999;
+
+    /// <summary>A native cursor is opaque, unconstrained text; readable output must not pass control characters to a terminal.</summary>
+    private static string Printable(string value) => string.Concat(value.Select(c => char.IsControl(c) ? '�' : c));
+
+    /// <summary>A native enum's wire name, such as <c>warn</c>.</summary>
+    private static string Wire<T>(T value) => Encoding.UTF8.GetString(NativeJson.SerializeUtf8(value)).Trim('"');
+
+    /// <summary>The scoped checkpoint exactly as <see cref="HistoryCheckpoint.ToJson"/> exports it, so it can be saved and passed to --checkpoint.</summary>
+    private static void Checkpoint(Utf8JsonWriter w, HistoryCheckpoint checkpoint)
+    {
+        w.WritePropertyName("checkpoint");
+        w.WriteRawValue(checkpoint.ToJson(), skipInputValidation: true);
     }
 
     private static void Native<T>(Utf8JsonWriter w, string name, T value)

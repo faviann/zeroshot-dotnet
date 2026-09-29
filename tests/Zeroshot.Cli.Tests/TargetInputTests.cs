@@ -130,7 +130,7 @@ public sealed class TargetInputTests
     [Arguments("wait", "--timeout", "2h", "success")]
     [Arguments("wait", "--timeout", "1193h", "success")]
     [Arguments("force-stop", "--wait-timeout", "infinite", "success")]
-    [Arguments("status", "--request-timeout", "1500ms", "success")]
+    [Arguments("status", "--request-timeout", "15000ms", "success")]
     [Arguments("wait", "--timeout", "0s", "timeout")] // a zero budget observes nothing
     [Arguments("wait", "--timeout", "10", "invocation")]
     [Arguments("wait", "--timeout", "10M", "invocation")]
@@ -162,10 +162,4 @@ public sealed class TargetInputTests
         var args = command.Replace("RUN", PrepareTests.RunId).Split(' ');
         await Category(await Run(BearerOnly, Config(), args), "invocation");
     }
-
-    [Test]
-    [Arguments("watch")]
-    [Arguments("logs")]
-    public async Task HistoryCommandsStillStopAfterLocalChecks(string command)
-        => await Category(await Run(BearerOnly, Config(), command, PrepareTests.RunId, "--config", "target.json"), "unavailable");
 }

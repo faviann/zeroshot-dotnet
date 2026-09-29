@@ -29,6 +29,7 @@ internal sealed class CliFailure(string category, string message, int exitCode) 
     public AttemptEvidence? Attempt { get; init; }
     public RunWaitEvidence? Evidence { get; init; }
     public NativeFailure? Native { get; init; }
+    public ObservationEvidence? Observation { get; init; }
 
     public static CliFailure Invocation(string message) => new("invocation", message, ExitCodes.Invalid);
     public static CliFailure Configuration(string message) => new("configuration", message, ExitCodes.Invalid);
@@ -64,6 +65,12 @@ internal sealed partial record NativeFailure(string Transport, string Kind, int?
     [GeneratedRegex(@"^[A-Za-z0-9_.:-]{1,64}\z", RegexOptions.CultureInvariant)]
     private static partial Regex CodePattern();
 }
+
+/// <summary>
+/// How a watch, logs or attach stream ended: the SDK's failure kind, the reopens it made and the cursor of the last
+/// record written to stdout, after which a later command resumes. Null values are unknown or not applicable.
+/// </summary>
+internal sealed record ObservationEvidence(string? Failure, int? Recoveries, Cursor? LastDelivered);
 
 /// <summary>What is known of one mutation attempt: the SDK's classification, never re-derived by the CLI.</summary>
 internal sealed record AttemptEvidence(string Operation, NativeAttemptOutcome Outcome, Guid CorrelationId, bool Cancelled,

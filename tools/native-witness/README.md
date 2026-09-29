@@ -269,15 +269,25 @@ separate processes. The recovery gate is still set, so the first CLI run fails i
    `worker_failed` `result` record, and exits with 3.
 2. `status --run-file` reports that failed run and exits with 0.
 3. `wait --run-file` exits with 3.
+4. `watch --run-file` replays the finished run's history and exits with 0 when native
+   closes the stream. It writes only `watch` records, the last one `worker_failed`, and
+   no `result`. `watch --after=CURSOR` from the next-to-last record returns only the last
+   record.
+5. `logs --run-file` replays the run's logs. The last record's `checkpoint`, saved as a
+   file, resumes with `logs --checkpoint` and returns no records. `logs --execution`
+   with the worker execution returns only that execution's records.
 
 The harness then clears the gate and empties the ready marker, so a second run keeps its
 worker active at the provider's first gate:
 
 1. `prepare`, then `run --prepared --detach --save-run`, exits with 0.
 2. `status --run-file` is polled until native reports an active execution.
-3. `force-stop --run-file --wait-timeout 60s` writes a `force_stopped` result and exits
+3. `attach --run-file` to that execution writes a live `working` `attachment` record with
+   no cursor or checkpoint. SIGINT then ends it with a `cancelled` error and exit 130.
+4. `force-stop --run-file --wait-timeout 60s` writes a `force_stopped` result and exits
    with 3.
-4. `force-stop --request-only` on the stopped run writes an acknowledged `force` record
+5. `attach` to the stopped execution exits with 1: native refuses it with `GONE`.
+6. `force-stop --request-only` on the stopped run writes an acknowledged `force` record
    and exits with 0.
 
 Native's public run history is read independently of the CLI. It must list each CLI

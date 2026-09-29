@@ -5,10 +5,6 @@ references and checkpoints, prepares submissions and validates values. The CLI p
 arguments and the target configuration, reads and writes the files you name, and
 formats output. Run `zeroshot-dotnet --help` for the complete grammar.
 
-`prepare`, `run`, `status`, `wait` and `force-stop` run in this build. `watch`, `logs`
-and `attach` check their arguments, configuration, run file and credentials. They then
-stop with an `unavailable` error (exit 2), before any network I/O.
-
 The SDK does all waiting, stream recovery and outcome classification. The CLI never
 retries or replays a mutation, and it never sends a stop that you did not request.
 
@@ -72,13 +68,70 @@ give `--config` with a run file, but the configuration must name the same target
 - `force-stop --request-only` uses `Run.ForceAttemptAsync`. It sends one force request and
   reports the acknowledgement, which can still be `stopping`.
 
+## Watch, logs and attach
+
+```sh
+zeroshot-dotnet watch RUN [--after CURSOR | --checkpoint FILE] [--recovery MODE]
+zeroshot-dotnet logs RUN [--execution EXECUTION] [--after CURSOR | --checkpoint FILE] [--recovery MODE]
+zeroshot-dotnet attach RUN EXECUTION
+```
+
+Each command writes one record for each native record, as the SDK delivers it. The
+command ends when native closes the stream normally, with exit 0. A normal close ends
+the stream, not the run: the command writes no result for it, and the exit code says
+nothing about the run's outcome. Use `wait` for the run's result.
+
+- `watch` uses `Run.WatchAsync`. It replays the run's retained status history, then
+  follows it live.
+- `logs` uses `Run.LogsAsync`. It replays the retained logs, then follows them live.
+  With `--execution`, it includes only the records of that exact execution, and it
+  leaves out run-wide records.
+- `--after CURSOR` starts the replay after that record; the record itself is not
+  repeated. `--checkpoint FILE` does the same with a checkpoint file: the `checkpoint`
+  object of a `watch` or `log` record, saved as it is. The SDK refuses a checkpoint
+  from another target, run, stream or execution filter (`input`, exit 2) before
+  anything is sent. Without either option, the replay starts at the beginning.
+- Cursors are opaque native values. A cursor that begins with `--` must be given as
+  `--after=CURSOR`. Any value option accepts the `--option=VALUE` form.
+- If an established stream is interrupted by a disconnection, an unexpected end or a
+  remote slow-consumer close, the SDK opens it again after the last record that was
+  written. `--recovery none`, or `observation.recovery` in the configuration, turns
+  this off, and the interruption then fails the command. A failure to open the stream,
+  malformed data, a local size or queue limit, or retained history that native reports
+  as unavailable always fails the command.
+- `attach` uses `Run.AttachAsync`. It shows the live output of one active execution.
+  It has no cursor, replays nothing, never opens the attachment again and cannot send
+  input.
+
+The CLI never saves a cursor or checkpoint for you. To resume, pass the cursor of the
+last record you processed, or its checkpoint, to a new command.
+
+When a stream fails, stdout keeps every record that was already written, and the error
+record on stderr includes an `observation` object:
+
+- `failure`: how the stream failed, such as `establishment`, `interrupted`,
+  `source-unavailable`, `protocol` or `resource-limit` for `watch` and `logs`, or
+  `unexpected-disconnect` for `attach`.
+- `recoveries`: how many times the SDK opened the stream again (`watch` and `logs`).
+- `lastDeliveredCursor`: the cursor of the last record written to stdout. It is absent
+  when no record was written, or for `attach`.
+
+```json
+{"schema":"zeroshot-dotnet/cli/v1","kind":"error","category":"operational","operation":"watch","message":"The watch of run 0195af77-1000-7000-8000-000000000002 failed: it was interrupted and recovery is disabled.","runId":"0195af77-1000-7000-8000-000000000002","observation":{"failure":"interrupted","recoveries":0,"lastDeliveredCursor":"v2:7"}}
+```
+
+If stdout is a pipe and its reader closes it, such as `| head`, the command stops the
+observation and exits with an `output` error (exit 1). The last delivered cursor is the
+last record written before the pipe closed, which the reader might not have processed.
+
 ## Ctrl+C
 
 Ctrl+C cancels the current operation. It never stops a run, and it never sends a request.
 
-- Before a request is sent, during a read such as `status`, or while the command waits
-  after an acknowledgement, the command exits with 130. Anything that was already
-  acknowledged stays in the output.
+- Before a request is sent, during a read such as `status`, during `watch`, `logs` or
+  `attach`, or while the command waits after an acknowledgement, the command exits with
+  130. Anything that was already acknowledged or written stays in the output, and a
+  stream's error record includes its last delivered cursor.
 - After a request was sent but before it was acknowledged, the outcome is unknown. The
   command exits with 5, and the error record includes the attempt with `"cancelled": true`.
 
@@ -154,9 +207,30 @@ The record kinds are:
 | `status` | `status` | `runId`, `status` (the complete native `RunStatusResult`), and `result` when the run has finished |
 | `result` | `run`, `wait`, `force-stop` | `runId`, `result` |
 | `force` | `force-stop --request-only` | `runId`, `attempt`, `status` (the native `RunForceResult`) |
-| `error` | any command, on stderr | `category`, `operation`, `message`, and `runId`, `attempt`, `evidence` when known |
+| `watch` | `watch`, one per record | `runId`, `cursor`, `checkpoint`, `data` (the complete native `RunWatchEventNotification`) |
+| `log` | `logs`, one per record | `runId`, `cursor`, `execution` (null for a run-wide record), `timestamp` (native Unix milliseconds), `checkpoint`, `data` (the complete native `RunLogEventNotification`) |
+| `attachment` | `attach`, one per event | `runId`, `execution`, `data` (the complete native `RunAttachEventNotification`) |
+| `error` | any command, on stderr | `category`, `operation`, `message`, and `runId`, `attempt`, `evidence`, `observation` when known |
 
 `run` writes a `submission` record, then a `result` record (unless `--detach` is given).
+
+A `checkpoint` object is the SDK's `zeroshot-dotnet/history-checkpoint/v1` export: the
+target, run, stream (`watch` or `logs`), execution filter (null when unfiltered) and
+cursor. An `attachment` record has no cursor or checkpoint. A `watch` record that
+reports a finished run is native history, not a `result`.
+
+```json
+{"schema":"zeroshot-dotnet/cli/v1","kind":"log","runId":"0195af77-1000-7000-8000-000000000002","cursor":"v2:4","execution":"nv2-5953…","timestamp":1767225600000,"checkpoint":{"schema":"zeroshot-dotnet/history-checkpoint/v1","target":"https://target.example/","runId":"0195af77-1000-7000-8000-000000000002","stream":"logs","execution":"nv2-5953…","cursor":"v2:4"},"data":{"subscriptionId":"…","runId":"0195af77-1000-7000-8000-000000000002","cursor":"v2:4","timestamp":1767225600000,"execution":"nv2-5953…","record":{"level":"info","target":"worker","message":"…"}}}
+```
+
+In readable mode, each record is one line:
+
+- `watch`: the cursor, then the run's phase or its terminal result, such as
+  `v2:3 Run 0195af77-… is running`.
+- `logs`: the cursor, the UTC timestamp, the level, the log target, the execution in
+  brackets when present, and the message.
+- `attach`: the output text as it is, and `Execution … is working` or
+  `Execution … settled` for the other events.
 
 A `result` object holds:
 
@@ -211,10 +285,10 @@ content, remote error messages or the text of an underlying exception.
 
 | Exit | Meaning | Error categories |
 | --- | --- | --- |
-| 0 | Success, including a `status` that reports a failed run | |
-| 1 | Operational, transport, protocol or file failure, an incomplete observation, or a native rejection | `operational`, `rejected`, `output`, `internal` |
-| 2 | Invalid invocation, configuration or input, or a missing or mismatched native binding | `invocation`, `configuration`, `input`, `credentials`, `output-exists`, `binding`, `unavailable` |
+| 0 | Success, including a `status` that reports a failed run, and a normal close of `watch`, `logs` or `attach` | |
+| 1 | Operational, transport, protocol or file failure, an incomplete or failed observation, a closed stdout, or a native rejection | `operational`, `rejected`, `output`, `internal` |
+| 2 | Invalid invocation, configuration or input, or a missing or mismatched native binding | `invocation`, `configuration`, `input`, `credentials`, `output-exists`, `binding` |
 | 3 | `run`, `wait` or `force-stop` observed a failed run (the `result` record is still written) | |
 | 4 | The wait timeout expired; the run was not stopped | `timeout` |
 | 5 | A request was sent, and it is unknown whether it took effect | `unknown-outcome` |
-| 130 | Ctrl+C before a request was sent, during a read such as `status`, or while waiting after an acknowledgement | `cancelled` |
+| 130 | Ctrl+C before a request was sent, during a read such as `status` or a stream, or while waiting after an acknowledgement | `cancelled` |

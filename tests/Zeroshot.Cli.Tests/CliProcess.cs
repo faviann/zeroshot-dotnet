@@ -57,6 +57,29 @@ internal sealed class CliWorkspace : IDisposable
         };
         start.ArgumentList.Add(Entry);
         foreach (var arg in args) start.ArgumentList.Add(arg);
+        return Start(start, environment);
+    }
+
+    /// <summary>
+    /// Runs <c>zeroshot-dotnet ARGS | head -n 1</c>: once head has its line it exits, closing the pipe the CLI writes
+    /// to. The result holds the CLI's exit code and stderr, and head's stdout.
+    /// </summary>
+    public Task<CliResult> RunIntoHeadAsync(params string[] args)
+    {
+        if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("The pipeline needs a POSIX shell.");
+        var start = new ProcessStartInfo("bash")
+        {
+            WorkingDirectory = Root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var arg in (string[])["-c", "set -o pipefail; \"$@\" | head -n 1", "bash", DotnetHost(), Entry, .. args]) start.ArgumentList.Add(arg);
+        return Start(start, new Dictionary<string, string>()).Completion;
+    }
+
+    private static CliProcess Start(ProcessStartInfo start, IReadOnlyDictionary<string, string> environment)
+    {
         foreach (var (name, value) in environment) start.Environment[name] = value;
 
         return new CliProcess(Process.Start(start)!);
@@ -77,12 +100,25 @@ internal sealed class CliWorkspace : IDisposable
 internal sealed class CliProcess
 {
     private readonly Process process;
+    private readonly List<string> lines = [];
     public Task<CliResult> Completion { get; }
 
     public CliProcess(Process process)
     {
         this.process = process;
         Completion = CompleteAsync();
+    }
+
+    /// <summary>Completes once the process has written <paramref name="count"/> complete stdout lines.</summary>
+    public async Task StdoutLines(int count)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (true)
+        {
+            lock (lines) if (lines.Count >= count) return;
+            if (Completion.IsCompleted) throw new InvalidOperationException("zeroshot-dotnet exited first.");
+            await Task.Delay(20, timeout.Token);
+        }
     }
 
     /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process.</summary>
@@ -98,12 +134,19 @@ internal sealed class CliProcess
     {
         using (process)
         {
-            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stdout = ReadLinesAsync(process.StandardOutput);
             var stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try { await process.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("zeroshot-dotnet did not exit."); }
-            return new CliResult(process.ExitCode, await stdout, await stderr);
+            await stdout;
+            return new CliResult(process.ExitCode, string.Concat(lines.Select(line => line + Environment.NewLine)), await stderr);
         }
+    }
+
+    private async Task ReadLinesAsync(StreamReader reader)
+    {
+        while (await reader.ReadLineAsync() is { } line)
+            lock (lines) lines.Add(line);
     }
 }
