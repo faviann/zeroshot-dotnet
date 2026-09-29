@@ -14,6 +14,8 @@ public sealed record ZeroshotClientOptions
     /// <summary>Control credentials for a private target. A direct target needs none.</summary>
     public TargetControlCredentials? TargetCredentials { get; init; }
     public TransportOptions Transport { get; init; } = new();
+    /// <summary>Watch/log recovery policy and setup budget.</summary>
+    public ObservationOptions Observation { get; init; } = new();
 }
 
 /// <summary>
@@ -25,6 +27,7 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
     private readonly NativeClient native;
     private readonly bool ownsClient;
     private readonly TargetControlCredentials? credentials;
+    private readonly ObservationOptions observation;
     private readonly SemaphoreSlim controlGate = new(1, 1);
     private readonly CancellationTokenSource lifetime = new();
     private OecpConnection? control;
@@ -35,16 +38,20 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
 
     public ZeroshotClient(ZeroshotClientOptions options)
         : this(NativeClient.ForHttp(new NativeClientOptions { Origin = Checked(options).Target, Transport = options.Transport }),
-            options.NativeBinding, ownsClient: true, options.TargetCredentials) { }
+            options.NativeBinding, ownsClient: true, options.TargetCredentials, options.Observation) { }
 
     /// <summary>Uses an existing native client, disposing it only when <paramref name="ownsClient"/> is true.</summary>
     public ZeroshotClient(NativeClient native, NativeBinding? binding, bool ownsClient = false,
-        TargetControlCredentials? targetCredentials = null)
+        TargetControlCredentials? targetCredentials = null, ObservationOptions? observation = null)
     {
         ArgumentNullException.ThrowIfNull(native);
         // Holds this client's control connection slot for its lifetime; SDK observation can never take it.
         // Ownership transfers only on success, as with the options constructor's own client.
-        try { native.SdkConnections.AddClient(); }
+        try
+        {
+            this.observation = (observation ?? new()).Validated();
+            native.SdkConnections.AddClient();
+        }
         catch { if (ownsClient) native.Dispose(); throw; }
         this.native = native;
         this.ownsClient = ownsClient;
@@ -186,6 +193,95 @@ public sealed class ZeroshotClient : IDisposable, IAsyncDisposable
         finally { native.SdkConnections.RemoveObservation(); }
     }
 
+    /// <summary>
+    /// Durable watch/log observation on its own connection. After an eligible interruption of an established
+    /// stream it reopens exclusively after the last record yielded to the caller. Validated queued records drain
+    /// before the interruption surfaces, and received, buffered or server-reported positions are never used.
+    /// </summary>
+    internal async IAsyncEnumerable<HistoryRecord<TEvent>> ObserveAsync<TEstablishment, TEvent>(RunId runId,
+        HistoryStream stream, ExecutionRef? execution, HistoryCheckpoint? after,
+        Func<OecpConnection, TEvent?, Cursor?, CancellationToken, Task<NativeSubscription<TEstablishment, TEvent>>> open,
+        Func<TEvent, Cursor> cursorOf, [EnumeratorCancellation] CancellationToken cancellationToken)
+        where TEvent : class
+    {
+        var resumeAfter = after;
+        var recoveries = 0;
+        RunObservationException Failure(RunObservationFailureKind kind, Exception inner)
+            => new(kind, runId, stream, resumeAfter, recoveries, inner);
+
+        try { native.SdkConnections.AddObservation(); }
+        catch (NativeSubscriptionException admission) { throw Failure(RunObservationFailureKind.Establishment, admission); }
+        OecpConnection? connection = null;
+        NativeSubscription<TEstablishment, TEvent>? subscription = null;
+        try
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
+            var token = linked.Token;
+            TEvent? last = null;
+            while (true)
+            {
+                // One budget per (re)establishment. The subscription keeps only the observation token, so a
+                // deadline reached during or just after subscribing closes the connection and fails setup instead.
+                using (var setup = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    setup.CancelAfter(observation.SetupTimeout);
+                    try
+                    {
+                        if (connection is { Completion.IsCompleted: true })
+                        {
+                            await connection.DisposeAsync().ConfigureAwait(false);
+                            connection = null;
+                        }
+                        connection ??= await ConnectAsync(setup.Token).ConfigureAwait(false);
+                        using (setup.Token.UnsafeRegister(state => ((OecpConnection)state!).Dispose(), connection))
+                            subscription = await open(connection, last, resumeAfter?.Cursor, token).ConfigureAwait(false);
+                        setup.Token.ThrowIfCancellationRequested();
+                    }
+                    catch (Exception error) when (!token.IsCancellationRequested)
+                    {
+                        throw Failure(RunObservationFailureKind.Establishment, setup.IsCancellationRequested
+                            ? new TimeoutException("SDK observation setup exceeded its budget.") : error);
+                    }
+                }
+
+                NativeSubscriptionException? interruption = null;
+                await using (var reader = subscription.ReadAllAsync(token).GetAsyncEnumerator(token))
+                {
+                    while (true)
+                    {
+                        try { if (!await reader.MoveNextAsync().ConfigureAwait(false)) break; }
+                        catch (NativeSubscriptionException failure) { interruption = failure; break; }
+                        last = reader.Current;
+                        resumeAfter = new HistoryCheckpoint(Target, runId, stream, execution, cursorOf(last));
+                        yield return new(last, resumeAfter);
+                    }
+                }
+                // A normal end is native "done" for this subscription; it says nothing about the run's outcome.
+                if (interruption is null) yield break;
+                RunObservationFailureKind? unrecovered = interruption.Kind switch
+                {
+                    NativeSubscriptionFailureKind.UnexpectedDisconnect or NativeSubscriptionFailureKind.SlowConsumer
+                        => observation.Recover ? null : RunObservationFailureKind.Interrupted,
+                    NativeSubscriptionFailureKind.SourceUnavailable => RunObservationFailureKind.SourceUnavailable,
+                    NativeSubscriptionFailureKind.Protocol => RunObservationFailureKind.Protocol,
+                    // Message size and queue limits; admission cannot occur after establishment.
+                    _ => RunObservationFailureKind.ResourceLimit,
+                };
+                if (unrecovered is { } kind) throw Failure(kind, interruption);
+                await subscription.DisposeAsync().ConfigureAwait(false);
+                subscription = null;
+                recoveries++;
+                await Task.Delay(observation.ReopenDelay, token).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (subscription is not null) await subscription.DisposeAsync().ConfigureAwait(false);
+            if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false);
+            native.SdkConnections.RemoveObservation();
+        }
+    }
+
     private async Task<OecpConnection> ConnectAsync(CancellationToken cancellationToken)
     {
         var discovery = await native.Target.DiscoverAsync(cancellationToken).ConfigureAwait(false);
@@ -262,5 +358,56 @@ public sealed class Run
         ArgumentNullException.ThrowIfNull(execution);
         client.EnsureBinding(binding);
         return client.AttachAsync(Id, execution, cancellationToken);
+    }
+
+    /// <summary>
+    /// Retained run status history replayed from the start, then followed live until native closes it.
+    /// See <see cref="WatchAsync(HistoryCheckpoint?, CancellationToken)"/>.
+    /// </summary>
+    public IAsyncEnumerable<HistoryRecord<RunWatchEventNotification>> WatchAsync(CancellationToken cancellationToken = default)
+        => WatchAsync(null, cancellationToken);
+
+    /// <summary>
+    /// Retained run status history replayed exclusively after <paramref name="after"/>, then followed live until
+    /// native closes it. Each enumeration opens its own connection and reopens eligible interruptions after the
+    /// last record it yielded, per <see cref="ObservationOptions"/>. Normal completion ends that stream only;
+    /// it is not run completion. Unrecovered failures throw <see cref="RunObservationException"/>.
+    /// </summary>
+    public IAsyncEnumerable<HistoryRecord<RunWatchEventNotification>> WatchAsync(HistoryCheckpoint? after,
+        CancellationToken cancellationToken = default)
+    {
+        CheckScope(after, HistoryStream.Watch, null);
+        client.EnsureBinding(binding);
+        return client.ObserveAsync<RunWatchResult, RunWatchEventNotification>(Id, HistoryStream.Watch, null, after,
+            (connection, last, from, token) => connection.Runs.WatchAsync(new() { RunId = Id, FromCursor = from }, last?.Source, token),
+            record => record.Cursor, cancellationToken);
+    }
+
+    /// <summary>Run-wide retained logs from the start, then live. See <see cref="LogsAsync(ExecutionRef?, HistoryCheckpoint?, CancellationToken)"/>.</summary>
+    public IAsyncEnumerable<HistoryRecord<RunLogEventNotification>> LogsAsync(CancellationToken cancellationToken = default)
+        => LogsAsync(null, null, cancellationToken);
+
+    /// <summary>
+    /// Retained logs replayed exclusively after <paramref name="after"/>, then followed live, optionally only for one
+    /// exact execution (run-wide records are then excluded). Recovery and failures follow
+    /// <see cref="WatchAsync(HistoryCheckpoint?, CancellationToken)"/>.
+    /// </summary>
+    public IAsyncEnumerable<HistoryRecord<RunLogEventNotification>> LogsAsync(ExecutionRef? execution, HistoryCheckpoint? after,
+        CancellationToken cancellationToken = default)
+    {
+        CheckScope(after, HistoryStream.Logs, execution);
+        client.EnsureBinding(binding);
+        return client.ObserveAsync<RunLogsResult, RunLogEventNotification>(Id, HistoryStream.Logs, execution, after,
+            (connection, _, from, token) => connection.Runs.LogsAsync(new() { RunId = Id, FromCursor = from, Execution = execution }, token),
+            record => record.Cursor, cancellationToken);
+    }
+
+    private void CheckScope(HistoryCheckpoint? after, HistoryStream stream, ExecutionRef? execution)
+    {
+        if (after is null) return;
+        var mismatch = after.Target != client.Target ? "target" : after.RunId != Id ? "run"
+            : after.Stream != stream ? "stream kind" : after.Execution != execution ? "execution filter" : null;
+        if (mismatch is not null)
+            throw new ArgumentException($"The checkpoint belongs to a different {mismatch}.", nameof(after));
     }
 }

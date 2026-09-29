@@ -7,7 +7,7 @@ using Zeroshot.Native.Contracts;
 
 // Exercises the SDK run handle through the packed Zeroshot.Client package against controlled peers:
 // exact reconnection, binding refusals, generic and null output, failed results, attachment cancellation,
-// and ordinary and explicit submission through the same client.
+// checkpointed watch/log observation, and ordinary and explicit submission through the same client.
 // This is deterministic consumer evidence, not live-native conformance.
 var fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
 using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -112,6 +112,20 @@ var events = new List<RunAttachEventNotification>();
 await foreach (var record in sdk.GetRun(new RunId("run-1")).AttachAsync(new ExecutionRef("worker:1"), token)) events.Add(record);
 Check(events is [{ Event: WorkingAgentAttachEvent }, _, { Event: SettledAgentAttachEvent }], "A new enumeration is a new live attachment.");
 Check(oecp.Methods.Count(m => m == "run/attach") == 2 && !oecp.Methods.Contains("run/force"), "No reopen, replay or stop.");
+
+// Durable watch/logs: complete native records with scoped checkpoints the caller retains and resumes from.
+var history = sdk.GetRun(new RunId("run-1"));
+var watched = new List<HistoryRecord<RunWatchEventNotification>>();
+await foreach (var record in history.WatchAsync(token)) watched.Add(record);
+Check(watched is [{ Event.Status: FinishedRunStatus, Checkpoint.Stream: HistoryStream.Watch }] && watched[0].Checkpoint.Cursor == watched[0].Event.Cursor, "Watch record and checkpoint.");
+var retained = HistoryCheckpoint.Parse(watched[0].Checkpoint.ToJson());
+await foreach (var _ in history.WatchAsync(retained, token)) { }
+var logged = new List<HistoryRecord<RunLogEventNotification>>();
+await foreach (var record in history.LogsAsync(new ExecutionRef("worker:1"), null, token)) logged.Add(record);
+Check(logged is [{ Checkpoint.Execution.Value: "worker:1" }], "Execution-filtered logs carry their filter.");
+Catch<ArgumentException>(() => history.LogsAsync(null, logged[0].Checkpoint, token));
+Catch<ArgumentException>(() => history.LogsAsync(new ExecutionRef("worker:1"), retained, token));
+Check(oecp.Methods.Count(m => m == "run/watch") == 2 && oecp.Methods.Count(m => m == "run/logs") == 1, "Mismatched checkpoints dispatch nothing.");
 Check(RunResult.FromStatus(await run.StatusAsync(token))!.IsSuccess, "Control remains usable after observation.");
 Check(raised.Result == failed, "EnsureSuccess carries its result.");
 

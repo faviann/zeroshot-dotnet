@@ -1,6 +1,6 @@
 # SDK run handles
 
-`ZeroshotClient` prepares and submits requests, and opens exact known runs for status or live
+`ZeroshotClient` prepares and submits requests, and opens exact known runs for status, watch, logs or live
 attachment. It uses one `NativeClient` for every native call; direct `NativeClient` use
 needs none of the SDK's binding, waiting or recovery policy.
 
@@ -120,6 +120,57 @@ terminal failure without a durable event, so this is distinct from
 proves retained completion or physical cessation. `EnsureSuccess()` throws
 `RunFailedException` carrying the result.
 
+## Watch and logs
+
+`run.WatchAsync` and `run.LogsAsync` replay retained history and then follow it live until
+native closes the stream. Each yields `HistoryRecord<T>`: the complete native notification
+(`RunWatchEventNotification` or `RunLogEventNotification`, with subscription ID, run, cursor
+and data) and its `HistoryCheckpoint`.
+
+```csharp
+HistoryCheckpoint? after = await store.LoadCheckpointAsync(ct);   // yours; null starts from the beginning
+await foreach (var record in run.LogsAsync(execution: null, after, ct))
+{
+    await ProcessAsync(record.Event, ct);
+    await store.SaveCheckpointAsync(record.Checkpoint.ToJson(), ct); // after processing, not on receipt
+}
+```
+
+A checkpoint is the opaque cursor plus its scope: target, run, stream kind and, for logs,
+the execution filter (null is run-wide). Passing a checkpoint from another scope throws
+`ArgumentException` before any I/O. `ToJson`/`Parse` use
+`zeroshot-dotnet/history-checkpoint/v1` and accept exactly the exported fields. Replay is
+exclusive: the checkpoint's own record is not repeated. Durable processing checkpoints are
+the caller's; resuming from an older one repeats records, and nothing is exactly-once.
+A normal end is native `done` for that stream, never run completion.
+
+Each enumeration opens its own connection. After an established stream is interrupted by
+disconnection, unexpected EOF or remote `SLOW_CONSUMER`, records already validated and
+queued are delivered first. The SDK then waits `ReopenDelay` (250 ms, cancellable) and
+reopens exclusively after the last record it yielded. It never resumes from a received,
+buffered or server-reported (`lastDeliveredCursor`) position, and a watch keeps the source it
+first saw. Recovery repeats for as long as the enumeration stays active. Every
+(re)establishment has one `SetupTimeout` budget (30 s) covering discovery, session, connect,
+initialize and subscription. Set `ObservationOptions.Recover = false` to receive the
+interruption instead. Configure these through `ZeroshotClientOptions.Observation` or the
+`observation` argument when wrapping an existing `NativeClient`.
+
+Other endings throw `RunObservationException`, whose `Kind` is:
+
+| Kind | Cause |
+| --- | --- |
+| `Establishment` | Initial or reopened setup failed or exceeded its budget (inner `TimeoutException`); never retried |
+| `Interrupted` | An eligible interruption with recovery disabled |
+| `SourceUnavailable` | Native `SOURCE_UNAVAILABLE`; retained history is incomplete and retrying the cursor cannot heal it |
+| `Protocol` | Malformed or foreign data, including a different run, execution or source |
+| `ResourceLimit` | A local queue or message size limit |
+
+`ResumeAfter` is the last delivered record's checkpoint, else the starting checkpoint, else
+null; `Recoveries` counts reopen attempts. The inner exception keeps the native failure.
+Caller cancellation throws `OperationCanceledException`, and ending, cancelling or disposing
+the enumeration sends `subscription/cancel`. Observation never sends force or resubmits.
+Queues stay bounded by the native client's per-stream and aggregate limits during recovery.
+
 ## Connections
 
 Status uses one lazily opened control connection per `ZeroshotClient`. The next
@@ -130,8 +181,9 @@ or disposing an open attachment also sends `subscription/cancel`. It never sends
 reopens or replays; a new enumeration is a new live view.
 
 Every `ZeroshotClient` keeps one of the native client's `MaxOecpConnections` for control.
-SDK attachments are admitted only while the connections left over remain, so neither
-concurrent attachment setup nor several SDK clients sharing one `NativeClient` can take
+SDK observations (attachment, watch and logs) are admitted only while the connections left
+over remain, and a watch or log enumeration keeps its slot across reopens, so neither
+concurrent observation setup nor several SDK clients sharing one `NativeClient` can take
 a control connection. Connections opened directly on a shared `NativeClient` count against
 the same limit and remain the caller's responsibility. Request slots are only partly
 separated: every connection's initialize draws on the reserved control slots, and

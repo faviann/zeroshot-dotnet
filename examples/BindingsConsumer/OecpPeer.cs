@@ -32,6 +32,12 @@ sealed class OecpPeer
     /// <summary>Every received method, in order, across all connections.</summary>
     public IReadOnlyList<string> Methods { get { lock (gate) return methods.ToList(); } }
 
+    /// <summary>One received request. Throwing <see cref="IOException"/> from a script drops its connection without a close.</summary>
+    public sealed record Request(int Connection, string Method, JsonNode? Params, Func<string, Task> Reply, Func<string, string, Task> Notify);
+    /// <summary>Answers a request before the fixed responses when it returns true.</summary>
+    public Func<Request, Task<bool>>? Script { get; set; }
+    private int connections;
+
     public OecpPeer(string fixtures)
     {
         this.fixtures = fixtures;
@@ -55,6 +61,7 @@ sealed class OecpPeer
 
     public async Task ServeAsync(Func<Task<string?>> read, Func<string, Task> send)
     {
+        var connection = Interlocked.Increment(ref connections);
         while (await read() is { } line)
         {
             var message = JsonNode.Parse(line)!;
@@ -71,6 +78,9 @@ sealed class OecpPeer
                 if (closed is not null) await Notify("subscription/closed", closed);
             }
             IEnumerable<string> Records(string file) => JsonNode.Parse(File.ReadAllText(Path.Combine(fixtures, "cluster", file)))!.AsArray().Select(n => n!.ToJsonString());
+            if (Script is { } script && await script(new(connection, method, parameters, Reply, Notify))) continue;
+            // Echo the requested position; a request from the start has one of its own.
+            var at = parameters?["fromCursor"]?.ToJsonString() ?? "\"start\"";
 
             switch (method)
             {
@@ -100,13 +110,13 @@ sealed class OecpPeer
                     lock (gate) cancelledRequests.Add(parameters!["id"]!.ToJsonString());
                     break;
                 case "run/watch":
-                    await Session($$"""{"subscriptionId":"watch","runId":"run-1","atCursor":{{parameters!["fromCursor"]!.ToJsonString()}}}""", [RunWatchRecord],
+                    await Session($$"""{"subscriptionId":"watch","runId":"run-1","atCursor":{{at}}}""", [RunWatchRecord],
                         """{"subscriptionId":"watch","reason":"done","lastDeliveredCursor":"watch-end"}""");
                     break;
                 case "run/logs":
                     // A "held" subscription stays open so that the caller's disposal sends subscription/cancel.
                     var open = parameters!["fromCursor"]?.GetValue<string>() == "held";
-                    await Session($$"""{"subscriptionId":"logs","runId":"run-1","atCursor":{{parameters["fromCursor"]!.ToJsonString()}}}""", [RunLogRecord],
+                    await Session($$"""{"subscriptionId":"logs","runId":"run-1","atCursor":{{at}}}""", [RunLogRecord],
                         open ? null : """{"subscriptionId":"logs","reason":"done","lastDeliveredCursor":"log-end"}""");
                     break;
                 case "run/attach" when parameters!["execution"]!.GetValue<string>() == "held":
