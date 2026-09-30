@@ -47,6 +47,7 @@ explicit serialization/export remains the caller's responsibility.
 | `examples/PrivateBootstrapConsumer` | Packed-library private-mode target bootstrap (invalid, accepted, closed) and operator diagnostics/history export witness. |
 | `tools/native-witness/run.sh` | Stock-native Linux x64 HTTP/OECP inspection, submission and observation witness. |
 | `tools/native-witness/windows-controller.ps1` | Stock-native Windows x64 controller-pipe witness. |
+| `tools/qualification` | Release-candidate qualification: pack once, test the exact packages on each platform, gate. |
 
 Install a .NET 10 SDK, then run:
 
@@ -59,6 +60,69 @@ dotnet test --project tests/Zeroshot.Sdk.Tests/Zeroshot.Sdk.Tests.csproj --confi
 `global.json` selects the Microsoft Testing Platform runner used by TUnit. Tests
 need no running Zeroshot service. Package-consumer instructions are in its
 [README](examples/ContractsConsumer/README.md).
+
+## Release qualification
+
+The [qualification workflow](.github/workflows/qualification.yml) qualifies one release
+candidate. It runs on pull requests that change code, tests, examples or tools, on `v*`
+tags and on demand. `tools/qualification` does the work, and each step also runs locally.
+
+1. **candidate** builds once and packs `Zeroshot.Client` and the `Zeroshot.Cli` tool
+   package from that build. `candidate.json` records the version, both package SHA-256
+   values, the source commit and the release tag, which is `null` for a pull request. The
+   step checks that both packages have one version and name the source commit and the
+   repository, that the tool bundles the library package's exact `Zeroshot.Client.dll`, and
+   that `zeroshot-dotnet --version` names that version and commit. On a `v*` tag run, the
+   tag must name that version. Package metadata, license, dependencies, files, the CLI
+   grammar, the `--json` record kinds and fields, and the versioned file schemas, all read
+   from the candidate, must equal [`contract.txt`](tools/qualification/contract.txt). The
+   record fields come from the CLI's declared catalog; on every platform, each CLI suite run
+   must emit every declared kind and field and no undeclared one. The step prints the
+   compatibility baseline it chose. The public API analyzer holds the library to
+   `src/Zeroshot.Sdk/PublicAPI.*.txt`.
+2. **platform** runs natively on Windows Server 2025 x64 (`windows-2025`), Windows 11 arm64
+   (`windows-11-vs2026-arm`), Ubuntu 24.04 x64 and arm64 (`ubuntu-24.04`,
+   `ubuntu-24.04-arm`) and macOS 15 x64 and arm64 (`macos-15-intel`, `macos-15`). It
+   verifies the package hashes, then restores the candidate into fresh copies of both test
+   suites and the controlled-peer consumers through a local feed, package source mapping
+   and an empty package cache. These copies compile only against the package. It runs the
+   SDK suite, the consumers and the CLI suite four times: against the framework-dependent
+   CLI built from the checkout, and against the candidate tool installed as an isolated
+   global tool, in a local tool manifest and at an explicit tool path. Suites and consumers
+   run with a `PATH` that holds only .NET, behind `python`, `python3`, `py` and `zeroshot`
+   commands that fail and leave a marker. The leg fails if any marker exists afterwards or
+   the rest of the `PATH` holds such a command. `evidence.json` records the OS, the process
+   and OS architectures, the .NET runtime and SDK versions, and each suite's skipped tests.
+3. **native-witness** runs [`run.sh`](tools/native-witness/README.md) on Linux x64 with
+   `ZEROSHOT_WITNESS_CANDIDATE`: its consumers restore the candidate library and `cli.sh`
+   installs the candidate tool, so nothing is packed again. The artifact keeps the native
+   release, source and executable identities, test-asset hashes, manifests and results.
+4. **qualification** refuses the candidate unless it was packed from a clean checkout and
+   all six platforms and the witness produced passing evidence for the same package
+   hashes. A missing, duplicated or failed platform refuses it, and so does a skipped test
+   other than named-pipe tests off Windows and Ctrl+C tests on Windows. The job writes
+   `qualification.json`, which combines the evidence.
+
+The compatibility baseline is the latest `v*` release tag that precedes the candidate:
+every public API line and CLI line (grammar, output fields, schemas and exit codes)
+recorded at that tag must remain. Only the next minor version can remove one, and it needs
+migration notes at `docs/migration/MAJOR.MINOR.md`. When no release precedes the
+candidate, the baseline is the accepted usage prototype: every public symbol, command,
+option, exit code and file schema in
+[`prototype-contract.txt`](tools/qualification/prototype-contract.txt) must exist. Its
+output entries are the decision's normative `cli/v1` envelope and record kinds; the
+prototype pages' field examples were refined in implementation, so this first release's
+`contract.txt` fixes the field-level shapes for later releases. At publication, move the
+`PublicAPI.Unshipped.txt` entries to `PublicAPI.Shipped.txt`.
+
+```sh
+dotnet run --project tools/qualification -c Release -- pack --out /tmp/candidate
+dotnet run --project tools/qualification -c Release -- platform --candidate /tmp/candidate --runner ubuntu-24.04 --out /tmp/evidence
+ZEROSHOT_WITNESS_CANDIDATE=/tmp/candidate tools/native-witness/run.sh
+```
+
+A local `platform` run reports its own OS; the `--runner` label only names the platform it
+must match.
 
 The repository is licensed under the [MIT License](LICENSE). Pinned native
 schemas include their [upstream MIT notice](src/Zeroshot.Sdk/Schemas/NATIVE-LICENSE).

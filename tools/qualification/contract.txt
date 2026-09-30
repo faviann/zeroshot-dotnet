@@ -1,0 +1,186 @@
+# The candidate's contract, read by the pack step from its packages, zeroshot-dotnet --help and the CLI's
+# record catalog. When a change is intended, commit the contract.txt that pack writes. Release baselines
+# compare the api (PublicAPI files) and cli lines.
+cli argument attach EXECUTION
+cli argument attach RUN
+cli argument force-stop RUN
+cli argument logs RUN
+cli argument status RUN
+cli argument wait RUN
+cli argument watch RUN
+cli command attach
+cli command force-stop
+cli command logs
+cli command prepare
+cli command run
+cli command status
+cli command wait
+cli command watch
+cli exit 0
+cli exit 1
+cli exit 130
+cli exit 2
+cli exit 3
+cli exit 4
+cli exit 5
+cli option * --help
+cli option * --json
+cli option --version
+cli option attach --config
+cli option attach --request-timeout
+cli option attach --run-file
+cli option force-stop --config
+cli option force-stop --request-only
+cli option force-stop --request-timeout
+cli option force-stop --run-file
+cli option force-stop --wait-timeout
+cli option logs --after
+cli option logs --checkpoint
+cli option logs --config
+cli option logs --execution
+cli option logs --recovery
+cli option logs --request-timeout
+cli option logs --run-file
+cli option prepare --out
+cli option prepare --overwrite
+cli option prepare --request
+cli option run --config
+cli option run --detach
+cli option run --overwrite
+cli option run --prepared
+cli option run --request
+cli option run --request-timeout
+cli option run --save-request
+cli option run --save-run
+cli option run --timeout
+cli option status --config
+cli option status --request-timeout
+cli option status --run-file
+cli option wait --config
+cli option wait --request-timeout
+cli option wait --run-file
+cli option wait --timeout
+cli option watch --after
+cli option watch --checkpoint
+cli option watch --config
+cli option watch --recovery
+cli option watch --request-timeout
+cli option watch --run-file
+cli output * kind
+cli output * schema
+cli output attachment
+cli output attachment data
+cli output attachment execution
+cli output attachment runId
+cli output error
+cli output error attempt
+cli output error attempt.acknowledgedRunId
+cli output error attempt.cancelled
+cli output error attempt.correlationId
+cli output error attempt.operation
+cli output error attempt.outcome
+cli output error attempt.proposedRunId
+cli output error attempt.runIdsMatch
+cli output error category
+cli output error evidence
+cli output error evidence.lastEventCursor
+cli output error evidence.resumeAfter
+cli output error evidence.statusCursor
+cli output error message
+cli output error native
+cli output error native.domainCode
+cli output error native.httpStatus
+cli output error native.kind
+cli output error native.problemCode
+cli output error native.rpcCode
+cli output error native.transport
+cli output error observation
+cli output error observation.failure
+cli output error observation.lastDeliveredCursor
+cli output error observation.recoveries
+cli output error operation
+cli output error runId
+cli output force
+cli output force attempt
+cli output force attempt.correlationId
+cli output force attempt.operation
+cli output force attempt.outcome
+cli output force runId
+cli output force status
+cli output log
+cli output log checkpoint
+cli output log cursor
+cli output log data
+cli output log execution
+cli output log runId
+cli output log timestamp
+cli output prepared
+cli output prepared path
+cli output prepared proposedRunId
+cli output result
+cli output result result
+cli output result result.evidence
+cli output result result.evidence.cursor
+cli output result result.evidence.kind
+cli output result result.failureReason
+cli output result result.metadata
+cli output result result.output
+cli output result result.succeeded
+cli output result runId
+cli output status
+cli output status result
+cli output status result.evidence
+cli output status result.evidence.cursor
+cli output status result.evidence.kind
+cli output status result.failureReason
+cli output status result.metadata
+cli output status result.output
+cli output status result.succeeded
+cli output status runId
+cli output status status
+cli output submission
+cli output submission attempt
+cli output submission attempt.acknowledgedRunId
+cli output submission attempt.correlationId
+cli output submission attempt.operation
+cli output submission attempt.outcome
+cli output submission attempt.proposedRunId
+cli output submission attempt.runIdsMatch
+cli output submission runId
+cli output submission target
+cli output watch
+cli output watch checkpoint
+cli output watch cursor
+cli output watch data
+cli output watch runId
+cli schema zeroshot-dotnet/cli/v1
+cli schema zeroshot-dotnet/history-checkpoint/v1
+cli schema zeroshot-dotnet/run-reference/v1
+cli schema zeroshot-dotnet/target-config/v1
+package Zeroshot.Cli authors faviann
+package Zeroshot.Cli command zeroshot-dotnet zeroshot-dotnet.dll dotnet
+package Zeroshot.Cli file tools/net10.0/any/DotnetToolSettings.xml
+package Zeroshot.Cli file tools/net10.0/any/Humanizer.dll
+package Zeroshot.Cli file tools/net10.0/any/Json.More.dll
+package Zeroshot.Cli file tools/net10.0/any/JsonPointer.Net.dll
+package Zeroshot.Cli file tools/net10.0/any/JsonSchema.Net.dll
+package Zeroshot.Cli file tools/net10.0/any/Zeroshot.Client.dll
+package Zeroshot.Cli file tools/net10.0/any/Zeroshot.Client.pdb
+package Zeroshot.Cli file tools/net10.0/any/zeroshot-dotnet.deps.json
+package Zeroshot.Cli file tools/net10.0/any/zeroshot-dotnet.dll
+package Zeroshot.Cli file tools/net10.0/any/zeroshot-dotnet.pdb
+package Zeroshot.Cli file tools/net10.0/any/zeroshot-dotnet.runtimeconfig.json
+package Zeroshot.Cli license expression MIT
+package Zeroshot.Cli project https://github.com/faviann/zeroshot-dotnet-sdk
+package Zeroshot.Cli repository git https://github.com/faviann/zeroshot-dotnet-sdk
+package Zeroshot.Cli type DotnetTool
+package Zeroshot.Client authors faviann
+package Zeroshot.Client dependency net10.0 JsonSchema.Net 9.4.0
+package Zeroshot.Client file README.md
+package Zeroshot.Client file lib/net10.0/Zeroshot.Client.dll
+package Zeroshot.Client file licenses/NATIVE-LICENSE
+package Zeroshot.Client framework net10.0
+package Zeroshot.Client license expression MIT
+package Zeroshot.Client project https://github.com/faviann/zeroshot-dotnet-sdk
+package Zeroshot.Client readme README.md
+package Zeroshot.Client repository git https://github.com/faviann/zeroshot-dotnet-sdk

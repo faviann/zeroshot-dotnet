@@ -31,7 +31,14 @@ Pinned provenance:
 
 Each run also appends the SDK build under test to `provenance.txt`: the repository
 commit, whether the worktree was clean, `dotnet --version` and the SHA-256 of the packed
-`Zeroshot.Client` package that every consumer restores.
+`Zeroshot.Client` package that every consumer restores. The harness checks that the
+isolated package cache holds exactly that package.
+
+Release qualification sets `ZEROSHOT_WITNESS_CANDIDATE` to a directory that holds an
+already packed candidate (`Zeroshot.Client` and `Zeroshot.Cli` packages). The harness
+then packs nothing: the consumers restore that library package, and `cli.sh` installs that
+tool package at an explicit tool path. `provenance.txt` records `sdkCandidate=supplied`,
+both package hashes, the installed command's hashes and its `--version`.
 
 These are release provenance and local execution evidence, not remote executable
 attestation or a reproducible-build claim. Discovery itself publishes no product
@@ -262,8 +269,8 @@ hosted recovery routes or live `INVALID_PHASE`, which needs a target without
 recovery support.
 
 `cli.sh` then reuses the same target and provider to drive the repository-built
-`zeroshot-dotnet` CLI (published from `src/Zeroshot.Cli` with its matching library) as
-separate processes. The recovery gate is still set, so the first CLI run fails its worker:
+`zeroshot-dotnet` CLI (published from `src/Zeroshot.Cli` with its matching library, or the
+supplied candidate tool) as separate processes. The recovery gate is still set, so the first CLI run fails its worker:
 
 1. `run --request --save-request --save-run` writes a `submission` record and a
    `worker_failed` `result` record, and exits with 3.

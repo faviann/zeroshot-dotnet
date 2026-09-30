@@ -39,7 +39,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         transportOptions = options.Transport;
         if (supplied is not null && supplied.Timeout != Timeout.InfiniteTimeSpan && supplied.Timeout < limits.UnaryTimeout)
             throw new ArgumentException("A supplied HttpClient timeout must be infinite or at least RequestTimeout.", nameof(supplied));
-        executor = new OperationExecutor(limits);
+        executor = new OperationExecutor(limits, options.Time);
         Observations = new ObservationDelivery(options.Transport);
         SdkConnections = new SdkConnectionBudget(limits.OecpConnections);
         if (supplied is null)

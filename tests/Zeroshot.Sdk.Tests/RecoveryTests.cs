@@ -157,15 +157,19 @@ public sealed class RecoveryTests
         await peer.Finished;
     }
 
+    private static async Task<object> Boxed<T>(Task<T> task) => (await task)!;
+
     [Test]
     public async Task ForeignAcknowledgementsAndLostRepliesRemainUnknownWithOneSend()
     {
         foreach (var fault in new[] { "successor", "source", "discard", "lost", "disconnect" })
         {
             var sends = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             await using var peer = new Peer(async socket =>
             {
                 var request = await Read(socket);
+                received.SetResult();
                 switch (fault)
                 {
                     case "successor": await Reply(socket, request, """{"runId":"run-3","resumedFrom":"run-1"}"""); break;
@@ -177,11 +181,18 @@ public sealed class RecoveryTests
                 try { while (true) if ((await Read(socket)).GetProperty("method").GetString() == request.GetProperty("method").GetString()) count++; }
                 catch (Exception error) when (error is InvalidOperationException or WebSocketException or IOException) { sends.SetResult(count); }
             });
-            using var client = peer.Client(new() { RequestTimeout = TimeSpan.FromSeconds(1) });
+            // Deadlines run on a manual clock: connecting never races them, and the lost reply's deadline expires
+            // only once the peer holds the request.
+            var time = new ManualTime();
+            using var client = NativeClient.ForHttp(new() { Origin = peer.Origin, Time = time });
             var connection = await client.ConnectOecpAsync(peer.Session);
-            var attempt = fault == "discard"
-                ? (object)await connection.Runs.DiscardWorkspaceAsync(Run)
-                : await connection.Runs.ResumeAsync(Run, Successor);
+            var pending = fault == "discard" ? Boxed(connection.Runs.DiscardWorkspaceAsync(Run)) : Boxed(connection.Runs.ResumeAsync(Run, Successor));
+            if (fault == "lost")
+            {
+                await received.Task;
+                time.Advance(new TransportOptions().RequestTimeout);
+            }
+            var attempt = await pending;
             await connection.DisposeAsync();
             var (outcome, response, failure) = attempt switch
             {
@@ -189,7 +200,11 @@ public sealed class RecoveryTests
                 NativeAttempt<RunDiscardWorkspaceResult> discard => (discard.Outcome, discard.Response, discard.Failure),
                 _ => throw new InvalidOperationException()
             };
-            Check(outcome == NativeAttemptOutcome.Unknown && response is null && failure is NativeOecpException { Dispatch.SendCompleted: true }, $"{fault} was {outcome}.");
+            // A reply-driven failure follows the completed send. The deadline ends the caller's wait as soon as the peer
+            // holds the frame, which can precede the client's record of send completion.
+            Check(outcome == NativeAttemptOutcome.Unknown && response is null && (fault == "lost"
+                ? failure is NativeOecpException { Kind: NativeOecpFailureKind.Deadline, Dispatch.SendStarted: true }
+                : failure is NativeOecpException { Dispatch.SendCompleted: true }), $"{fault} was {outcome}.");
             Check(await sends.Task == 1, fault);
             await peer.Finished;
         }

@@ -157,9 +157,10 @@ public sealed class StreamConnectionTests
     [Test]
     public async Task UnixControllerSocketIsOwnedAndReleasedOnDisposal()
     {
-        // An escape-like name and an extra leading slash must survive exactly in the attempt origin.
+        // An escape-like name and (on POSIX) an extra leading slash must survive exactly in the attempt origin.
         var directory = Directory.CreateTempSubdirectory("zs %41-");
         var path = Path.Combine(directory.FullName, "controller.sock");
+        var supplied = OperatingSystem.IsWindows() ? path : "/" + path;
         try
         {
             await Throws<ArgumentException>(OecpConnection.ConnectUnixAsync("controller.sock"));
@@ -167,7 +168,7 @@ public sealed class StreamConnectionTests
             using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
             listener.Bind(new UnixDomainSocketEndPoint(path));
             listener.Listen();
-            var connection = await OecpConnection.ConnectUnixAsync("/" + path);
+            var connection = await OecpConnection.ConnectUnixAsync(supplied);
             using var server = new NetworkStream(await listener.AcceptAsync(), ownsSocket: true);
             using var reader = new StreamReader(server);
 
@@ -178,7 +179,8 @@ public sealed class StreamConnectionTests
             await server.WriteAsync(Encoding.UTF8.GetBytes(Reply(Id(forceLine), status)));
             var attempt = await force;
             Check(attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Origin: { Scheme: "file", Host: "" } origin } &&
-                Uri.UnescapeDataString(origin.AbsolutePath) == "/" + path, "The origin identifies exactly the supplied path.");
+                Uri.UnescapeDataString(origin.AbsolutePath) == (OperatingSystem.IsWindows() ? "/" + path.Replace('\\', '/') : supplied),
+                "The origin identifies exactly the supplied path.");
 
             var pending = connection.Runs.ListAsync();
             await reader.ReadLineAsync();

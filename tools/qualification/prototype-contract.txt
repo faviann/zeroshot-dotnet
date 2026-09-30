@@ -1,0 +1,124 @@
+# The first preview's compatibility baseline: what the accepted usage prototype selected
+# (https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561). An "api" entry names a public
+# symbol that must exist; a "cli" entry is an exact line of the candidate's CLI contract.
+
+# Ordinary SDK: one client, run handles, results, preparation, attempts and run references.
+api Zeroshot.ZeroshotClient
+api Zeroshot.ZeroshotClient.SubmitAsync
+api Zeroshot.ZeroshotClient.RunAsync
+api Zeroshot.ZeroshotClient.Prepare
+api Zeroshot.ZeroshotClient.SubmitAttemptAsync
+api Zeroshot.ZeroshotClient.GetRun
+api Zeroshot.Run
+api Zeroshot.Run.StatusAsync
+api Zeroshot.Run.WaitAsync
+api Zeroshot.Run.WatchAsync
+api Zeroshot.Run.LogsAsync
+api Zeroshot.Run.AttachAsync
+api Zeroshot.Run.ForceStopAsync
+api Zeroshot.Run.ForceAttemptAsync
+api Zeroshot.RunRequest
+api Zeroshot.RunRequest.ParseUtf8
+api Zeroshot.RunRequest.Prepare
+api Zeroshot.RunResult
+api Zeroshot.RunResult.EnsureSuccess
+api Zeroshot.RunReference
+api Zeroshot.PreparedSubmission
+api Zeroshot.PreparedSubmission.Create
+api Zeroshot.PreparedSubmission.ExportUtf8
+api Zeroshot.NativeBinding.CallerSupplied
+
+# Independently usable native client: named operation groups, OECP connections and subscriptions, wire models.
+api Zeroshot.Native.NativeClient
+api Zeroshot.Native.NativeClient.ForHttp
+api Zeroshot.Native.NativeClient.ConnectOecpAsync
+api Zeroshot.Native.NativeClient.Target
+api Zeroshot.Native.NativeClient.Private
+api Zeroshot.Native.NativeClient.HostedRuns
+api Zeroshot.Native.NativeClient.HostedRecovery
+api Zeroshot.Native.NativeClient.Connections
+api Zeroshot.Native.NativeClient.Profiles
+api Zeroshot.Native.NativeClient.MergePlans
+api Zeroshot.Native.NativeClient.History
+api Zeroshot.Native.NativeClient.OAuth
+api Zeroshot.Native.NativeClient.Dashboard
+api Zeroshot.Native.OecpConnection
+api Zeroshot.Native.OecpConnection.Cluster
+api Zeroshot.Native.OecpConnection.Runs
+api Zeroshot.Native.OecpConnection.FromStreamsAsync
+api Zeroshot.Native.OecpConnection.ConnectUnixAsync
+api Zeroshot.Native.OecpConnection.ConnectNamedPipeAsync
+api Zeroshot.Native.NativeSubscription<TEstablishment, TEvent>
+api Zeroshot.Native.NativeSubscription<TEstablishment, TEvent>.ReadAllAsync
+api Zeroshot.Native.Contracts.RunSubmission
+
+# zeroshot-dotnet: commands, their inputs, versioned machine records and exit codes.
+cli command prepare
+cli option prepare --request
+cli option prepare --out
+cli option prepare --overwrite
+cli command run
+cli option run --config
+cli option run --request
+cli option run --prepared
+cli option run --detach
+cli option run --timeout
+cli option run --save-request
+cli option run --save-run
+cli option run --overwrite
+cli option run --request-timeout
+cli command status
+cli argument status RUN
+cli option status --run-file
+cli option status --config
+cli command wait
+cli argument wait RUN
+cli option wait --run-file
+cli option wait --timeout
+cli command watch
+cli argument watch RUN
+cli option watch --run-file
+cli option watch --after
+cli option watch --checkpoint
+cli option watch --recovery
+cli command logs
+cli argument logs RUN
+cli option logs --run-file
+cli option logs --after
+cli option logs --checkpoint
+cli option logs --execution
+cli option logs --recovery
+cli command attach
+cli argument attach RUN
+cli argument attach EXECUTION
+cli option attach --run-file
+cli command force-stop
+cli argument force-stop RUN
+cli option force-stop --run-file
+cli option force-stop --wait-timeout
+cli option force-stop --request-only
+cli option * --json
+cli schema zeroshot-dotnet/cli/v1
+
+# --json output: the versioned envelope and its kinds for preparation receipts, submission, status, result,
+# watch/log/attachment, force and errors. Field-level shapes are fixed by the first release's contract.txt.
+cli output * schema
+cli output * kind
+cli output prepared
+cli output submission
+cli output status
+cli output result
+cli output watch
+cli output log
+cli output attachment
+cli output force
+cli output error
+cli schema zeroshot-dotnet/target-config/v1
+cli schema zeroshot-dotnet/run-reference/v1
+cli exit 0
+cli exit 1
+cli exit 2
+cli exit 3
+cli exit 4
+cli exit 5
+cli exit 130

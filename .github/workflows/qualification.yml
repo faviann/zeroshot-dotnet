@@ -1,0 +1,151 @@
+name: qualification
+
+# Release-candidate qualification (README "Release qualification"): pack once, test those exact bytes on the six
+# required client platforms and in the Linux x64 stock-native witness, then refuse qualification unless all passed.
+on:
+  pull_request:
+    paths:
+      - src/**
+      - tests/**
+      - examples/**
+      - tools/**
+      - docs/contracts/**
+      - global.json
+      - Zeroshot.sln
+      - .github/workflows/qualification.yml
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # A pull request qualifies its head commit, not GitHub's merge preview.
+  CANDIDATE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    outputs:
+      client-sha256: ${{ steps.pack.outputs.client-sha256 }}
+      cli-sha256: ${{ steps.pack.outputs.cli-sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+          fetch-depth: 0 # tags, and a published baseline's recorded contract
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - id: pack
+        run: |
+          dotnet run --project tools/qualification -c Release -- pack --out "$RUNNER_TEMP/candidate"
+          echo "client-sha256=$(jq -r .packages.client.sha256 "$RUNNER_TEMP/candidate/candidate.json")" >> "$GITHUB_OUTPUT"
+          echo "cli-sha256=$(jq -r .packages.cli.sha256 "$RUNNER_TEMP/candidate/candidate.json")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate
+          if-no-files-found: error
+
+  platform:
+    needs: candidate
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-vs2026-arm, ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate
+      - run: dotnet run --project tools/qualification -c Release -- platform --candidate "${{ runner.temp }}/candidate" --runner "${{ matrix.runner }}" --out "${{ runner.temp }}/evidence"
+        env:
+          ZEROSHOT_CANDIDATE_CLIENT_SHA256: ${{ needs.candidate.outputs.client-sha256 }}
+          ZEROSHOT_CANDIDATE_CLI_SHA256: ${{ needs.candidate.outputs.cli-sha256 }}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-${{ matrix.runner }}
+          path: ${{ runner.temp }}/evidence
+
+  native-witness:
+    needs: candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate
+      - name: Verify the candidate bytes
+        run: |
+          echo "${{ needs.candidate.outputs.client-sha256 }}  $(jq -r .packages.client.file "$RUNNER_TEMP/candidate/candidate.json")" > "$RUNNER_TEMP/expected.sha256"
+          echo "${{ needs.candidate.outputs.cli-sha256 }}  $(jq -r .packages.cli.file "$RUNNER_TEMP/candidate/candidate.json")" >> "$RUNNER_TEMP/expected.sha256"
+          (cd "$RUNNER_TEMP/candidate" && sha256sum --check "$RUNNER_TEMP/expected.sha256")
+      - run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - run: tools/native-witness/run.sh
+        env:
+          ZEROSHOT_WITNESS_CANDIDATE: ${{ runner.temp }}/candidate
+      - name: Retain witness evidence
+        if: always()
+        run: |
+          witness=$(ls -d /tmp/zeroshot-native-witness.* | head -n 1)
+          sudo chown -R "$(id -u):$(id -g)" "$witness"
+          # Identities and results, not the release archive, executables, package cache or build output.
+          rsync -rlt --exclude '*.tar.gz' --exclude '/bin/' --exclude '/packages/' --exclude 'obj/' --exclude 'cli/tool/' \
+            --exclude '/*consumer/bin/' --exclude '/*/consumer/bin/' "$witness/" "$RUNNER_TEMP/native-witness/"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-witness
+          path: ${{ runner.temp }}/native-witness
+
+  qualification:
+    needs: [candidate, platform, native-witness]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/artifacts
+      - name: Gate
+        run: dotnet run --project tools/qualification -c Release -- gate --artifacts "$RUNNER_TEMP/artifacts" --out "$RUNNER_TEMP/qualification/qualification.json"
+        env:
+          ZEROSHOT_CANDIDATE_CLIENT_SHA256: ${{ needs.candidate.outputs.client-sha256 }}
+          ZEROSHOT_CANDIDATE_CLI_SHA256: ${{ needs.candidate.outputs.cli-sha256 }}
+      - name: Every required job succeeded
+        run: |
+          [[ '${{ needs.candidate.result }}' == success && '${{ needs.platform.result }}' == success && '${{ needs.native-witness.result }}' == success ]]
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qualification
+          path: ${{ runner.temp }}/qualification

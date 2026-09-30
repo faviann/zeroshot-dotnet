@@ -38,10 +38,11 @@ public sealed class DashboardProfileTests
     }
 
     private static (NativeClient Native, Handler Handler) Client(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send,
-        TransportOptions? transport = null)
+        TransportOptions? transport = null, TimeProvider? time = null)
     {
         var handler = new Handler(send);
-        return (NativeClient.ForHttp(new NativeClientOptions { Origin = Origin, Transport = transport ?? new() }, new HttpClient(handler), ownsHttpClient: true), handler);
+        return (NativeClient.ForHttp(new NativeClientOptions { Origin = Origin, Transport = transport ?? new(), Time = time ?? TimeProvider.System },
+            new HttpClient(handler), ownsHttpClient: true), handler);
     }
 
     [Test]
@@ -119,14 +120,21 @@ public sealed class DashboardProfileTests
     [Test]
     public async Task ALostOrUnreadableReplyLeavesTheSaveUnknownAndIsNeverResent()
     {
+        // The unanswered save's deadline runs on a manual clock that expires once the request is in flight.
+        var time = new ManualTime();
         foreach (var (send, kind) in new (Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>, NativeHttpFailureKind)[]
         {
             ((_, _) => throw new HttpRequestException("connection reset"), NativeHttpFailureKind.Transport),
             ((request, _) => Task.FromResult(Reply(request, HttpStatusCode.OK, """{"profile":null,"revision":"rev-1"}""")), NativeHttpFailureKind.Protocol),
-            (async (_, token) => { await Task.Delay(Timeout.Infinite, token); throw new InvalidOperationException(); }, NativeHttpFailureKind.Deadline)
+            (async (_, token) =>
+            {
+                time.Advance(new TransportOptions().RequestTimeout);
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException();
+            }, NativeHttpFailureKind.Deadline)
         })
         {
-            var (native, handler) = Client(send, new TransportOptions { RequestTimeout = TimeSpan.FromMilliseconds(200) });
+            var (native, handler) = Client(send, time: time);
             using (native)
             {
                 var attempt = await native.Dashboard.SaveProfileAsync(Save("rev-1"), Workspace);

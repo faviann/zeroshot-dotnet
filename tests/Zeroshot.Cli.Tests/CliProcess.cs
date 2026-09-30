@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -23,14 +24,24 @@ internal sealed record CliResult(int ExitCode, string Stdout, string Stderr)
 }
 
 /// <summary>
-/// A temporary working directory in which the built zeroshot-dotnet runs as its own process, with real
-/// arguments, standard streams, exit code and only the environment variables each test chooses to add.
+/// A temporary working directory in which zeroshot-dotnet runs as its own process, with real arguments, standard
+/// streams, exit code and only the environment variables each test chooses to add.
 /// </summary>
+/// <remarks>
+/// By default the command is the repository build this project references. Release qualification instead names an
+/// installed candidate in <c>ZEROSHOT_CLI_COMMAND</c>: a JSON array of the executable and any leading arguments,
+/// such as an explicit tool path, a command found on PATH or <c>dotnet tool run zeroshot-dotnet</c>.
+/// <c>ZEROSHOT_CLI_WORKSPACES</c> places the workspaces in a chosen directory, such as a local tool manifest's.
+/// </remarks>
 internal sealed class CliWorkspace : IDisposable
 {
-    private static readonly string Entry = Path.Combine(AppContext.BaseDirectory, "zeroshot-dotnet.dll");
+    private static readonly string[] Command = Environment.GetEnvironmentVariable("ZEROSHOT_CLI_COMMAND") is { Length: > 0 } named
+        ? JsonSerializer.Deserialize<string[]>(named) is [_, ..] command ? command : throw new InvalidOperationException("ZEROSHOT_CLI_COMMAND names no command.")
+        : [DotnetHost(), Path.Combine(AppContext.BaseDirectory, "zeroshot-dotnet.dll")];
 
-    public string Root { get; } = Directory.CreateTempSubdirectory("zeroshot-cli-").FullName;
+    public string Root { get; } = Environment.GetEnvironmentVariable("ZEROSHOT_CLI_WORKSPACES") is { Length: > 0 } parent
+        ? Directory.CreateDirectory(Path.Combine(parent, "zeroshot-cli-" + Guid.NewGuid().ToString("N"))).FullName
+        : Directory.CreateTempSubdirectory("zeroshot-cli-").FullName;
 
     public string PathOf(string name) => Path.Combine(Root, name);
 
@@ -58,15 +69,14 @@ internal sealed class CliWorkspace : IDisposable
 
     private CliProcess Start(IReadOnlyDictionary<string, string> environment, int? closeStdoutAfter, string[] args)
     {
-        var start = new ProcessStartInfo(DotnetHost())
+        var start = new ProcessStartInfo(Command[0])
         {
             WorkingDirectory = Root,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        start.ArgumentList.Add(Entry);
-        foreach (var arg in args) start.ArgumentList.Add(arg);
+        foreach (var arg in Command.Skip(1).Concat(args)) start.ArgumentList.Add(arg);
         foreach (var (name, value) in environment) start.Environment[name] = value;
 
         return new CliProcess(Process.Start(start)!, closeStdoutAfter);
@@ -111,13 +121,34 @@ internal sealed class CliProcess
         }
     }
 
-    /// <summary>Delivers Ctrl+C as the terminal would: SIGINT to the process. Tests using it exclude Windows.</summary>
+    /// <summary>
+    /// Delivers Ctrl+C as a terminal does, to the command's whole foreground process tree: a launcher such as
+    /// <c>dotnet tool run</c> and the zeroshot-dotnet process it starts both receive SIGINT. Tests using it exclude Windows.
+    /// </summary>
     public async Task InterruptAsync()
     {
         if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("SIGINT delivery needs a POSIX host.");
-        using var kill = Process.Start(new ProcessStartInfo("kill", ["-INT", process.Id.ToString()]) { UseShellExecute = false })!;
-        await kill.WaitForExitAsync();
-        if (kill.ExitCode != 0) throw new InvalidOperationException("SIGINT was not delivered.");
+        const int SigInt = 2; // the same on Linux and macOS
+        foreach (var descendant in await DescendantsAsync(process.Id)) Kill(descendant, SigInt);
+        if (Kill(process.Id, SigInt) != 0) throw new InvalidOperationException($"SIGINT was not delivered (errno {Marshal.GetLastPInvokeError()}).");
+    }
+
+    // Signalled directly and listed through absolute paths: the suite can run with a PATH that holds only .NET.
+    [DllImport("libc", EntryPoint = "kill", SetLastError = true)]
+    private static extern int Kill(int pid, int signal);
+
+    private static async Task<List<int>> DescendantsAsync(int parent)
+    {
+        using var pgrep = Process.Start(new ProcessStartInfo("/usr/bin/pgrep", ["-P", parent.ToString()]) { RedirectStandardOutput = true, UseShellExecute = false })!;
+        var children = (await pgrep.StandardOutput.ReadToEndAsync()).Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+        await pgrep.WaitForExitAsync();
+        var descendants = new List<int>();
+        foreach (var child in children)
+        {
+            descendants.AddRange(await DescendantsAsync(child));
+            descendants.Add(child);
+        }
+        return descendants;
     }
 
     private async Task<CliResult> CompleteAsync()
@@ -130,7 +161,47 @@ internal sealed class CliProcess
             try { await process.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("zeroshot-dotnet did not exit."); }
             await reading;
-            return new CliResult(process.ExitCode, stdout.ToString(), await stderr);
+            var result = new CliResult(process.ExitCode, stdout.ToString(), await stderr);
+            Observe(result.Stdout);
+            Observe(result.Stderr);
+            return result;
+        }
+    }
+
+    private static readonly string? ObservedFile = Environment.GetEnvironmentVariable("ZEROSHOT_CLI_OBSERVED");
+    private static readonly HashSet<string> Observed = [];
+
+    /// <summary>
+    /// For release qualification: appends "kind path" for every field path of every cli/v1 record the command wrote to
+    /// the file named by <c>ZEROSHOT_CLI_OBSERVED</c>, so the harness can compare the output with the declared contract.
+    /// </summary>
+    private static void Observe(string stream)
+    {
+        if (ObservedFile is null) return;
+        foreach (var line in stream.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            JsonElement record;
+            try { record = JsonDocument.Parse(line).RootElement; }
+            catch (JsonException) { continue; } // readable text, or a line a closed pipe cut short
+            if (record.ValueKind != JsonValueKind.Object || !record.TryGetProperty("schema", out var schema)
+                || schema.ValueKind != JsonValueKind.String || schema.GetString() != "zeroshot-dotnet/cli/v1"
+                || !record.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String) continue;
+            var paths = new List<string> { kind.GetString()! };
+            Paths(record, "", paths, kind.GetString()!);
+            lock (Observed)
+            {
+                var added = paths.Where(Observed.Add).ToList();
+                if (added.Count > 0) File.AppendAllLines(ObservedFile, added);
+            }
+        }
+    }
+
+    private static void Paths(JsonElement value, string prefix, List<string> paths, string kind)
+    {
+        foreach (var property in value.EnumerateObject())
+        {
+            paths.Add($"{kind} {prefix}{property.Name}");
+            if (property.Value.ValueKind == JsonValueKind.Object) Paths(property.Value, prefix + property.Name + ".", paths, kind);
         }
     }
 

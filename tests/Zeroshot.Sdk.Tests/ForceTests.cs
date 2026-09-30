@@ -90,9 +90,11 @@ public sealed class ForceTests
         {
             using var cancel = new CancellationTokenSource();
             var methods = new TaskCompletionSource<List<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             await using var peer = new Peer(async socket =>
             {
                 var request = await Read(socket);
+                received.SetResult();
                 switch (fault)
                 {
                     case "disconnect": socket.Abort(); break;
@@ -103,13 +105,29 @@ public sealed class ForceTests
                 }
                 methods.SetResult(fault == "disconnect" ? ["run/force"] : await Methods(socket, request));
             });
-            using var client = peer.Client(new() { RequestTimeout = TimeSpan.FromSeconds(2), MaxOecpMessageBytes = Stopping.Length + 64 });
+            // Deadlines run on a manual clock: connecting never races them, and the lost reply's deadline expires
+            // only once the peer holds the request.
+            var time = new ManualTime();
+            using var client = NativeClient.ForHttp(new() { Origin = peer.Origin, Transport = new() { MaxOecpMessageBytes = Stopping.Length + 64 }, Time = time });
             var connection = await client.ConnectOecpAsync(peer.Session);
-            var attempt = await connection.Runs.ForceAsync(Run, cancellationToken: cancel.Token);
+            var force = connection.Runs.ForceAsync(Run, cancellationToken: cancel.Token);
+            if (fault == "lost")
+            {
+                await received.Task;
+                time.Advance(new TransportOptions().RequestTimeout);
+            }
+            var attempt = await force;
             await connection.DisposeAsync();
             Check(attempt is { Outcome: NativeAttemptOutcome.Unknown, Response: null, Failure: not null }, $"{fault} was {attempt.Outcome}.");
-            Check(fault == "cancelled" ? attempt.Failure is OecpOperationCanceledException { Dispatch.SendCompleted: true }
-                : attempt.Failure is NativeOecpException { Dispatch.SendCompleted: true }, fault);
+            // A reply-driven failure follows the completed send. Cancellation and the deadline end the caller's wait as
+            // soon as the peer holds the frame, which can precede the client's record of send completion; a started
+            // send is what makes their effect unknown.
+            Check(fault switch
+            {
+                "cancelled" => attempt.Failure is OecpOperationCanceledException { Dispatch.SendStarted: true },
+                "lost" => attempt.Failure is NativeOecpException { Kind: NativeOecpFailureKind.Deadline, Dispatch.SendStarted: true },
+                _ => attempt.Failure is NativeOecpException { Dispatch.SendCompleted: true },
+            }, fault);
             Check((await methods.Task).Count(method => method == "run/force") == 1, fault);
             await peer.Finished;
         }
