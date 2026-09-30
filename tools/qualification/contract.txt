@@ -102,13 +102,9 @@ cli output error operation
 cli output error runId
 cli output force
 cli output force attempt
-cli output force attempt.acknowledgedRunId
-cli output force attempt.cancelled
 cli output force attempt.correlationId
 cli output force attempt.operation
 cli output force attempt.outcome
-cli output force attempt.proposedRunId
-cli output force attempt.runIdsMatch
 cli output force runId
 cli output force status
 cli output log
@@ -145,7 +141,6 @@ cli output status status
 cli output submission
 cli output submission attempt
 cli output submission attempt.acknowledgedRunId
-cli output submission attempt.cancelled
 cli output submission attempt.correlationId
 cli output submission attempt.operation
 cli output submission attempt.outcome

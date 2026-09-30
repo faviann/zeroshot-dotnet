@@ -102,6 +102,8 @@ internal static class Candidate
                 },
             },
             ["compatibility"] = compatibility,
+            // Every declared output kind and path; each platform's CLI suites must emit them all and nothing else.
+            ["cliOutput"] = new JsonArray([.. contract.Where(line => line.StartsWith("cli output ", StringComparison.Ordinal)).Select(line => (JsonNode?)line)]),
         };
         Tools.WriteJson(Path.Combine(output, "candidate.json"), manifest);
         Console.WriteLine(manifest.ToJsonString(Tools.Indented));
@@ -238,7 +240,10 @@ internal static class Candidate
     /// </summary>
     private static JsonObject Compatibility(string version, List<string> candidate)
     {
-        var prior = Tools.Git("tag", "--list", "v*").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        var releases = Tools.Git("tag", "--list", "v*").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // A shallow or tagless clone would silently fall back to the prototype baseline.
+        if (releases.Length == 0) Console.WriteLine("::warning::No v* tags are present; fetch tags if any release has been published.");
+        var prior = releases
             .Where(tag => SemVer.IsMatch(tag[1..]) && Precedence(tag[1..], version) < 0)
             .Order(Comparer<string>.Create((a, b) => Precedence(a[1..], b[1..]))).LastOrDefault();
         var baseline = prior is null
@@ -248,6 +253,8 @@ internal static class Candidate
             ? Entries(File.ReadAllLines(PrototypeFile))
             : [.. ApiFiles.SelectMany(file => Tools.Git("show", $"{prior}:{file}").Split('\n')).Where(IsApiLine).Select(line => "api " + line.Trim()),
                 .. Entries(Tools.Git("show", $"{prior}:{ContractFile}").Split('\n')).Where(line => line.StartsWith("cli ", StringComparison.Ordinal))];
+        Console.WriteLine(prior is null ? "Compatibility baseline: the accepted usage prototype (no earlier v* release tag)."
+            : $"Compatibility baseline: release tag {prior}.");
         var baselineVersion = (string)baseline["version"]!;
         var missing = entries.Where(entry => !candidate.Any(line => Matches(entry, line))).ToList();
         var (major, minor) = Minor(version);

@@ -1,20 +1,16 @@
-using System.Text.Json;
-
 namespace Zeroshot.Cli;
 
 /// <summary>
 /// The declared <c>zeroshot-dotnet/cli/v1</c> output: every record kind and its field paths. A nested path such as
 /// <c>attempt.outcome</c> declares a CLI-owned object's fields; an object with no declared nested paths (native status,
-/// data, metadata, checkpoint, output) is carried whole. <see cref="CliOutput"/> refuses to write an undeclared field,
-/// and release qualification reads this catalog from the packed tool into its contract.
+/// data, metadata, checkpoint, output) is carried whole. Release qualification reads this catalog from the packed tool
+/// into its contract, and requires the CLI suite to emit every declared path and no undeclared one.
 /// </summary>
 internal static class CliContract
 {
-    private static readonly string[] Attempt =
-    [
-        "attempt", "attempt.operation", "attempt.outcome", "attempt.correlationId", "attempt.cancelled",
-        "attempt.proposedRunId", "attempt.acknowledgedRunId", "attempt.runIdsMatch",
-    ];
+    // Every attempt has these; a submission attempt adds its run IDs, and a failed one whether cancellation ended it.
+    private static readonly string[] Attempt = ["attempt", "attempt.operation", "attempt.outcome", "attempt.correlationId"];
+    private static readonly string[] SubmissionIds = ["attempt.proposedRunId", "attempt.acknowledgedRunId", "attempt.runIdsMatch"];
 
     private static readonly string[] Result =
     [
@@ -26,7 +22,7 @@ internal static class CliContract
     {
         ["*"] = ["schema", "kind"],
         ["prepared"] = ["proposedRunId", "path"],
-        ["submission"] = ["runId", "target", .. Attempt],
+        ["submission"] = ["runId", "target", .. Attempt, .. SubmissionIds],
         ["status"] = ["runId", "status", .. Result],
         ["result"] = ["runId", .. Result],
         ["force"] = ["runId", "status", .. Attempt],
@@ -35,28 +31,10 @@ internal static class CliContract
         ["attachment"] = ["runId", "execution", "data"],
         ["error"] =
         [
-            "category", "operation", "message", "runId", .. Attempt,
+            "category", "operation", "message", "runId", .. Attempt, .. SubmissionIds, "attempt.cancelled",
             "evidence", "evidence.statusCursor", "evidence.lastEventCursor", "evidence.resumeAfter",
             "observation", "observation.failure", "observation.recoveries", "observation.lastDeliveredCursor",
             "native", "native.transport", "native.kind", "native.httpStatus", "native.problemCode", "native.rpcCode", "native.domainCode",
         ],
     };
-
-    /// <summary>Throws unless every field of <paramref name="record"/> is declared for its kind.</summary>
-    public static void Check(string kind, byte[] record)
-    {
-        using var document = JsonDocument.Parse(record);
-        Check(document.RootElement, "", [.. Records["*"], .. Records[kind]]);
-    }
-
-    private static void Check(JsonElement value, string prefix, HashSet<string> declared)
-    {
-        foreach (var property in value.EnumerateObject())
-        {
-            var path = prefix + property.Name;
-            if (!declared.Contains(path)) throw new InvalidOperationException($"'{path}' is not a declared field of its cli/v1 record.");
-            if (property.Value.ValueKind == JsonValueKind.Object && declared.Any(field => field.StartsWith(path + ".", StringComparison.Ordinal)))
-                Check(property.Value, path + ".", declared);
-        }
-    }
 }

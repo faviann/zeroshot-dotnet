@@ -237,7 +237,8 @@ public sealed class RunTests
     {
         await using var peer = new TargetPeer();
         peer.Oecp["run/status"] = TargetPeer.Reply(call => TargetPeer.Status(call.RunId, "s1", TargetPeer.Running));
-        peer.Oecp["run/watch"] = TargetPeer.Watch(); // established, then quiet
+        // One nonterminal event, then quiet.
+        peer.Oecp["run/watch"] = TargetPeer.Watch(call => TargetPeer.WatchEvent(call.RunId, "c2", TargetPeer.Running));
         using var workspace = Workspace(peer);
 
         var result = await workspace.RunAsync(Known("wait", "--timeout", "10s"));
@@ -246,7 +247,8 @@ public sealed class RunTests
         await Assert.That(result.Stdout).IsEmpty();
         await Assert.That(Text(result.Error, "runId")).IsEqualTo(Acknowledged);
         await Assert.That(Text(result.Error, "evidence", "statusCursor")).IsEqualTo("s1");
-        await Assert.That(Text(result.Error, "evidence", "resumeAfter")).IsEqualTo("s1");
+        await Assert.That(Text(result.Error, "evidence", "lastEventCursor")).IsEqualTo("c2");
+        await Assert.That(Text(result.Error, "evidence", "resumeAfter")).IsEqualTo("c2");
         await Assert.That(peer.Count("run/force")).IsEqualTo(0);
     }
 

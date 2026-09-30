@@ -349,12 +349,45 @@ internal static class PlatformLeg
             : environment["PATH"]!.Split(Path.PathSeparator).Select(directory => Path.Combine(directory, command[0] + (OperatingSystem.IsWindows() ? ".exe" : "")))
                 .FirstOrDefault(File.Exists) ?? throw new QualificationException($"{command[0]} is not on the suite's PATH.");
         Version(Tools.Checked(file, [.. command.Skip(1), "--version"], workingDirectory: workingDirectory, environment: environment), candidate);
+        var observedFile = Path.Combine(logs, name + "-output-paths.txt");
         var suite = new Dictionary<string, string?>(environment)
         {
             ["ZEROSHOT_CLI_COMMAND"] = JsonSerializer.Serialize(command),
             ["ZEROSHOT_CLI_WORKSPACES"] = workspaces,
+            ["ZEROSHOT_CLI_OBSERVED"] = observedFile,
         };
-        return Suite(name, Path.Combine(fresh, "tests", "Zeroshot.Cli.Tests"), suite, logs, output);
+        var summary = Suite(name, Path.Combine(fresh, "tests", "Zeroshot.Cli.Tests"), suite, logs, output);
+        var (unobserved, undeclared) = OutputCoverage(candidate, File.Exists(observedFile) ? File.ReadAllLines(observedFile) : []);
+        summary["unobservedOutput"] = new JsonArray([.. unobserved.Select(path => (JsonNode?)path)]);
+        summary["undeclaredOutput"] = new JsonArray([.. undeclared.Select(path => (JsonNode?)path)]);
+        if (unobserved.Count > 0 || undeclared.Count > 0)
+            throw new QualificationException($"{name} output differs from the declared contract: {summary.ToJsonString()}");
+        return summary;
+    }
+
+    /// <summary>
+    /// Compares the cli/v1 field paths the suite saw ("kind path" lines) with the candidate's declared output contract.
+    /// Every declared kind and path must appear, so a field the CLI stopped writing cannot stay in the contract; the
+    /// compatibility check already holds the candidate's contract to its baseline's. A path is undeclared when it is
+    /// top-level or inside an object whose fields are declared; fields inside carried native objects are not the CLI's.
+    /// </summary>
+    private static (List<string> Unobserved, List<string> Undeclared) OutputCoverage(CandidateFiles candidate, string[] observed)
+    {
+        var declared = candidate.Manifest["cliOutput"]!.AsArray().Select(line => ((string)line!)["cli output ".Length..]).ToHashSet();
+        var seen = observed.ToHashSet();
+        foreach (var line in observed.Where(line => line.Contains(' ')))
+            seen.Add("* " + line.Split(' ', 2)[1]);
+        var unobserved = declared.Where(entry => !seen.Contains(entry) && !Required.MayBeUnobserved(OperatingSystem.IsWindows(), entry))
+            .Order(StringComparer.Ordinal).ToList();
+        var undeclared = new List<string>();
+        foreach (var line in observed.Where(line => line.Contains(' ')))
+        {
+            var (kind, path) = (line.Split(' ', 2)[0], line.Split(' ', 2)[1]);
+            if (declared.Contains(line) || declared.Contains("* " + path)) continue;
+            var parent = path.Contains('.') ? path[..path.LastIndexOf('.')] : null;
+            if (parent is null || declared.Any(entry => entry.StartsWith($"{kind} {parent}.", StringComparison.Ordinal))) undeclared.Add(line);
+        }
+        return (unobserved, undeclared);
     }
 
     private static void Version(string reported, CandidateFiles candidate)

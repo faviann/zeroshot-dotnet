@@ -76,8 +76,10 @@ tags and on demand. `tools/qualification` does the work, and each step also runs
    tag must name that version. Package metadata, license, dependencies, files, the CLI
    grammar, the `--json` record kinds and fields, and the versioned file schemas, all read
    from the candidate, must equal [`contract.txt`](tools/qualification/contract.txt). The
-   record fields come from the CLI's own catalog, which it enforces on every record it
-   writes. The public API analyzer holds the library to `src/Zeroshot.Sdk/PublicAPI.*.txt`.
+   record fields come from the CLI's declared catalog; on every platform, each CLI suite run
+   must emit every declared kind and field and no undeclared one. The step prints the
+   compatibility baseline it chose. The public API analyzer holds the library to
+   `src/Zeroshot.Sdk/PublicAPI.*.txt`.
 2. **platform** runs natively on Windows Server 2025 x64 (`windows-2025`), Windows 11 arm64
    (`windows-11-vs2026-arm`), Ubuntu 24.04 x64 and arm64 (`ubuntu-24.04`,
    `ubuntu-24.04-arm`) and macOS 15 x64 and arm64 (`macos-15-intel`, `macos-15`). It

@@ -70,7 +70,10 @@ internal static class Required
         "CtrlCWhileWaitingAfterAcknowledgementIsExit130AndKeepsTheAcknowledgedRun", "CtrlCBeforeTheForceIsSentIsExit130WithNothingSent",
     ];
 
-    public const string Repository ="https://github.com/faviann/zeroshot-dotnet-sdk";
+    /// <summary>Declared output only Ctrl+C tests produce, which cannot run on Windows.</summary>
+    public static bool MayBeUnobserved(bool windows, string entry) => windows && entry == "error attempt.cancelled";
+
+    public const string Repository = "https://github.com/faviann/zeroshot-dotnet-sdk";
     public const string NativeVersion = "10.9.0";
     public const string NativeSourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
 }

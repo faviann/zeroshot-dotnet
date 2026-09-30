@@ -161,7 +161,47 @@ internal sealed class CliProcess
             try { await process.WaitForExitAsync(timeout.Token); }
             catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("zeroshot-dotnet did not exit."); }
             await reading;
-            return new CliResult(process.ExitCode, stdout.ToString(), await stderr);
+            var result = new CliResult(process.ExitCode, stdout.ToString(), await stderr);
+            Observe(result.Stdout);
+            Observe(result.Stderr);
+            return result;
+        }
+    }
+
+    private static readonly string? ObservedFile = Environment.GetEnvironmentVariable("ZEROSHOT_CLI_OBSERVED");
+    private static readonly HashSet<string> Observed = [];
+
+    /// <summary>
+    /// For release qualification: appends "kind path" for every field path of every cli/v1 record the command wrote to
+    /// the file named by <c>ZEROSHOT_CLI_OBSERVED</c>, so the harness can compare the output with the declared contract.
+    /// </summary>
+    private static void Observe(string stream)
+    {
+        if (ObservedFile is null) return;
+        foreach (var line in stream.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            JsonElement record;
+            try { record = JsonDocument.Parse(line).RootElement; }
+            catch (JsonException) { continue; } // readable text, or a line a closed pipe cut short
+            if (record.ValueKind != JsonValueKind.Object || !record.TryGetProperty("schema", out var schema)
+                || schema.ValueKind != JsonValueKind.String || schema.GetString() != "zeroshot-dotnet/cli/v1"
+                || !record.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String) continue;
+            var paths = new List<string> { kind.GetString()! };
+            Paths(record, "", paths, kind.GetString()!);
+            lock (Observed)
+            {
+                var added = paths.Where(Observed.Add).ToList();
+                if (added.Count > 0) File.AppendAllLines(ObservedFile, added);
+            }
+        }
+    }
+
+    private static void Paths(JsonElement value, string prefix, List<string> paths, string kind)
+    {
+        foreach (var property in value.EnumerateObject())
+        {
+            paths.Add($"{kind} {prefix}{property.Name}");
+            if (property.Value.ValueKind == JsonValueKind.Object) Paths(property.Value, prefix + property.Name + ".", paths, kind);
         }
     }
 

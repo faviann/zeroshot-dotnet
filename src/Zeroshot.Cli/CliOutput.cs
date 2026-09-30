@@ -293,8 +293,6 @@ internal sealed class CliOutput(TextWriter stdout, TextWriter stderr, bool json)
             fields(w);
             w.WriteEndObject();
         }
-        var record = buffer.ToArray();
-        CliContract.Check(kind, record);
-        writer.WriteLine(Encoding.UTF8.GetString(record));
+        writer.WriteLine(Encoding.UTF8.GetString(buffer.ToArray()));
     }
 }
