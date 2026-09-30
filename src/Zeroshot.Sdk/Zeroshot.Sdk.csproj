@@ -16,7 +16,8 @@
     <None Include="Schemas/NATIVE-LICENSE" Pack="true" PackagePath="licenses/" />
   </ItemGroup>
   <!-- The declared public API (README "Release qualification"): an undeclared, removed or differently annotated public
-       symbol fails the build. Shipped holds the prior published release's API; Unshipped what this release adds. -->
+       symbol fails the build. Shipped holds the API released so far (moved there with the release tag); Unshipped what the next
+       release adds. -->
   <PropertyGroup>
     <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0036;RS0037</WarningsAsErrors>
     <!-- Overload design advice for an already accepted surface, not API tracking. -->

@@ -112,8 +112,8 @@ option, exit code and file schema in
 [`prototype-contract.txt`](tools/qualification/prototype-contract.txt) must exist. Its
 output entries are the decision's normative `cli/v1` envelope and record kinds; the
 prototype pages' field examples were refined in implementation, so this first release's
-`contract.txt` fixes the field-level shapes for later releases. At publication, move the
-`PublicAPI.Unshipped.txt` entries to `PublicAPI.Shipped.txt`.
+`contract.txt` fixes the field-level shapes for later releases. The release commit moves
+the `PublicAPI.Unshipped.txt` entries to `PublicAPI.Shipped.txt`.
 
 ```sh
 dotnet run --project tools/qualification -c Release -- pack --out /tmp/candidate
@@ -123,6 +123,88 @@ ZEROSHOT_WITNESS_CANDIDATE=/tmp/candidate tools/native-witness/run.sh
 
 A local `platform` run reports its own OS; the `--runner` label only names the platform it
 must match.
+
+### Publication
+
+Only `Zeroshot.Client` is published, to the GitHub Packages feed
+`https://nuget.pkg.github.com/faviann/index.json`. The `Zeroshot.Cli` package is never
+pushed anywhere. To release version `X`, set `<Version>` in `src/Directory.Build.props`,
+merge to `main`, and push the tag `vX` on that commit. The tag run qualifies the commit as
+above, then:
+
+5. **publish** runs only on a `v*` tag, and only after **qualification** succeeded. It is
+   the only job with `packages: write`. Its `release` step refuses unless
+   `qualification.json` qualified exactly the downloaded candidate, the candidate's release
+   tag is the pushed tag, and the library package hashes to the value the pack job
+   reported. It then pushes that one `.nupkg` with the workflow token. A re-run skips a
+   version that the feed already holds; the next job still checks the bytes that the feed
+   serves.
+6. **verify-publication** has `packages: read` only. It reads the package record from the
+   GitHub REST API: the package must be `public` and linked to
+   `faviann/zeroshot-dotnet-sdk`. It then creates a fresh consumer outside the checkout.
+   The consumer's `nuget.config` maps `Zeroshot.*` to the GitHub feed and everything else
+   to nuget.org, its package and HTTP caches start empty, it pins `[X]` exactly, and the
+   feed credential is in the `NuGetPackageSourceCredentials_github` environment variable.
+   The job restores, builds and runs the [contracts consumer](examples/ContractsConsumer).
+   The restored `.nupkg` must come from the feed and hash to the qualified candidate's
+   value. The workflow token can also restore a private package linked to this repository,
+   so the visibility check, not the restore, shows that other consumers can read it. The
+   job uploads `publication.json` as the `publication` artifact of the same run, beside the
+   `candidate` and `qualification` artifacts. The release is complete only when this job
+   passes.
+
+A new GitHub package is private. If `verify-publication` reports a private package, the
+package owner opens the package settings on GitHub, changes the visibility to public, and
+re-runs the failed job. Nothing is pushed again.
+
+SDK versions are independent of native Zeroshot versions. `0.1.0-preview.1` supports
+native Zeroshot 10.9.0 at source `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only.
+
+## Using the published package
+
+GitHub's NuGet feed requires authentication, even for public packages. Create a personal
+access token (classic) with only the `read:packages` scope, and keep it out of committed
+files. Add this `nuget.config` beside your solution:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="github" value="https://nuget.pkg.github.com/faviann/index.json" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="github"><package pattern="Zeroshot.*" /></packageSource>
+    <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+  </packageSourceMapping>
+</configuration>
+```
+
+Supply the credential for the `github` source through the environment, for example in CI:
+
+```sh
+export NuGetPackageSourceCredentials_github="Username=YOUR_GITHUB_USER;Password=YOUR_TOKEN"
+```
+
+Or store it in your user-level NuGet configuration, never in the repository's
+(`~/.nuget/NuGet/NuGet.Config`; on Windows `%APPDATA%\NuGet\NuGet.Config`, where you can
+omit `--store-password-in-clear-text` to encrypt it):
+
+```sh
+dotnet nuget add source https://nuget.pkg.github.com/faviann/index.json --name github \
+  --username YOUR_GITHUB_USER --password YOUR_TOKEN --store-password-in-clear-text \
+  --configfile ~/.nuget/NuGet/NuGet.Config
+```
+
+Pin the exact preview:
+
+```xml
+<PackageReference Include="Zeroshot.Client" Version="[0.1.0-preview.1]" />
+```
+
+The CLI is not published. Build it from the tag that matches the SDK version, as the
+[CLI guide](docs/cli/README.md#build-and-install) describes.
 
 The repository is licensed under the [MIT License](LICENSE). Pinned native
 schemas include their [upstream MIT notice](src/Zeroshot.Sdk/Schemas/NATIVE-LICENSE).

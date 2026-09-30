@@ -11,10 +11,14 @@ retries or replays a mutation, and it never sends a stop that you did not reques
 ## Build and install
 
 The CLI is framework-dependent: running it needs a .NET 10 runtime, and building or
-installing it needs the .NET 10 SDK. It is never published to a package feed. Build it
-from the repository revision of the matching `Zeroshot.Client` release:
+installing it needs the .NET 10 SDK. It is never published to a package feed or as a
+release binary. Build it from the release tag of the matching `Zeroshot.Client` version,
+so that the CLI and the SDK have the same version and source commit:
 
 ```sh
+git clone https://github.com/faviann/zeroshot-dotnet-sdk.git
+cd zeroshot-dotnet-sdk
+git checkout v0.1.0-preview.1
 dotnet build src/Zeroshot.Cli --configuration Release
 dotnet run --project src/Zeroshot.Cli --configuration Release --no-build -- --version
 ```
@@ -31,6 +35,10 @@ dotnet tool install Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages -
 Run a local tool as `dotnet tool run zeroshot-dotnet -- ARGUMENTS`. Without `--`,
 `dotnet tool run` handles `--help` itself. `zeroshot-dotnet --version` prints the command's
 and its `Zeroshot.Client` library's versions, each followed by `+` and the source commit.
+
+These are SDK versions, independent of native Zeroshot versions. Version
+`0.1.0-preview.1` supports native Zeroshot 10.9.0 at source
+`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only.
 
 ## Prepare a retained request
 
