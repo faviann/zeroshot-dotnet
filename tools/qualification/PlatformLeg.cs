@@ -167,10 +167,15 @@ internal static class PlatformLeg
         Check("cli-local-manifest", () =>
         {
             var project = Directory.CreateDirectory(Path.Combine(work, "local-tool")).FullName;
-            Tools.Checked(Tools.DotnetHost, ["new", "tool-manifest"], workingDirectory: project, environment: isolated, log: Path.Combine(logs, "manifest-local.log"));
-            Tools.Checked(Tools.DotnetHost, ["tool", "install", "--local", "Zeroshot.Cli", "--version", version, "--source", feed], workingDirectory: project, environment: isolated, log: Path.Combine(logs, "install-local.log"));
+            // The SDK caches where it last found a local tool's package id and version under DOTNET_CLI_HOME, so an
+            // earlier install of the same version elsewhere would otherwise run instead of this one.
+            var home = Path.Combine(work, "local-home");
+            var local = new Dictionary<string, string?>(isolated) { ["DOTNET_CLI_HOME"] = home };
+            Tools.Checked(Tools.DotnetHost, ["new", "tool-manifest"], workingDirectory: project, environment: local, log: Path.Combine(logs, "manifest-local.log"));
+            Tools.Checked(Tools.DotnetHost, ["tool", "install", "--local", "Zeroshot.Cli", "--version", version, "--source", feed], workingDirectory: project, environment: local, log: Path.Combine(logs, "install-local.log"));
             Installed(Path.Combine(packages, "zeroshot.cli"), commandSha256);
-            return CliSuite("cli-local-manifest", [Tools.DotnetHost, "tool", "run", "zeroshot-dotnet", "--"], bare, Path.Combine(project, "workspaces"), project, fresh, logs, output, candidate);
+            return CliSuite("cli-local-manifest", [Tools.DotnetHost, "tool", "run", "zeroshot-dotnet", "--"], new Dictionary<string, string?>(bare) { ["DOTNET_CLI_HOME"] = home },
+                Path.Combine(project, "workspaces"), project, fresh, logs, output, candidate);
         });
         Check("cli-explicit-path", () =>
         {
