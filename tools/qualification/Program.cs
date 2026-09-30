@@ -108,7 +108,14 @@ internal static class Tools
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        process.WaitForExit();
+        // A hung process fails its check instead of running into the job's time limit.
+        if (!process.WaitForExit(TimeSpan.FromMinutes(20)))
+        {
+            process.Kill(entireProcessTree: true);
+            lock (output) output.AppendLine("Killed after 20 minutes.");
+            Console.WriteLine("Killed after 20 minutes.");
+        }
+        process.WaitForExit(); // drains the redirected output
         if (log is not null)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(log)!);

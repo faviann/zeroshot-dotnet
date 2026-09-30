@@ -34,7 +34,7 @@ internal static class PlatformLeg
             throw new QualificationException($"The checkout is not the candidate's source commit {candidate.Commit}.");
         output = Path.GetFullPath(output);
         var logs = Directory.CreateDirectory(Path.Combine(output, "logs")).FullName;
-        var work = Directory.CreateTempSubdirectory("zeroshot-qualification-").FullName;
+        var work = RealPath(Directory.CreateTempSubdirectory("zeroshot-qualification-").FullName);
         Console.WriteLine($"Work directory: {work}");
         var checks = new JsonArray();
         var expected = Required.Platforms.SingleOrDefault(platform => platform.Runner == runner);
@@ -231,11 +231,12 @@ internal static class PlatformLeg
             using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion")!;
             var product = (string)key.GetValue("ProductName")!;
             var build = int.Parse((string)key.GetValue("CurrentBuildNumber")!);
-            var detail = $"{product} {key.GetValue("DisplayVersion")} build {build}.{key.GetValue("UBR")} ({key.GetValue("InstallationType")}, {key.GetValue("EditionID")})";
+            var detail = $"{key.GetValue("DisplayVersion")} build {build}.{key.GetValue("UBR")} (ProductName '{product}', {key.GetValue("InstallationType")}, {key.GetValue("EditionID")})";
             // Client editions of Windows 11 still report "Windows 10" as ProductName; build 22000 and later is Windows 11.
-            if ((string?)key.GetValue("InstallationType") == "Server")
-                return (Regex.Match(product, @"^Windows Server \d{4}").Value is { Length: > 0 } server ? server : product, detail);
-            return (build >= 22000 ? "Windows 11" : "Windows 10", detail);
+            var os = (string?)key.GetValue("InstallationType") == "Server"
+                ? Regex.Match(product, @"^Windows Server \d{4}").Value is { Length: > 0 } server ? server : product
+                : build >= 22000 ? "Windows 11" : "Windows 10";
+            return (os, $"{os} {detail}");
         }
         return (RuntimeInformation.OSDescription, RuntimeInformation.OSDescription);
     }
@@ -253,6 +254,21 @@ internal static class PlatformLeg
                     if (File.Exists(Path.Combine(directory, name + extension))) found.Add(Path.Combine(directory, name + extension));
         if (found.Count > 0) throw new QualificationException($"Reachable: {found.ToJsonString()}");
         return found;
+    }
+
+    /// <summary>
+    /// The path with every symbolic link resolved. macOS reaches its temporary directory through /var, a link to
+    /// /private/var, and MSBuild then copies no globbed items (such as test fixtures) to the output.
+    /// </summary>
+    private static string RealPath(string path)
+    {
+        var real = Path.GetPathRoot(path)!;
+        foreach (var part in Path.GetRelativePath(real, path).Split(Path.DirectorySeparatorChar))
+        {
+            real = Path.Combine(real, part);
+            if (new DirectoryInfo(real).ResolveLinkTarget(returnFinalTarget: true) is { } target) real = target.FullName;
+        }
+        return real;
     }
 
     private static void CopyProject(string source, string destination)

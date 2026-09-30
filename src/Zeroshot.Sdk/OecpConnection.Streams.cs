@@ -122,9 +122,13 @@ public sealed partial class OecpConnection
     }
 
     // Identifies exactly the supplied path: segments are escaped, extra leading slashes cannot
-    // become a UNC authority and dot segments are not collapsed.
+    // become a UNC authority and dot segments are not collapsed. A Windows path (C:\dir\controller.sock)
+    // separates segments with either slash and becomes file:///C%3A/dir/controller.sock.
     private static Uri FileUri(string path)
     {
+        if (!path.StartsWith('/'))
+            return new Uri("file:///" + string.Join('/', path.Split('\\', '/').Select(Uri.EscapeDataString)),
+                new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true });
         var relative = path.TrimStart('/');
         var escaped = string.Concat(Enumerable.Repeat("%2F", path.Length - relative.Length - 1)) +
             string.Join('/', relative.Split('/').Select(Uri.EscapeDataString));
