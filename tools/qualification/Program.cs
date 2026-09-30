@@ -13,6 +13,9 @@ using System.Xml.Linq;
 //   pack --out DIR                                    build and pack the library and CLI once; check packaging and compatibility
 //   platform --candidate DIR --runner LABEL --out DIR test those exact bytes on this OS/architecture
 //   gate --artifacts DIR --out FILE                   refuse unless every required platform and the native witness passed
+//   release --artifacts DIR --tag TAG --out DIR       select the qualified library package, and only it, for publication
+//   verify-publication --candidate DIR --out DIR [--feed URL]
+//                                                     check the published package's visibility, linkage and served bytes
 try
 {
     return args switch
@@ -20,7 +23,11 @@ try
         ["pack", "--out", var output] => Candidate.Pack(output),
         ["platform", "--candidate", var candidate, "--runner", var runner, "--out", var output] => PlatformLeg.Run(candidate, runner, output),
         ["gate", "--artifacts", var artifacts, "--out", var output] => Gate.Run(artifacts, output),
-        _ => Fail("Usage: pack --out DIR | platform --candidate DIR --runner LABEL --out DIR | gate --artifacts DIR --out FILE"),
+        ["release", "--artifacts", var artifacts, "--tag", var tag, "--out", var output] => Publication.Release(artifacts, tag, output),
+        ["verify-publication", "--candidate", var candidate, "--out", var output] => Publication.Verify(candidate, Publication.Feed, output),
+        ["verify-publication", "--candidate", var candidate, "--out", var output, "--feed", var feed] => Publication.Verify(candidate, feed, output),
+        _ => Fail("Usage: pack --out DIR | platform --candidate DIR --runner LABEL --out DIR | gate --artifacts DIR --out FILE"
+            + " | release --artifacts DIR --tag TAG --out DIR | verify-publication --candidate DIR --out DIR [--feed URL]"),
     };
 }
 catch (QualificationException failure)

@@ -149,3 +149,68 @@ jobs:
         with:
           name: qualification
           path: ${{ runner.temp }}/qualification
+
+  # README "Publication": a v* tag pushes the qualified library package, and only it, to the GitHub feed. This is the
+  # only job that can write packages; the Zeroshot.Cli package is never pushed.
+  publish:
+    needs: [candidate, qualification]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/artifacts/candidate
+      - uses: actions/download-artifact@v8
+        with:
+          name: qualification
+          path: ${{ runner.temp }}/artifacts/qualification
+      - name: Select the qualified package
+        run: dotnet run --project tools/qualification -c Release -- release --artifacts "$RUNNER_TEMP/artifacts" --tag "$GITHUB_REF_NAME" --out "$RUNNER_TEMP/release"
+        env:
+          ZEROSHOT_CANDIDATE_CLIENT_SHA256: ${{ needs.candidate.outputs.client-sha256 }}
+      # A re-run skips a version the feed already holds; verify-publication then checks the served bytes.
+      - name: Push
+        run: dotnet nuget push "$RUNNER_TEMP"/release/*.nupkg --source https://nuget.pkg.github.com/faviann/index.json --api-key "$GITHUB_TOKEN" --skip-duplicate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # After publication: public visibility and repository linkage, then a fresh authenticated restore of the exact version
+  # from the feed. If the package is still private, the owner makes it public in its settings and re-runs this job.
+  verify-publication:
+    needs: [candidate, publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CANDIDATE_REF }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate
+      - run: dotnet run --project tools/qualification -c Release -- verify-publication --candidate "$RUNNER_TEMP/candidate" --out "$RUNNER_TEMP/publication"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ZEROSHOT_CANDIDATE_CLIENT_SHA256: ${{ needs.candidate.outputs.client-sha256 }}
+          ZEROSHOT_CANDIDATE_CLI_SHA256: ${{ needs.candidate.outputs.cli-sha256 }}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: publication
+          path: ${{ runner.temp }}/publication
+          overwrite: true

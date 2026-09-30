@@ -9,3 +9,5 @@ dotnet run --project examples/ContractsConsumer/ContractsConsumer.csproj -c Rele
 ```
 
 This project references the package, not the library project. Restore obtains build dependencies; executing the program performs local contract work only, with no network, Python or native executable. The example does not claim that native semantic admission or execution would accept the sample graph/runtime.
+
+To restore the published package instead, copy this project out of the repository, pin `Version="[0.1.0-preview.1]"`, and add the `nuget.config` and `read:packages` credential described in [Using the published package](../../README.md#using-the-published-package). Each release's `verify-publication` job restores and runs this consumer from the GitHub feed in that way.
