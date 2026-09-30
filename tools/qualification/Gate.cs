@@ -36,6 +36,9 @@ internal static class Gate
             var checks = leg["checks"]!.AsArray().Select(check => check!.AsObject()).ToList();
             foreach (var name in PlatformLeg.Checks)
                 Require(checks.Count(check => (string?)check["name"] == name && check["passed"]?.GetValue<bool>() == true) == 1, $"check {name} did not pass.");
+            foreach (var check in checks)
+                foreach (var skipped in check["detail"]?["skippedTests"]?.AsArray() ?? [])
+                    Require(Required.MaySkip((string)check["name"]!, os, (string)skipped!), $"{check["name"]} skipped {skipped}, which must run on {os}.");
             Require(leg["passed"]?.GetValue<bool>() == true, "the leg did not pass.");
             platforms.Add(new JsonObject
             {

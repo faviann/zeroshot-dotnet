@@ -49,7 +49,28 @@ internal static class Required
         ("macos-15", "macOS 15", Architecture.Arm64),
     ];
 
-    public const string Repository = "https://github.com/faviann/zeroshot-dotnet-sdk";
+    /// <summary>The only tests a platform may skip: named-pipe tests run only on Windows, Ctrl+C (SIGINT) tests only off it.</summary>
+    public static bool MaySkip(string check, string os, string test)
+    {
+        var method = test.Split('(')[0];
+        return os.StartsWith("Windows", StringComparison.Ordinal)
+            ? check.StartsWith("cli-", StringComparison.Ordinal) && WindowsSkips.Contains(method)
+            : check == "sdk-tests" && PosixSkips.Contains(method);
+    }
+
+    private static readonly string[] PosixSkips =
+    [
+        "OnlyExactLocalPipesAreAcceptedAndConnectingIsCancellableAndBounded", "OwnedPipeIsClosedOnDisposalAndABorrowedPipeStaysOpen",
+        "PipeThatIsNotPrivateToThisUserIsRefusedBeforeAnythingIsSent", "PrivatePipeCarriesOecpUntilTheControllerDisconnects",
+    ];
+
+    private static readonly string[] WindowsSkips =
+    [
+        "CtrlCDetachesWithExit130AndTheLastDeliveredCursor", "CtrlCAfterTheSubmissionWasSentIsAnUnknownOutcome",
+        "CtrlCWhileWaitingAfterAcknowledgementIsExit130AndKeepsTheAcknowledgedRun", "CtrlCBeforeTheForceIsSentIsExit130WithNothingSent",
+    ];
+
+    public const string Repository ="https://github.com/faviann/zeroshot-dotnet-sdk";
     public const string NativeVersion = "10.9.0";
     public const string NativeSourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
 }

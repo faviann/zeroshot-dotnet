@@ -99,6 +99,22 @@ cli option force-stop --wait-timeout
 cli option force-stop --request-only
 cli option * --json
 cli schema zeroshot-dotnet/cli/v1
+
+# --json output: the versioned envelope and its kinds for preparation receipts, submission, status, result,
+# watch/log/attachment, force and errors. Field-level shapes are fixed by the first release's contract.txt.
+cli output * schema
+cli output * kind
+cli output prepared
+cli output submission
+cli output status
+cli output result
+cli output watch
+cli output log
+cli output attachment
+cli output force
+cli output error
+cli schema zeroshot-dotnet/target-config/v1
+cli schema zeroshot-dotnet/run-reference/v1
 cli exit 0
 cli exit 1
 cli exit 2

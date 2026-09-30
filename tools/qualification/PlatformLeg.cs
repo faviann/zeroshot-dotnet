@@ -20,8 +20,8 @@ internal static class PlatformLeg
     /// <summary>Every check a leg must pass; the gate requires each of them.</summary>
     public static readonly string[] Checks =
     [
-        "platform", "no-python-or-native-on-path", "fresh-consumers-restore-candidate", "sdk-tests", .. Examples,
-        "cli-repository", "cli-global-tool", "cli-local-manifest", "cli-explicit-path",
+        "platform", "fresh-consumers-restore-candidate", "sdk-tests", .. Examples,
+        "cli-repository", "cli-global-tool", "cli-local-manifest", "cli-explicit-path", "no-python-or-native-used",
     ];
 
     public static int Run(string candidateDirectory, string runner, string output)
@@ -101,14 +101,9 @@ internal static class PlatformLeg
             """);
         var isolated = new Dictionary<string, string?> { ["NUGET_PACKAGES"] = packages };
         var dotnetRoot = Tools.DotnetRoot;
-        var bare = new Dictionary<string, string?>(isolated) { ["PATH"] = dotnetRoot };
-
-        Check("no-python-or-native-on-path", () => new JsonObject
-        {
-            ["path"] = new JsonArray(dotnetRoot),
-            ["absent"] = new JsonArray([.. Absent.Select(name => (JsonNode?)name)]),
-            ["found"] = Unreachable([dotnetRoot]),
-        });
+        // Suites and consumers see only .NET, behind poison python/py/zeroshot commands that record any use.
+        var (poison, markers) = Poison(work);
+        var bare = new Dictionary<string, string?>(isolated) { ["PATH"] = poison + Path.PathSeparator + dotnetRoot };
 
         Check("fresh-consumers-restore-candidate", () =>
         {
@@ -165,7 +160,7 @@ internal static class PlatformLeg
             Tools.Checked(Tools.DotnetHost, ["tool", "install", "--global", "Zeroshot.Cli", "--version", version, "--source", feed], workingDirectory: work, environment: global, log: Path.Combine(logs, "install-global.log"));
             var commands = Path.Combine(home, ".dotnet", "tools");
             Installed(commands, commandSha256);
-            var onPath = new Dictionary<string, string?>(bare) { ["DOTNET_CLI_HOME"] = home, ["PATH"] = commands + Path.PathSeparator + dotnetRoot };
+            var onPath = new Dictionary<string, string?>(bare) { ["DOTNET_CLI_HOME"] = home, ["PATH"] = string.Join(Path.PathSeparator, poison, commands, dotnetRoot) };
             if (Unreachable([commands]).Count > 0) throw new QualificationException("The global tool directory holds Python or native zeroshot.");
             return CliSuite("cli-global-tool", ["zeroshot-dotnet"], onPath, null, work, fresh, logs, output, candidate);
         });
@@ -183,6 +178,19 @@ internal static class PlatformLeg
             Tools.Checked(Tools.DotnetHost, ["tool", "install", "Zeroshot.Cli", "--tool-path", toolPath, "--version", version, "--source", feed], workingDirectory: work, environment: isolated, log: Path.Combine(logs, "install-explicit.log"));
             Installed(toolPath, commandSha256);
             return CliSuite("cli-explicit-path", [Path.Combine(toolPath, "zeroshot-dotnet" + exe)], bare, null, work, fresh, logs, output, candidate);
+        });
+
+        Check("no-python-or-native-used", () =>
+        {
+            var used = Directory.GetFiles(markers).Select(Path.GetFileName).ToArray();
+            if (used.Length > 0) throw new QualificationException($"Invoked: {string.Join(", ", used)}.");
+            return new JsonObject
+            {
+                ["path"] = new JsonArray(poison, dotnetRoot),
+                ["poisoned"] = new JsonArray([.. Absent.Select(name => (JsonNode?)name)]),
+                ["foundBeyondPoison"] = Unreachable([dotnetRoot]),
+                ["invoked"] = new JsonArray(),
+            };
         });
 
         var passed = checks.All(check => (bool)check!["passed"]!);
@@ -241,6 +249,30 @@ internal static class PlatformLeg
         return (RuntimeInformation.OSDescription, RuntimeInformation.OSDescription);
     }
 
+    /// <summary>
+    /// A directory of python, python3, py and zeroshot commands that fail and leave a marker, placed first on the
+    /// suites' PATH. On Windows they are .cmd files, found by shells and PATHEXT lookups; a bare CreateProcess would
+    /// look for .exe files, which <see cref="Unreachable"/> shows the rest of the PATH does not hold.
+    /// </summary>
+    private static (string Directory, string Markers) Poison(string work)
+    {
+        var directory = Directory.CreateDirectory(Path.Combine(work, "poison")).FullName;
+        var markers = Directory.CreateDirectory(Path.Combine(work, "poison-used")).FullName;
+        foreach (var name in Absent)
+        {
+            var marker = Path.Combine(markers, name);
+            if (OperatingSystem.IsWindows())
+                File.WriteAllText(Path.Combine(directory, name + ".cmd"), $"@echo invoked> \"{marker}\"\r\n@exit /b 97\r\n");
+            else
+            {
+                var script = Path.Combine(directory, name);
+                File.WriteAllText(script, $"#!/bin/sh\n: > '{marker}'\nexit 97\n");
+                File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+        return (directory, markers);
+    }
+
     /// <summary>Python or native zeroshot executables that a process with this PATH could find.</summary>
     private static JsonArray Unreachable(IEnumerable<string> path)
     {
@@ -291,8 +323,14 @@ internal static class PlatformLeg
         var (exitCode, text) = Tools.Run(Tools.DotnetHost, [assembly, "--no-ansi", "--progress", "off", "--results-directory", Path.Combine(output, "results", name)],
             workingDirectory: bin, environment: environment, log: Path.Combine(logs, name + ".log"));
         int Count(string label) => Regex.Match(text, $@"^\s*{label}: (\d+)", RegexOptions.Multiline) is { Success: true } match ? int.Parse(match.Groups[1].Value) : -1;
-        var summary = new JsonObject { ["total"] = Count("total"), ["failed"] = Count("failed"), ["succeeded"] = Count("succeeded"), ["skipped"] = Count("skipped"), ["exitCode"] = exitCode };
-        if (exitCode != 0 || Count("failed") != 0 || Count("total") <= 0)
+        // Named so the gate can hold skips to the platform-specific allowlist.
+        var skipped = Regex.Matches(text, @"^skipped (.+) \([^()]*\)\r?$", RegexOptions.Multiline).Select(match => (JsonNode?)match.Groups[1].Value).ToArray();
+        var summary = new JsonObject
+        {
+            ["total"] = Count("total"), ["failed"] = Count("failed"), ["succeeded"] = Count("succeeded"), ["skipped"] = Count("skipped"),
+            ["skippedTests"] = new JsonArray(skipped), ["exitCode"] = exitCode,
+        };
+        if (exitCode != 0 || Count("failed") != 0 || Count("total") <= 0 || skipped.Length != Count("skipped"))
             throw new QualificationException($"{name} did not pass: {summary.ToJsonString()}");
         return summary;
     }

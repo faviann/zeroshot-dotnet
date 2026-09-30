@@ -131,24 +131,26 @@ public sealed class OecpTests
     {
         foreach (var disconnect in new[] { true, false })
         {
-            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var answered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             await using var peer = new Peer(async socket =>
             {
                 await Read(socket);
-                received.SetResult();
+                await Reply(socket, await Read(socket), "{\"runs\":[]}");
+                await answered.Task;
                 if (disconnect) socket.Abort();
                 else { var cancel = await Read(socket); Check(cancel.GetProperty("method").GetString() == "$/cancelRequest"); }
             });
-            // The deadline runs on a manual clock and expires only once the peer holds the request.
+            // The deadline runs on a manual clock and expires only when advanced.
             var time = new ManualTime();
             using var client = NativeClient.ForHttp(new() { Origin = peer.Origin, Time = time });
             await using var connection = await client.ConnectOecpAsync(peer.Session);
             var list = connection.Runs.ListAsync();
-            await received.Task;
+            // Sends are serialized: an answered second call proves the first call's send completed.
+            Check((await connection.Runs.ListAsync()).Runs.Length == 0);
+            answered.SetResult();
             if (!disconnect) time.Advance(new TransportOptions().RequestTimeout);
             var error = await Failure(list, disconnect ? NativeOecpFailureKind.Transport : NativeOecpFailureKind.Deadline);
-            // The deadline can end the wait before the client records its completed send; the disconnect cannot.
-            Check(error.Dispatch.SendStarted && (!disconnect || error.Dispatch.SendCompleted) && !error.Dispatch.ResponseReceived);
+            Check(error.Dispatch.SendStarted && error.Dispatch.SendCompleted && !error.Dispatch.ResponseReceived);
             await peer.Finished;
         }
     }

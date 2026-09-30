@@ -15,7 +15,7 @@
     <None Include="../../docs/contracts/README.md" Pack="true" PackagePath="/" />
     <None Include="Schemas/NATIVE-LICENSE" Pack="true" PackagePath="licenses/" />
   </ItemGroup>
-  <!-- The declared public API (docs/compatibility/README.md): an undeclared, removed or differently annotated public
+  <!-- The declared public API (README "Release qualification"): an undeclared, removed or differently annotated public
        symbol fails the build. Shipped holds the prior published release's API; Unshipped what this release adds. -->
   <PropertyGroup>
     <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0036;RS0037</WarningsAsErrors>

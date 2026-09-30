@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -10,7 +11,9 @@ using System.Xml.Linq;
 internal static class Candidate
 {
     private const string ContractFile = "tools/qualification/contract.txt";
-    private const string BaselineFile = "tools/qualification/baseline.json";
+    private const string PrototypeFile = "tools/qualification/prototype-contract.txt";
+    private const string PrototypeVersion = "0.1.0-preview.1";
+    private const string PrototypeDecision = "https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561";
     private static readonly string[] ApiFiles = ["src/Zeroshot.Sdk/PublicAPI.Shipped.txt", "src/Zeroshot.Sdk/PublicAPI.Unshipped.txt"];
 
     public static int Pack(string output)
@@ -39,6 +42,10 @@ internal static class Candidate
         if (Value(cliSpec, "version") != version) throw new QualificationException($"The CLI package version {Value(cliSpec, "version")} differs from the library's {version}.");
         foreach (var tag in tags.Where(tag => tag.StartsWith('v')))
             if (tag != "v" + version) throw new QualificationException($"Tag {tag} does not name version {version}.");
+        // A tag-triggered run qualifies exactly the release that tag names.
+        if (Environment.GetEnvironmentVariable("GITHUB_REF") is { } gitRef && gitRef.StartsWith("refs/tags/v", StringComparison.Ordinal)
+            && (gitRef != $"refs/tags/v{version}" || !tags.Contains("v" + version)))
+            throw new QualificationException($"{gitRef} does not name version {version} at the checked-out commit.");
         foreach (var spec in new[] { clientSpec, cliSpec })
         {
             var repository = spec.Elements().Single(e => e.Name.LocalName == "repository");
@@ -64,7 +71,8 @@ internal static class Candidate
         // committed to tools/qualification/contract.txt, so it is reviewed rather than discovered.
         var contract = PackageLines(client, clientSpec).Concat(PackageLines(cli, cliSpec))
             .Concat(CliLines(Tools.Checked(Tools.DotnetHost, [command, "--help"])))
-            .Order(StringComparer.Ordinal).ToList();
+            .Concat(OutputLines(command))
+            .Distinct().Order(StringComparer.Ordinal).ToList();
         File.WriteAllLines(Path.Combine(output, "contract.txt"), contract);
         Compare("tools/qualification/contract.txt", Entries(File.ReadAllLines(ContractFile)), contract);
 
@@ -187,6 +195,27 @@ internal static class Candidate
         return result;
     }
 
+    /// <summary>
+    /// The machine-readable output, read from the packed tool itself: the record catalog that the CLI enforces on every
+    /// cli/v1 record it writes, and every versioned file or record schema the CLI and library declare.
+    /// </summary>
+    private static IEnumerable<string> OutputLines(string command)
+    {
+        var cli = Assembly.LoadFrom(command);
+        var records = (IReadOnlyDictionary<string, string[]>)cli.GetType("Zeroshot.Cli.CliContract", throwOnError: true)!
+            .GetField("Records", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
+        foreach (var (kind, fields) in records)
+        {
+            if (kind != "*") yield return $"cli output {kind}";
+            foreach (var field in fields) yield return $"cli output {kind} {field}";
+        }
+        var library = Assembly.LoadFrom(Path.Combine(Path.GetDirectoryName(command)!, "Zeroshot.Client.dll"));
+        foreach (var type in cli.GetTypes().Concat(library.GetTypes()))
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                if (field is { Name: "Schema", IsLiteral: true } && field.GetRawConstantValue() is string schema && schema.StartsWith("zeroshot-dotnet/", StringComparison.Ordinal))
+                    yield return $"cli schema {schema}";
+    }
+
     private static bool IsApiLine(string line) => line.Length > 0 && !line.StartsWith('#');
 
     private static List<string> Entries(IEnumerable<string> lines) => [.. lines.Select(line => line.Trim()).Where(IsApiLine)];
@@ -202,22 +231,24 @@ internal static class Candidate
     }
 
     /// <summary>
-    /// Every baseline entry must still be present. The first preview's baseline is the accepted usage prototype; a
-    /// later release names its prior published release, whose recorded contract is read from that release's tag.
-    /// Entries may disappear only in a later minor version, and only with migration notes for it.
+    /// Every baseline entry must still be present. The baseline is the latest release tag (v<version>) that precedes
+    /// the candidate, whose recorded API and CLI contract are read from that tag. Only when no release precedes it is
+    /// the baseline the accepted usage prototype. Entries may disappear only in a later minor version, and only with
+    /// migration notes for it.
     /// </summary>
     private static JsonObject Compatibility(string version, List<string> candidate)
     {
-        var baseline = JsonNode.Parse(File.ReadAllText(BaselineFile))!.AsObject();
-        var kind = (string)baseline["kind"]!;
+        var prior = Tools.Git("tag", "--list", "v*").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(tag => SemVer.IsMatch(tag[1..]) && Precedence(tag[1..], version) < 0)
+            .Order(Comparer<string>.Create((a, b) => Precedence(a[1..], b[1..]))).LastOrDefault();
+        var baseline = prior is null
+            ? new JsonObject { ["kind"] = "accepted-prototype", ["version"] = PrototypeVersion, ["contract"] = PrototypeFile, ["decision"] = PrototypeDecision }
+            : new JsonObject { ["kind"] = "published", ["version"] = prior[1..], ["tag"] = prior };
+        List<string> entries = prior is null
+            ? Entries(File.ReadAllLines(PrototypeFile))
+            : [.. ApiFiles.SelectMany(file => Tools.Git("show", $"{prior}:{file}").Split('\n')).Where(IsApiLine).Select(line => "api " + line.Trim()),
+                .. Entries(Tools.Git("show", $"{prior}:{ContractFile}").Split('\n')).Where(line => line.StartsWith("cli ", StringComparison.Ordinal))];
         var baselineVersion = (string)baseline["version"]!;
-        List<string> entries = kind switch
-        {
-            "accepted-prototype" => Entries(File.ReadAllLines((string)baseline["contract"]!)),
-            "published" => [.. ApiFiles.SelectMany(file => Tools.Git("show", $"{baseline["tag"]}:{file}").Split('\n')).Where(IsApiLine).Select(line => "api " + line.Trim()),
-                .. Entries(Tools.Git("show", $"{baseline["tag"]}:{ContractFile}").Split('\n')).Where(line => line.StartsWith("cli ", StringComparison.Ordinal))],
-            _ => throw new QualificationException($"Unknown baseline kind '{kind}' in {BaselineFile}."),
-        };
         var missing = entries.Where(entry => !candidate.Any(line => Matches(entry, line))).ToList();
         var (major, minor) = Minor(version);
         var (baselineMajor, baselineMinor) = Minor(baselineVersion);
@@ -228,16 +259,37 @@ internal static class Candidate
         if (missing.Count > 0)
         {
             foreach (var entry in missing) Console.Error.WriteLine($"- {entry}");
-            if (!laterMinor) throw new QualificationException($"{missing.Count} {kind} baseline entries (above) are missing; {major}.{minor} releases must keep them.");
+            if (!laterMinor) throw new QualificationException($"{missing.Count} {baseline["kind"]} baseline entries (above) are missing; {major}.{minor} releases must keep them.");
             if (!File.Exists(notes)) throw new QualificationException($"Breaking changes (above) in {major}.{minor} need migration notes at {notes}.");
         }
         return new JsonObject
         {
-            ["baseline"] = baseline.DeepClone(),
+            ["baseline"] = baseline,
             ["entries"] = entries.Count,
             ["missing"] = new JsonArray([.. missing.Select(entry => (JsonNode?)entry)]),
             ["migrationNotes"] = missing.Count > 0 ? notes : null,
         };
+    }
+
+    private static readonly Regex SemVer = new(@"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$");
+
+    /// <summary>Semantic-version precedence (numeric core, then a prerelease before its release, then identifiers).</summary>
+    private static int Precedence(string left, string right)
+    {
+        var (a, b) = (SemVer.Match(left), SemVer.Match(right));
+        if (!a.Success || !b.Success) throw new QualificationException($"'{left}' or '{right}' is not a semantic version.");
+        for (var i = 1; i <= 3; i++)
+            if (int.Parse(a.Groups[i].Value).CompareTo(int.Parse(b.Groups[i].Value)) is not 0 and var core) return core;
+        if (a.Groups[4].Success != b.Groups[4].Success) return a.Groups[4].Success ? -1 : 1;
+        if (!a.Groups[4].Success) return 0;
+        var (x, y) = (a.Groups[4].Value.Split('.'), b.Groups[4].Value.Split('.'));
+        for (var i = 0; i < Math.Min(x.Length, y.Length); i++)
+        {
+            var (xNumber, yNumber) = (int.TryParse(x[i], out var xn), int.TryParse(y[i], out var yn));
+            var order = xNumber && yNumber ? xn.CompareTo(yn) : xNumber != yNumber ? (xNumber ? -1 : 1) : string.CompareOrdinal(x[i], y[i]);
+            if (order != 0) return order;
+        }
+        return x.Length.CompareTo(y.Length);
     }
 
     /// <summary>

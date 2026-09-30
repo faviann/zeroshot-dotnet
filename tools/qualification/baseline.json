@@ -1,6 +1,0 @@
-{
-  "kind": "accepted-prototype",
-  "version": "0.1.0-preview.1",
-  "contract": "tools/qualification/prototype-contract.txt",
-  "decision": "https://github.com/faviann/zeroshot-dotnet-sdk/issues/7#issuecomment-5852136561"
-}
