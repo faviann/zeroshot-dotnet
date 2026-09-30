@@ -131,16 +131,24 @@ public sealed class OecpTests
     {
         foreach (var disconnect in new[] { true, false })
         {
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             await using var peer = new Peer(async socket =>
             {
                 await Read(socket);
+                received.SetResult();
                 if (disconnect) socket.Abort();
                 else { var cancel = await Read(socket); Check(cancel.GetProperty("method").GetString() == "$/cancelRequest"); }
             });
-            using var client = peer.Client(new() { RequestTimeout = TimeSpan.FromSeconds(2) });
+            // The deadline runs on a manual clock and expires only once the peer holds the request.
+            var time = new ManualTime();
+            using var client = NativeClient.ForHttp(new() { Origin = peer.Origin, Time = time });
             await using var connection = await client.ConnectOecpAsync(peer.Session);
-            var error = await Failure(connection.Runs.ListAsync(), disconnect ? NativeOecpFailureKind.Transport : NativeOecpFailureKind.Deadline);
-            Check(error.Dispatch.SendStarted && error.Dispatch.SendCompleted && !error.Dispatch.ResponseReceived);
+            var list = connection.Runs.ListAsync();
+            await received.Task;
+            if (!disconnect) time.Advance(new TransportOptions().RequestTimeout);
+            var error = await Failure(list, disconnect ? NativeOecpFailureKind.Transport : NativeOecpFailureKind.Deadline);
+            // The deadline can end the wait before the client records its completed send; the disconnect cannot.
+            Check(error.Dispatch.SendStarted && (!disconnect || error.Dispatch.SendCompleted) && !error.Dispatch.ResponseReceived);
             await peer.Finished;
         }
     }

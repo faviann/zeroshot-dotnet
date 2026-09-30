@@ -1,0 +1,14 @@
+<Project>
+  <!-- One version and one set of package metadata for the library and the matching locally built CLI. -->
+  <PropertyGroup>
+    <Version>0.1.0-preview.1</Version>
+    <Authors>faviann</Authors>
+    <Copyright>Copyright (c) 2026 faviann</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/faviann/zeroshot-dotnet-sdk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/faviann/zeroshot-dotnet-sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- Records the source commit in each package's repository metadata. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+</Project>

@@ -103,10 +103,12 @@ internal static class CommandLine
                               [--overwrite] [--request-timeout DURATION]
           zeroshot-dotnet status RUN [--request-timeout DURATION]
           zeroshot-dotnet wait RUN [--timeout WAIT] [--request-timeout DURATION]
-          zeroshot-dotnet watch RUN [--after CURSOR | --checkpoint FILE] [--recovery MODE]
+          zeroshot-dotnet watch RUN [--after CURSOR | --checkpoint FILE] [--recovery MODE] [--request-timeout DURATION]
           zeroshot-dotnet logs RUN [--execution EXECUTION] [--after CURSOR | --checkpoint FILE] [--recovery MODE]
-          zeroshot-dotnet attach RUN EXECUTION
-          zeroshot-dotnet force-stop RUN [--wait-timeout WAIT | --request-only]
+                               [--request-timeout DURATION]
+          zeroshot-dotnet attach RUN EXECUTION [--request-timeout DURATION]
+          zeroshot-dotnet force-stop RUN [--wait-timeout WAIT | --request-only] [--request-timeout DURATION]
+          zeroshot-dotnet --version
 
         Every command accepts --json (versioned zeroshot-dotnet/cli/v1 records) and --help. An option
         value can also be given as --option=VALUE, which is required for a value that begins with --.

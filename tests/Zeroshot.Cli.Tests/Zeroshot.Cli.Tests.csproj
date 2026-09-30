@@ -9,7 +9,15 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.68.17" />
+  </ItemGroup>
+
+  <!-- Release qualification sets ZeroshotCandidateVersion: the tests then use the packed candidate library and drive the
+       CLI named by ZEROSHOT_CLI_COMMAND instead of building either from source. -->
+  <ItemGroup Condition="'$(ZeroshotCandidateVersion)' == ''">
     <ProjectReference Include="../../src/Zeroshot.Cli/Zeroshot.Cli.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ZeroshotCandidateVersion)' != ''">
+    <PackageReference Include="Zeroshot.Client" Version="[$(ZeroshotCandidateVersion)]" />
   </ItemGroup>
 
 </Project>

@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
-# Sourced by run.sh after recovery.sh. Reuses its live target and controlled provider. The repository-built
-# zeroshot-dotnet drives one run to native's worker_failed terminal (the recovery gate is still set), then
-# clears that gate so a second run stays active until the CLI force-stops it.
+# Sourced by run.sh after recovery.sh. Reuses its live target and controlled provider. The repository-built (or
+# supplied candidate) zeroshot-dotnet drives one run to native's worker_failed terminal (the recovery gate is still
+# set), then clears that gate so a second run stays active until the CLI force-stops it.
 cli_dir="$witness_dir/cli"
 mkdir -p "$cli_dir/work"
-dotnet publish "$repo_dir/src/Zeroshot.Cli/Zeroshot.Cli.csproj" -c Release -o "$cli_dir/bin" > "$cli_dir/publish.log"
-sha256sum "$cli_dir/bin/zeroshot-dotnet.dll" "$cli_dir/bin/Zeroshot.Client.dll" >> "$witness_dir/provenance.txt"
+if [[ -n ${ZEROSHOT_WITNESS_CANDIDATE:-} ]]; then
+  # Release qualification: the candidate tool package from the witness feed, installed at an explicit path.
+  NUGET_PACKAGES="$witness_dir/packages" dotnet tool install Zeroshot.Cli --tool-path "$cli_dir/tool" \
+    --source "$witness_dir/feed" --version "$client_version" > "$cli_dir/install.log"
+  cli_command=("$cli_dir/tool/zeroshot-dotnet")
+  cli_entry=$(find "$cli_dir/tool/.store" -name zeroshot-dotnet.dll -path "*/tools/*")
+  cli_files=("$cli_entry" "$(dirname -- "$cli_entry")/Zeroshot.Client.dll")
+else
+  dotnet publish "$repo_dir/src/Zeroshot.Cli/Zeroshot.Cli.csproj" -c Release -o "$cli_dir/bin" > "$cli_dir/publish.log"
+  cli_command=(dotnet "$cli_dir/bin/zeroshot-dotnet.dll")
+  cli_files=("$cli_dir/bin/zeroshot-dotnet.dll" "$cli_dir/bin/Zeroshot.Client.dll")
+fi
+sha256sum "${cli_files[@]}" >> "$witness_dir/provenance.txt"
+"${cli_command[@]}" --version >> "$witness_dir/provenance.txt"
 python3 - "$witness_dir" "$origin" "$source_revision" <<'PY'
 import json, pathlib, sys
 directory, origin, revision = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
@@ -54,7 +66,7 @@ cli_step() {
   local name=$1 expected=$2 code=0
   shift 2
   (cd "$cli_dir/work" && ZEROSHOT_WITNESS_OPENAI_KEY=controlled-not-a-real-key \
-    dotnet "$cli_dir/bin/zeroshot-dotnet.dll" "$@" --json) > "$cli_dir/$name.stdout" 2> "$cli_dir/$name.stderr" || code=$?
+    "${cli_command[@]}" "$@" --json) > "$cli_dir/$name.stdout" 2> "$cli_dir/$name.stderr" || code=$?
   printf '%s %s\n' "$name" "$code" >> "$cli_dir/exits.txt"
   [[ $code == "$expected" ]] || { echo "CLI $name exited $code, expected $expected." >&2; cat "$cli_dir/$name.stderr" >&2; exit 1; }
 }
@@ -71,7 +83,7 @@ PY
 cli_attach_interrupted() {
   local name=$1
   shift
-  (cd "$cli_dir/work" && python3 - "$cli_dir" "$name" dotnet "$cli_dir/bin/zeroshot-dotnet.dll" "$@" --json) <<'PY'
+  (cd "$cli_dir/work" && python3 - "$cli_dir" "$name" "${cli_command[@]}" "$@" --json) <<'PY'
 import pathlib, signal, subprocess, sys, threading
 cli, name, command = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3:]
 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

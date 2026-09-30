@@ -15,7 +15,9 @@ public sealed class TargetInputTests
     /// <summary>Replaced by the loopback target's origin when a test runs.</summary>
     private const string Loopback = "LOOPBACK-ORIGIN";
 
-    private static string Config(string transport = """{ "requestTimeout": "45s", "connectTimeout": "1500ms" }""",
+    // Both units parse; the connect budget stays at the SDK's 10 s default, since every CLI process in a parallel run
+    // connects to a peer in this busy test host.
+    private static string Config(string transport = """{ "requestTimeout": "45s", "connectTimeout": "10000ms" }""",
         string observation = """{ "recovery": "none", "recoveryDelay": "0ms" }""", string target = Loopback) => $$"""
         {
           "schema": "zeroshot-dotnet/target-config/v1",

@@ -8,6 +8,30 @@ formats output. Run `zeroshot-dotnet --help` for the complete grammar.
 The SDK does all waiting, stream recovery and outcome classification. The CLI never
 retries or replays a mutation, and it never sends a stop that you did not request.
 
+## Build and install
+
+The CLI is framework-dependent: running it needs a .NET 10 runtime, and building or
+installing it needs the .NET 10 SDK. It is never published to a package feed. Build it
+from the repository revision of the matching `Zeroshot.Client` release:
+
+```sh
+dotnet build src/Zeroshot.Cli --configuration Release
+dotnet run --project src/Zeroshot.Cli --configuration Release --no-build -- --version
+```
+
+To use it as a .NET tool, pack it and install it from that local folder:
+
+```sh
+dotnet pack src/Zeroshot.Cli --configuration Release --output ./packages
+dotnet tool install --global Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages
+dotnet tool install --local Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages   # needs a tool manifest
+dotnet tool install Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages --tool-path ./tools
+```
+
+Run a local tool as `dotnet tool run zeroshot-dotnet -- ARGUMENTS`. Without `--`,
+`dotnet tool run` handles `--help` itself. `zeroshot-dotnet --version` prints the command's
+and its `Zeroshot.Client` library's versions, each followed by `+` and the source commit.
+
 ## Prepare a retained request
 
 ```sh

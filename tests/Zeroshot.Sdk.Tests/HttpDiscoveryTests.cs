@@ -194,13 +194,13 @@ public sealed class HttpDiscoveryTests
             { RequestMessage = request, Content = new StreamContent(new WaitingStream()) });
         });
         using var http = new HttpClient(handler);
-        using var native = NativeClient.ForHttp(Options(new()
-        {
-            RequestTimeout = TimeSpan.FromMilliseconds(250), MaxConcurrentRequests = 2, ReservedControlRequests = 1
-        }), http);
+        // The first request's deadline runs on a manual clock, so it holds its slot until the refusal is observed.
+        var time = new ManualTime();
+        using var native = NativeClient.ForHttp(Options(new() { MaxConcurrentRequests = 2, ReservedControlRequests = 1 }) with { Time = time }, http);
         var first = native.Target.DiscoverAsync();
         await started.Task;
         await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.Capacity);
+        time.Advance(new TransportOptions().RequestTimeout);
         await Failure(first, NativeHttpFailureKind.Deadline);
         Check(handler.Calls == 1);
     }

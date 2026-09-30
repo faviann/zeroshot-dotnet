@@ -8,7 +8,6 @@
     <AssemblyName>zeroshot-dotnet</AssemblyName>
     <RootNamespace>Zeroshot.Cli</RootNamespace>
     <PackageId>Zeroshot.Cli</PackageId>
-    <Version>0.1.0-preview.1</Version>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>zeroshot-dotnet</ToolCommandName>
     <Description>Locally built zeroshot-dotnet command over the Zeroshot.Client SDK.</Description>

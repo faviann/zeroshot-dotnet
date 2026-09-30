@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native;
@@ -21,6 +22,14 @@ public static class CliApp
             if (args is [] or ["help"] or ["--help"] or ["-h"])
             {
                 stdout.WriteLine(CommandLine.Usage);
+                return ExitCodes.Success;
+            }
+            if (args is ["--version"])
+            {
+                // Both builds' informational versions carry the source revision, so an installed command names the
+                // exact CLI and library it runs.
+                stdout.WriteLine($"zeroshot-dotnet {Version(typeof(CliApp))}");
+                stdout.WriteLine($"Zeroshot.Client {Version(typeof(ZeroshotClient))}");
                 return ExitCodes.Success;
             }
             var invocation = CommandLine.Parse(args);
@@ -49,6 +58,9 @@ public static class CliApp
             return ExitCodes.Failure;
         }
     }
+
+    private static string? Version(Type type)
+        => type.Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
     /// <summary>Local only: parse, fix identity with the SDK and write the exact exported bytes.</summary>
     private static int Prepare(Invocation invocation, CliOutput output)
