@@ -226,7 +226,8 @@ await using (var ui = NativeClient.ForHttp(new NativeClientOptions { Origin = ne
 
 // OECP: all 22 methods and the subscription notifications over a borrowed NDJSON stream.
 var oecp = new OecpPeer(fixtures);
-var socketPath = Path.Combine(Path.GetTempPath(), $"zeroshot-bindings-{Guid.NewGuid():N}.sock");
+// Short enough for macOS, whose socket paths hold at most 104 bytes and whose temporary directory is already long.
+var socketPath = Path.Combine(Path.GetTempPath(), $"zsb-{Guid.NewGuid().ToString("N")[..16]}.sock");
 using var unixListener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
 unixListener.Bind(new UnixDomainSocketEndPoint(socketPath));
 unixListener.Listen();
