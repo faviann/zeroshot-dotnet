@@ -73,15 +73,32 @@ public sealed class OecpConnectTests
     [Test]
     public async Task ClientConnectFailureKeepsTheSharedBudgets()
     {
-        using var closed = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        closed.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-        var origin = new Uri($"http://127.0.0.1:{((IPEndPoint)closed.LocalEndPoint!).Port}");
-        using var client = NativeClient.ForHttp(new NativeClientOptions { Origin = origin });
-        var session = new TargetOecpSession { Endpoint = new UriBuilder(origin) { Scheme = "ws", Path = "/native-v2/oecp" }.Uri.AbsoluteUri };
-        for (var attempt = 0; attempt < 2; attempt++)
-            Check((await Throws<NativeOecpException>(client.ConnectOecpAsync(session))).Kind == NativeOecpFailureKind.Transport,
-                "A failed connect leaves the client's executor usable.");
-        client.Observations.Open<int, string>().Dispose();
+        // Accepting and closing fails the WebSocket handshake promptly on every platform; a bound but
+        // non-listening port is refused on Linux but left unanswered on macOS.
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        using var stop = new CancellationTokenSource();
+        var closing = Task.Run(async () =>
+        {
+            try { while (true) (await listener.AcceptTcpClientAsync(stop.Token)).Dispose(); }
+            catch (OperationCanceledException) { }
+        });
+        try
+        {
+            var origin = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}");
+            using var client = NativeClient.ForHttp(new NativeClientOptions { Origin = origin });
+            var session = new TargetOecpSession { Endpoint = new UriBuilder(origin) { Scheme = "ws", Path = "/native-v2/oecp" }.Uri.AbsoluteUri };
+            for (var attempt = 0; attempt < 2; attempt++)
+                Check((await Throws<NativeOecpException>(client.ConnectOecpAsync(session))).Kind == NativeOecpFailureKind.Transport,
+                    "A failed connect leaves the client's executor usable.");
+            client.Observations.Open<int, string>().Dispose();
+        }
+        finally
+        {
+            stop.Cancel();
+            listener.Stop();
+            await closing;
+        }
     }
 
     private sealed class Probe : IDisposable
