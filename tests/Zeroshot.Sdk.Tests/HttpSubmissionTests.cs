@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Zeroshot.Client.Tests;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -264,13 +265,6 @@ public sealed class HttpSubmissionTests
         try { await action(); }
         catch (T) { return; }
         throw new InvalidOperationException("Expected invalid-use exception.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 
     private sealed class CleanupContent(string body, Action cleanup) : StringContent(body)

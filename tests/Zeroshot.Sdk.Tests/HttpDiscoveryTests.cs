@@ -319,14 +319,6 @@ public sealed class HttpDiscoveryTests
         Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null && refused.UiProblem is null);
     }
 
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        public bool Disposed { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
-        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
-    }
     private sealed class CountingStream(byte[] bytes) : MemoryStream(bytes)
     {
         public int BytesRead { get; private set; }

@@ -46,7 +46,7 @@ public sealed class CapabilityBindingTests
     [Test]
     public async Task DisposedClientRefusesEveryHttpOperationBeforeItsArguments()
     {
-        using var handler = new Handler();
+        using var handler = new Handler((_, _) => throw new InvalidOperationException("No request may be sent."));
         var client = NativeClient.ForHttp(new NativeClientOptions { Origin = new Uri("https://target.example/") },
             new HttpClient(handler), ownsHttpClient: true);
         client.Dispose();
@@ -64,7 +64,7 @@ public sealed class CapabilityBindingTests
     [Test]
     public async Task DefaultHttpAuthorizationIsRefusedBeforeArgumentsOnEveryOperation()
     {
-        using var handler = new Handler();
+        using var handler = new Handler((_, _) => throw new InvalidOperationException("No request may be sent."));
         using var http = new HttpClient(handler);
         using var client = NativeClient.ForHttp(new NativeClientOptions { Origin = new Uri("https://target.example/") }, http);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "ambient");
@@ -78,12 +78,5 @@ public sealed class CapabilityBindingTests
             throw new InvalidOperationException($"Call {i} did not throw.");
         }
         Check(handler.Calls == 0);
-    }
-
-    private sealed class Handler : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; throw new InvalidOperationException("No request may be sent."); }
     }
 }

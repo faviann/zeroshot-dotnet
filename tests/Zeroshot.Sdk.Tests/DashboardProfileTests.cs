@@ -141,12 +141,4 @@ public sealed class DashboardProfileTests
             Check(attempt.Outcome == NativeAttemptOutcome.NotSent && attempt.Failure is OperationCanceledException && unsent.Calls == 0);
         }
     }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        private int calls;
-        public int Calls => Volatile.Read(ref calls);
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Interlocked.Increment(ref calls); return send(request, cancellationToken); }
-    }
 }
