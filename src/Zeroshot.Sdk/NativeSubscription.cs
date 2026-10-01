@@ -21,7 +21,14 @@ public sealed class NativeSubscriptionException : Exception
         : base($"Native subscription ({correlationId ??= Guid.NewGuid():D}) failed: {kind}.")
     { Kind = kind; CorrelationId = correlationId.Value; }
     internal static NativeSubscriptionException From(ObservationFailure failure)
-        => new(Enum.Parse<NativeSubscriptionFailureKind>(failure.Kind.ToString()), failure.CorrelationId);
+        => new(KindOf(failure.Kind), failure.CorrelationId);
+    internal static NativeSubscriptionFailureKind KindOf(ObservationFailureKind kind) => kind switch
+    {
+        ObservationFailureKind.Admission => NativeSubscriptionFailureKind.Admission,
+        ObservationFailureKind.RecordLimit => NativeSubscriptionFailureKind.RecordLimit,
+        ObservationFailureKind.StreamByteLimit => NativeSubscriptionFailureKind.StreamByteLimit,
+        ObservationFailureKind.AggregateByteLimit => NativeSubscriptionFailureKind.AggregateByteLimit
+    };
 }
 
 /// <summary>One subscription's closure evidence, never a claim of native run success.</summary>

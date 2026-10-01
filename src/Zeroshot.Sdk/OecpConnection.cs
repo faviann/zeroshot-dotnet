@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
@@ -140,7 +141,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                     }
                 }
                 catch (ConnectionInterrupted interrupted)
-                { throw context.Failure(Enum.Parse<OperationFailureKind>(interrupted.Kind.ToString()), OperationStage.Response); }
+                { throw context.Failure(ConnectionInterrupted.KindOf(interrupted.Kind), OperationStage.Response); }
                 finally { lock (gate) pending.Remove(id); }
             }, cleanup: async token =>
             {
@@ -312,7 +313,19 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         public OecpDispatchFacts Facts => new(id, SendStarted, SendCompleted, ResponseReceived);
     }
     internal sealed class ConnectionInterrupted(NativeOecpFailureKind kind) : Exception
-    { public NativeOecpFailureKind Kind { get; } = kind; }
+    {
+        public NativeOecpFailureKind Kind { get; } = kind;
+        internal static OperationFailureKind KindOf(NativeOecpFailureKind kind) => kind switch
+        {
+            NativeOecpFailureKind.Capacity => OperationFailureKind.Capacity,
+            NativeOecpFailureKind.Deadline => OperationFailureKind.Deadline,
+            NativeOecpFailureKind.SizeLimit => OperationFailureKind.SizeLimit,
+            NativeOecpFailureKind.Transport => OperationFailureKind.Transport,
+            NativeOecpFailureKind.Protocol => OperationFailureKind.Protocol,
+            // A JSON-RPC error answers one request; it never interrupts the connection.
+            NativeOecpFailureKind.RpcError => throw new UnreachableException("An RPC error does not interrupt a connection.")
+        };
+    }
 }
 
 public sealed partial class OecpRunsClient

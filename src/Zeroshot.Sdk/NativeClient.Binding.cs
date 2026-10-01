@@ -21,14 +21,16 @@ internal enum RequestHeaders
 }
 
 /// <summary>
-/// One HTTP operation, declared once: its limits, request headers, the refusals that prove an attempt had no effect,
-/// and the identity a response must carry for the ID the call addressed. A capability served either by a direct
-/// target's UI router or by a host-owned API declares both descriptors; the route says which one it reached.
+/// One HTTP operation, declared once: its limits, request headers, response policy, the refusals that prove an
+/// attempt had no effect, and the identity a response must carry for the ID the call addressed. A capability served
+/// either by a direct target's UI router or by a host-owned API declares both policies; the route says which one it reached.
 /// </summary>
 internal sealed class HttpBinding<T>(OperationDescriptor operation, RequestHeaders headers = RequestHeaders.None,
-    Func<HttpStatusCode?, string, bool>? refusals = null, Action<T, RunId>? identity = null, OperationDescriptor? hostOwned = null)
+    Func<HttpStatusCode?, string, bool>? refusals = null, Action<T, RunId>? identity = null, HttpResponsePolicy? response = null,
+    HttpResponsePolicy? hostOwned = null)
 {
-    internal OperationDescriptor Operation(HttpCall call) => call.HostOwned ? hostOwned! : operation;
+    internal OperationDescriptor Operation => operation;
+    internal HttpResponsePolicy Response(HttpCall call) => call.HostOwned ? hostOwned! : response ?? HttpResponsePolicy.Target;
     internal Func<HttpStatusCode?, string, bool> Refusals => refusals!;
 
     internal Action<HttpRequestMessage>? Configure(Action<HttpRequestMessage>? extra = null) => headers switch
@@ -76,7 +78,7 @@ public sealed partial class NativeClient
     {
         ValidateHttpUse();
         var call = route();
-        return ExecuteJsonAsync(binding.Operation(call), call.Uri, call.Body, credentials, binding.Validate(id, validate),
+        return ExecuteJsonAsync(binding.Operation, binding.Response(call), call.Uri, call.Body, credentials, binding.Validate(id, validate),
             cancellationToken, configure: binding.Configure());
     }
 
@@ -86,7 +88,7 @@ public sealed partial class NativeClient
     {
         ValidateHttpUse();
         var call = route();
-        return await AttemptAsync(binding.Operation(call), call.Uri, call.Body!, credentials, binding.Refusals, cancellationToken,
+        return await AttemptAsync(binding.Operation, binding.Response(call), call.Uri, call.Body!, credentials, binding.Refusals, cancellationToken,
             binding.Configure(configure), readSuccess, binding.Validate(id, validate)).ConfigureAwait(false);
     }
 
@@ -102,7 +104,7 @@ public sealed partial class NativeClient
     {
         ValidateHttpUse();
         var call = route();
-        return StartStreamAsync<TRecord, TStream>(binding.Operation(call), call.Uri, credentials, admits, binding.Configure(configure),
+        return StartStreamAsync<TRecord, TStream>(binding.Operation, binding.Response(call), call.Uri, credentials, admits, binding.Configure(configure),
             (queue, response, body) => create(queue, response, body, Math.Min(limits.MessageBytes, frameBytes)), cancellationToken);
     }
 
@@ -119,7 +121,7 @@ public sealed partial class NativeClient
     {
         ValidateHttpUse();
         var call = route();
-        return ExecuteHttpAsync(binding.Operation(call), method, call.Uri, null, credentials, readSuccess, cancellationToken,
+        return ExecuteHttpAsync(binding.Operation, binding.Response(call), method, call.Uri, null, credentials, readSuccess, cancellationToken,
             configure: binding.Configure(), redirectIsResult: redirectIsResult);
     }
 

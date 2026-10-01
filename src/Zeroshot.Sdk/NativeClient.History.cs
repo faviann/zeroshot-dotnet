@@ -31,10 +31,8 @@ public sealed class NativeHistoryClient
     // Direct history is served by the target's UI router; hosted history is a host-owned HTTP API. Native
     // TargetRunHistoryTransport sends Accept: application/json with no-store to both.
     private static HttpBinding<T> Bind<T>(string name, int responseMebibytes, Action<T, RunId>? identity = null)
-        => new(Create(name, responseMebibytes, uiRouter: true), RequestHeaders.Json, identity: identity,
-            hostOwned: Create(name, responseMebibytes, uiRouter: false));
-    private static OperationDescriptor Create(string name, int responseMebibytes, bool uiRouter) => new(name, OperationTransport.Http,
-        responseBytes: responseMebibytes * 1024 * 1024, problemBytes: 64 * 1024, uiRouter: uiRouter, historyProblems: true);
+        => new(new(name, OperationTransport.Http, responseBytes: responseMebibytes * 1024 * 1024), RequestHeaders.Json, identity: identity,
+            response: HttpResponsePolicy.History(HttpProblemDialect.UiRouter), hostOwned: HttpResponsePolicy.History(HttpProblemDialect.Target));
 
     /// <summary>Reads one list page, optionally strictly after a canonical UUIDv7 run ID.</summary>
     public Task<RunHistoryList> ListAsync(TargetDiscoveryDocument discovery, RunId? after = null,

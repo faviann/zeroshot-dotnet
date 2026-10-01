@@ -21,7 +21,8 @@ public sealed class NativeOAuthClient
         new("oauth.beginDeviceAuthorization", OperationTransport.Http, responseBytes: MaxBytes), RequestHeaders.Form);
     // A recognized OAuth error is the only refusal: the server's statement that no tokens were issued.
     private static readonly HttpBinding<OAuthTokens> DeviceToken = new(
-        new("oauth.exchangeDeviceToken", OperationTransport.Http, responseBytes: MaxBytes, oauthErrors: true), RequestHeaders.Form, static (_, _) => false);
+        new("oauth.exchangeDeviceToken", OperationTransport.Http, responseBytes: MaxBytes), RequestHeaders.Form, static (_, _) => false,
+        response: HttpResponsePolicy.OAuth);
     private static readonly HttpBinding<OAuthTokens> Refresh = new(
         new("oauth.refresh", OperationTransport.Http, responseBytes: MaxBytes), RequestHeaders.Form, NativeClient.IsHostedRefusal);
     private static readonly HttpBinding<TargetLoginSession> VerifySession = new(

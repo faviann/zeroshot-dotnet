@@ -26,9 +26,9 @@ public sealed class NativePrivateClient
         responseBytes: 64 * 1024), identity: DiagnosticsOf);
     // Native transport_history.rs admits at most 4096 request bytes; responses keep #35's history bounds.
     private static readonly HttpBinding<RunDefinition> Definition = new(new("private.history.definition", OperationTransport.Http,
-        requestBytes: 4096, responseBytes: 8 * 1024 * 1024, problemBytes: 64 * 1024, historyProblems: true), identity: RunHistoryRules.Definition);
+        requestBytes: 4096, responseBytes: 8 * 1024 * 1024), identity: RunHistoryRules.Definition, response: HttpResponsePolicy.History(HttpProblemDialect.Target));
     private static readonly HttpBinding<HistoryPage> Page = new(new("private.history.page", OperationTransport.Http,
-        requestBytes: 4096, responseBytes: 8 * 1024 * 1024, problemBytes: 64 * 1024, historyProblems: true));
+        requestBytes: 4096, responseBytes: 8 * 1024 * 1024), response: HttpResponsePolicy.History(HttpProblemDialect.Target));
     private const int DiagnosticTextBytes = 4 * 1024;
     private readonly NativeClient client;
     internal NativePrivateClient(NativeClient client) => this.client = client;

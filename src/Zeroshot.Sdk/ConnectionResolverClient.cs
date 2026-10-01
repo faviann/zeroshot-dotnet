@@ -63,7 +63,7 @@ public sealed class ConnectionResolverClient : IDisposable, IAsyncDisposable
             throw new ArgumentException("The request names a connection key outside the resolver's declared keys.", nameof(request));
         try
         {
-            return await http.ExecuteJsonAsync<ConnectionResolveResult>(ResolveOperation, Endpoint, body, null, _ => { },
+            return await http.ExecuteJsonAsync<ConnectionResolveResult>(ResolveOperation, HttpResponsePolicy.Target, Endpoint, body, null, _ => { },
                 cancellationToken, configure: message =>
                     message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken)).ConfigureAwait(false);
         }
