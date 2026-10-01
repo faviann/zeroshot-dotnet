@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
@@ -46,17 +45,14 @@ internal interface IOecpSubscription
 /// <summary>One bounded native subscription. Never reopens, waits for a run, or stops native execution.</summary>
 public sealed class NativeSubscription<TEstablishment, TEvent> : IAsyncDisposable, IOecpSubscription
 {
-    private readonly ObservationQueue<TEvent, Cursor> queue;
+    private readonly ObservationLifecycle<TEvent> observation;
     private readonly Func<TEvent, Cursor?> validate;
     private readonly Func<SubscriptionId, bool, Task> detach;
     private readonly bool cursorlessClose;
-    private readonly object gate = new();
-    private NativeSubscriptionCompletion? outcome;
-    private readonly TaskCompletionSource<NativeSubscriptionCompletion> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TEstablishment Establishment { get; }
-    public Task<NativeSubscriptionCompletion> Completion => completion.Task;
+    public Task<NativeSubscriptionCompletion> Completion => observation.Completion;
     /// <summary>Last cursor handed to the caller, including records drained after closure. Null for cursorless attachment. Not a processing checkpoint.</summary>
-    public Cursor? LastDeliveredCursor => queue.LastDeliveredPosition;
+    public Cursor? LastDeliveredCursor => observation.LastDeliveredCursor;
     internal SubscriptionId Id { get; }
     bool IOecpSubscription.CursorlessClose => cursorlessClose;
 
@@ -64,111 +60,33 @@ public sealed class NativeSubscription<TEstablishment, TEvent> : IAsyncDisposabl
         ObservationQueue<TEvent, Cursor> queue, Func<TEvent, Cursor?> validate,
         Func<SubscriptionId, bool, Task> detach, bool cursorlessClose)
     {
-        Establishment = establishment; Id = id; this.queue = queue; this.validate = validate; this.detach = detach;
+        Establishment = establishment; Id = id; observation = new(queue); this.validate = validate; this.detach = detach;
         this.cursorlessClose = cursorlessClose;
     }
 
-    internal void Start() => _ = SettleAsync();
+    // A server or transport close already ended the remote stream; only a local outcome cancels it.
+    internal void Start() => observation.Start(result =>
+        detach(Id, result.Origin is not (NativeSubscriptionOrigin.ServerClosed or NativeSubscriptionOrigin.UnexpectedDisconnect)));
 
-    public async IAsyncEnumerable<TEvent> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await using var reader = queue.ReadAllAsync(cancellationToken).GetAsyncEnumerator();
-        while (true)
-        {
-            bool next;
-            try { next = await reader.MoveNextAsync().ConfigureAwait(false); }
-            catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
-            if (!next) yield break;
-            yield return reader.Current;
-        }
-    }
+    public IAsyncEnumerable<TEvent> ReadAllAsync(CancellationToken cancellationToken = default)
+        => observation.ReadAllAsync(cancellationToken);
 
-    void IOecpSubscription.Receive(JsonElement parameters, int encodedBytes)
+    void IOecpSubscription.Receive(JsonElement parameters, int encodedBytes) => observation.Receive(encodedBytes, () =>
     {
-        lock (gate)
-        {
-            if (outcome is not null) return;
-            try
-            {
-                var record = NativeJson.DeserializeUtf8<TEvent>(Encoding.UTF8.GetBytes(parameters.GetRawText()));
-                var position = validate(record);
-                queue.TryEnqueue(record, encodedBytes, position);
-            }
-            catch (ObservationFailure failure)
-            { outcome = new() { Origin = NativeSubscriptionOrigin.LocalFailure, Failure = NativeSubscriptionException.From(failure) }; }
-            catch (Exception error) when (error is JsonException or ArgumentException)
-            { Fail(NativeSubscriptionOrigin.LocalFailure, NativeSubscriptionFailureKind.Protocol); }
-        }
-    }
+        var record = NativeJson.DeserializeUtf8<TEvent>(Encoding.UTF8.GetBytes(parameters.GetRawText()));
+        return (record, validate(record));
+    });
 
     void IOecpSubscription.Closed(SubscriptionClosedNotification notification)
-    {
-        lock (gate)
-        {
-            if (outcome is not null) return;
-            var failure = notification.Reason switch
-            {
-                SubscriptionCloseReason.SlowConsumer => new NativeSubscriptionException(NativeSubscriptionFailureKind.SlowConsumer),
-                SubscriptionCloseReason.SourceUnavailable => new NativeSubscriptionException(NativeSubscriptionFailureKind.SourceUnavailable),
-                _ => null
-            };
-            outcome = new() { Origin = NativeSubscriptionOrigin.ServerClosed, ServerClose = notification, Failure = failure };
-            queue.StopReceiving(failure);
-        }
-    }
+        => observation.Settle(NativeSubscriptionOrigin.ServerClosed, ObservationLifecycle<TEvent>.CloseFailure(notification.Reason), notification);
 
-    void IOecpSubscription.Disconnected(NativeOecpFailureKind? failure)
+    void IOecpSubscription.Disconnected(NativeOecpFailureKind? failure) => observation.Disconnect(failure switch
     {
-        lock (gate)
-        {
-            if (outcome is not null) return;
-            if (queue.StopFailure is OperationCanceledException)
-                outcome = new() { Origin = NativeSubscriptionOrigin.Cancelled };
-            else if (failure is null || queue.StopFailure is ObjectDisposedException)
-            {
-                outcome = new() { Origin = NativeSubscriptionOrigin.Disposed };
-                queue.Dispose();
-            }
-            else Fail(NativeSubscriptionOrigin.UnexpectedDisconnect, failure switch
-            {
-                NativeOecpFailureKind.Protocol => NativeSubscriptionFailureKind.Protocol,
-                NativeOecpFailureKind.SizeLimit => NativeSubscriptionFailureKind.SizeLimit,
-                _ => NativeSubscriptionFailureKind.UnexpectedDisconnect
-            });
-        }
-    }
+        null => null,
+        NativeOecpFailureKind.Protocol => NativeSubscriptionFailureKind.Protocol,
+        NativeOecpFailureKind.SizeLimit => NativeSubscriptionFailureKind.SizeLimit,
+        _ => NativeSubscriptionFailureKind.UnexpectedDisconnect
+    });
 
-    private void Fail(NativeSubscriptionOrigin origin, NativeSubscriptionFailureKind kind)
-    {
-        var failure = new NativeSubscriptionException(kind);
-        outcome = new() { Origin = origin, Failure = failure };
-        queue.StopReceiving(failure);
-    }
-
-    private async Task SettleAsync()
-    {
-        await queue.StopRequested.ConfigureAwait(false);
-        NativeSubscriptionCompletion result;
-        lock (gate)
-        {
-            outcome ??= new() { Origin = queue.StopFailure is OperationCanceledException
-                ? NativeSubscriptionOrigin.Cancelled : NativeSubscriptionOrigin.Disposed };
-            result = outcome;
-        }
-        try
-        {
-            await detach(Id, result.Origin is not (NativeSubscriptionOrigin.ServerClosed or NativeSubscriptionOrigin.UnexpectedDisconnect)).ConfigureAwait(false);
-        }
-        finally
-        {
-            queue.Complete();
-            completion.TrySetResult(result);
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        queue.Dispose();
-        await Completion.ConfigureAwait(false);
-    }
+    public ValueTask DisposeAsync() => observation.DisposeAsync();
 }
