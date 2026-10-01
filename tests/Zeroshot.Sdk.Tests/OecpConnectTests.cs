@@ -81,7 +81,7 @@ public sealed class OecpConnectTests
         var closing = Task.Run(async () =>
         {
             try { while (true) (await listener.AcceptTcpClientAsync(stop.Token)).Dispose(); }
-            catch (OperationCanceledException) { }
+            catch (Exception) when (stop.IsCancellationRequested) { } // Stop() can fault a pending accept instead of cancelling it.
         });
         try
         {
