@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
 
@@ -22,10 +23,20 @@ public sealed class NativeOecpException : Exception
         : base(rpcError is null ? failure.Message : $"Native operation {failure.Operation} (Oecp, {failure.CorrelationId:D}) failed: RpcError during {failure.Stage}.")
     {
         Operation = failure.Operation; CorrelationId = failure.CorrelationId; Stage = failure.Stage.ToString();
-        Kind = rpcError is not null ? NativeOecpFailureKind.RpcError : Enum.Parse<NativeOecpFailureKind>(failure.Kind.ToString());
+        Kind = rpcError is not null ? NativeOecpFailureKind.RpcError : KindOf(failure.Kind);
         Dispatch = dispatch; RpcError = rpcError; rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();
+
+    internal static NativeOecpFailureKind KindOf(OperationFailureKind kind) => kind switch
+    {
+        OperationFailureKind.Capacity => NativeOecpFailureKind.Capacity,
+        OperationFailureKind.Deadline => NativeOecpFailureKind.Deadline,
+        OperationFailureKind.SizeLimit => NativeOecpFailureKind.SizeLimit,
+        OperationFailureKind.Transport => NativeOecpFailureKind.Transport,
+        OperationFailureKind.Protocol => NativeOecpFailureKind.Protocol,
+        OperationFailureKind.HttpStatus or OperationFailureKind.Redirect => throw new UnreachableException("HTTP-only failure on OECP.")
+    };
 }
 
 /// <summary>Local cancellation retains dispatch facts; it never means native stop or rollback.</summary>

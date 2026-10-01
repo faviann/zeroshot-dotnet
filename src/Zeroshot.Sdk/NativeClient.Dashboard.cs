@@ -60,7 +60,8 @@ public sealed class NativeDashboardClient
     private static readonly HttpBinding<DashboardProfile> GetProfile = Browser<DashboardProfile>("dashboard.getProfile");
     private static readonly HttpBinding<NativeHeadResult> HeadProfile = Browser<NativeHeadResult>("dashboard.headProfile");
     private static readonly HttpBinding<DashboardProfile> SaveProfile = new(
-        new("dashboard.saveProfile", OperationTransport.Http, requestBytes: MaxDraftRequestBytes, uiRouter: true), refusals: IsProfileSaveRefusal);
+        new("dashboard.saveProfile", OperationTransport.Http, requestBytes: MaxDraftRequestBytes), refusals: IsProfileSaveRefusal,
+        response: HttpResponsePolicy.UiRouter);
     // Native serves these with the run-history handlers behind the discovered direct-target routes.
     private static readonly HttpBinding<RunHistoryList> ListRuns = History<RunHistoryList>("dashboard.listRuns", 4);
     private static readonly HttpBinding<NativeHeadResult> HeadRuns = History<NativeHeadResult>("dashboard.headRuns", 4);
@@ -81,10 +82,10 @@ public sealed class NativeDashboardClient
     internal NativeDashboardClient(NativeClient client) => this.client = client;
 
     private static HttpBinding<T> Browser<T>(string name, int? requestBytes = null)
-        => new(new(name, OperationTransport.Http, requestBytes: requestBytes, uiRouter: true));
+        => new(new(name, OperationTransport.Http, requestBytes: requestBytes), response: HttpResponsePolicy.UiRouter);
     private static HttpBinding<T> History<T>(string name, int responseMebibytes, Action<T, RunId>? identity = null)
-        => new(new(name, OperationTransport.Http, responseBytes: responseMebibytes * 1024 * 1024, problemBytes: 64 * 1024,
-            uiRouter: true, historyProblems: true), identity: identity);
+        => new(new(name, OperationTransport.Http, responseBytes: responseMebibytes * 1024 * 1024), identity: identity,
+            response: HttpResponsePolicy.History(HttpProblemDialect.UiRouter));
 
     /// <summary>`GET /`: native redirects to `/ui/`.</summary>
     public Task<DashboardRedirect> GetRootAsync(CancellationToken cancellationToken = default)

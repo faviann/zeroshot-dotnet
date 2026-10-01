@@ -44,8 +44,11 @@ The owned default uses normal TLS certificate validation, disables automatic
 redirects, cookies and decompression, and rejects 3xx responses and changed response
 URLs. `NativeHttpException.Kind` distinguishes `Protocol`, `SizeLimit`, `HttpStatus`,
 `Redirect`, `Capacity`, `Deadline` and `Transport`. A refused HTTP operation retains
-`StatusCode`; malformed discovery never becomes a 404 or a size failure. Cancellation
-uses an `OperationCanceledException` subtype. Invalid arguments and calls after
+`StatusCode`; malformed discovery never becomes a 404 or a size failure. Caller
+cancellation or client disposal throws `NativeHttpOperationCanceledException`, an
+`OperationCanceledException` that keeps the cancelled token, the operation's
+`CorrelationId` and `SendStarted` (dispatch began, so the request may have reached
+the target); it never means native stop or rollback. Invalid arguments and calls after
 disposal use normal .NET exceptions. Exceptions contain only fixed operation,
 correlation, stage and classification metadata. Raw refusal bytes require
 `CaptureRawDiagnostics = true` and explicit `ExportRawDiagnostic()`; returned bytes

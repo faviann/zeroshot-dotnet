@@ -8,7 +8,7 @@ public sealed partial class NativeTargetClient
 {
     internal static readonly OperationDescriptor SubmitOperation = new("target.submit", OperationTransport.Http,
         requestBytes: 4 * 1024 * 1024, responseBytes: 64 * 1024);
-    private static readonly HttpBinding<TargetRunReceipt> Submit = new(SubmitOperation, refusals: IsSubmissionRefusal);
+    private static readonly HttpBinding<TargetRunReceipt> Submit = new(SubmitOperation, refusals: IsSubmissionRefusal, response: HttpResponsePolicy.OkOnly);
 
     /// <summary>Sends the typed fixed HTTP request once. Operational failures and cancellation return evidence.</summary>
     public Task<TargetSubmissionAttempt> SubmitAttemptAsync(TargetRunRequest request,

@@ -86,7 +86,7 @@ public sealed class NativeHttpException : Exception
         Operation = failure.Operation;
         CorrelationId = failure.CorrelationId;
         Stage = failure.Stage.ToString();
-        Kind = Enum.Parse<NativeHttpFailureKind>(failure.Kind.ToString());
+        Kind = KindOf(failure.Kind);
         StatusCode = failure.StatusCode ?? receivedStatus;
         Problem = problem;
         UiProblem = uiProblem;
@@ -95,4 +95,25 @@ public sealed class NativeHttpException : Exception
         rawDiagnostic = failure.ExportRawDiagnostic();
     }
     public byte[]? ExportRawDiagnostic() => rawDiagnostic?.ToArray();
+
+    internal static NativeHttpFailureKind KindOf(OperationFailureKind kind) => kind switch
+    {
+        OperationFailureKind.Capacity => NativeHttpFailureKind.Capacity,
+        OperationFailureKind.Deadline => NativeHttpFailureKind.Deadline,
+        OperationFailureKind.SizeLimit => NativeHttpFailureKind.SizeLimit,
+        OperationFailureKind.Transport => NativeHttpFailureKind.Transport,
+        OperationFailureKind.Protocol => NativeHttpFailureKind.Protocol,
+        OperationFailureKind.HttpStatus => NativeHttpFailureKind.HttpStatus,
+        OperationFailureKind.Redirect => NativeHttpFailureKind.Redirect
+    };
+}
+
+/// <summary>Local cancellation of an HTTP operation; it never means native stop or rollback.</summary>
+public sealed class NativeHttpOperationCanceledException : OperationCanceledException
+{
+    public Guid CorrelationId { get; }
+    /// <summary>Dispatch began, so the request may have reached the server.</summary>
+    public bool SendStarted { get; }
+    internal NativeHttpOperationCanceledException(OperationCancelled error, bool sendStarted)
+        : base(error.Message, error.CancellationToken) { CorrelationId = error.CorrelationId; SendStarted = sendStarted; }
 }

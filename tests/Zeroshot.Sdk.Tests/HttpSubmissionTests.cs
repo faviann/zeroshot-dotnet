@@ -215,7 +215,7 @@ public sealed class HttpSubmissionTests
         using var client = NativeClient.ForHttp(Options(), http);
         using var cancellation = new CancellationTokenSource();
         // Cancels inside the operation, after validation and capture: the executor reports cancellation, not the result.
-        var attempt = await client.AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation, new Uri(client.Origin, "/native-v2/run"),
+        var attempt = await client.AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation, HttpResponsePolicy.OkOnly, new Uri(client.Origin, "/native-v2/run"),
             NativeJson.SerializeUtf8(Typed()), null, (_, _) => false, cancellation.Token, afterCapture: cancellation.Cancel);
         Check(cancellation.IsCancellationRequested && attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Failure: null });
         Check(attempt.Response!.RunId.Value == Acknowledged && attempt.CorrelationId != Guid.Empty && handler.Calls == 1);

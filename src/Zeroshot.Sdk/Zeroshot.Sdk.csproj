@@ -8,6 +8,9 @@
     <PackageId>Zeroshot.Client</PackageId>
     <Version>0.1.0-preview.1</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Kind translations are exhaustive switches: a new member must fail the build, not map silently. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
     <Description>Native Zeroshot 10.9.0 execution contracts, exact prepared submissions, bounded HTTP operations, and correlated WebSocket OECP inspection and watch/log subscriptions, discovered run history, and browser dashboard routes.</Description>
   </PropertyGroup>
   <ItemGroup>
