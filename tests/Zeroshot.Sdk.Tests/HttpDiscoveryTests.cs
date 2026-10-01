@@ -311,7 +311,7 @@ public sealed class HttpDiscoveryTests
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
         var uri = new Uri("https://target.example/ui-routed");
-        var result = await native.ExecuteHeadAsync(operation, uri, null, default);
+        var result = await native.HeadAsync(new HttpBinding<NativeHeadResult>(operation), () => uri, null, default);
         Check(result.StatusCode == HttpStatusCode.OK && result.ContentLength == 29 && result.MediaType == "application/json");
         // The operation's refusal-body bound applies below the shared diagnostic ceiling.
         var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, uri, null, null, _ => { }, default),
