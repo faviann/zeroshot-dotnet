@@ -150,21 +150,24 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
             }, cancellationToken, onDispatch, configure);
 
-    /// <summary>A body-less HEAD binding; refusals keep their status like any other HTTP operation.</summary>
-    internal Task<NativeHeadResult> ExecuteHeadAsync(OperationDescriptor operation, Uri requestUri,
-        TargetControlCredentials? credentials, CancellationToken cancellationToken, Action<HttpRequestMessage>? configure = null)
-        => ExecuteHttpAsync(operation, HttpMethod.Head, requestUri, null, credentials,
-            (response, _) => Task.FromResult(new NativeHeadResult(response.StatusCode,
-                response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.MediaType)),
-            cancellationToken, configure: configure);
-
     /// <summary>
     /// Opens one streaming GET whose response becomes a bounded observation. Queue admission precedes dispatch,
     /// and the opening token also cancels the observation later. A refusal before the stream starts is a
-    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response.
+    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response. Native bounds
+    /// frames at <paramref name="frameBytes"/>; the configured message ceiling can only lower it.
     /// </summary>
-    internal async Task<TStream> OpenStreamAsync<TRecord, TStream>(OperationDescriptor operation, Uri requestUri,
-        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure,
+    internal Task<TStream> OpenStreamAsync<TRecord, TStream>(HttpBinding<TStream> binding, Func<HttpCall> route,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure, int frameBytes,
+        Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, int, TStream> create, CancellationToken cancellationToken)
+    {
+        ValidateHttpUse();
+        var call = route();
+        return StartStreamAsync<TRecord, TStream>(binding.Operation(call), call.Uri, credentials, admits, binding.Configure(configure),
+            (queue, response, body) => create(queue, response, body, Math.Min(limits.MessageBytes, frameBytes)), cancellationToken);
+    }
+
+    private async Task<TStream> StartStreamAsync<TRecord, TStream>(OperationDescriptor operation, Uri requestUri,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage>? configure,
         Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, TStream> create, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
@@ -188,9 +191,6 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             throw;
         }
     }
-
-    /// <summary>Per-request header hook for operations whose native caller sends Cache-Control: no-store.</summary>
-    internal static void NoStore(HttpRequestMessage request) => request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
 
     private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpMethod method, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Func<HttpResponseMessage, OperationContext, Task<T>> readSuccess,

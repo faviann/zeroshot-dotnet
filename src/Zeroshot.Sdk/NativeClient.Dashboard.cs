@@ -93,7 +93,7 @@ public sealed partial class NativeClient
                 if (lastEventId is not null) request.Headers.TryAddWithoutValidation("Last-Event-ID", lastEventId.Value);
             },
             // Native pages stay within 8 MiB; the configured message ceiling can only lower it.
-            (queue, response, body) => new DashboardRunEvents(queue, response, body, start, Math.Min(limits.MessageBytes, 8 * 1024 * 1024)),
+            (queue, response, body) => new DashboardRunEvents(queue, response, body, start, Math.Min(MessageBytesTemp, 8 * 1024 * 1024)),
             cancellationToken);
 }
 
