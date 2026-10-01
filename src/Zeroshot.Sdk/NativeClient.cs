@@ -94,43 +94,6 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         catch { socket?.Dispose(); lease.Dispose(); throw; }
     }
 
-    internal Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken)
-        => ExecuteJsonAsync<TargetDiscoveryDocument>(NativeTargetClient.DiscoveryOperation, new Uri(Origin, NativeTargetClient.DiscoveryPath),
-            null, null, discovery =>
-            {
-                if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller")
-                    throw new JsonException();
-            }, cancellationToken);
-
-    internal Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
-        TargetOecpSessionRequest request, TargetControlCredentials? credentials, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
-        ArgumentNullException.ThrowIfNull(discovery);
-        ArgumentNullException.ThrowIfNull(request);
-        // No remote descriptor may influence credential-bearing dispatch until validated.
-        _ = NativeJson.SerializeUtf8(discovery);
-        if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
-            (credentials?.Authentication ?? TargetAuthentication.None) != discovery.Authentication)
-            throw new ArgumentException("Discovery and supplied control authority are incompatible.");
-        _ = NativeRoutes.SameOriginPath(Origin, discovery.RunPath);
-        _ = NativeRoutes.SameOriginPath(Origin, discovery.OecpPath);
-        var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.SessionPath);
-        if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
-            throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
-        var bytes = NativeJson.SerializeUtf8(request);
-        return ExecuteJsonAsync(NativeTargetClient.SessionOperation, endpoint, bytes, credentials,
-            (TargetOecpSession session) =>
-            {
-                _ = NativeRoutes.SessionEndpoint(Origin, session.Endpoint);
-                if (discovery.Authentication == TargetAuthentication.None)
-                {
-                    if (session.BearerToken is not null) throw new JsonException();
-                }
-                else TargetControlCredentials.ValidateBearer(session.BearerToken!);
-            }, cancellationToken);
-    }
-
     internal Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
         Action<Guid>? onDispatch = null, Action<T>? onResponse = null, Action<HttpRequestMessage>? configure = null)
@@ -396,14 +359,42 @@ public sealed partial class NativeTargetClient
     internal static readonly OperationDescriptor DiscoveryOperation = new("target.discover", OperationTransport.Http);
     internal static readonly OperationDescriptor SessionOperation = new("target.createOecpSession", OperationTransport.Http, isControl: true,
         requestBytes: 4 * 1024 * 1024, responseBytes: 64 * 1024);
+    private static readonly HttpBinding<TargetDiscoveryDocument> Discovery = new(DiscoveryOperation);
+    private static readonly HttpBinding<TargetOecpSession> Session = new(SessionOperation);
     private readonly NativeClient client;
     internal NativeTargetClient(NativeClient client) => this.client = client;
     public Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken = default)
-        => client.DiscoverAsync(cancellationToken);
+        => client.ReadAsync(Discovery, () => new Uri(client.Origin, DiscoveryPath), null, cancellationToken, validate: discovery =>
+        {
+            if (!NativeClient.IsControllerDiscovery(discovery)) throw new JsonException();
+        });
 
     /// <summary>Obtains one session with explicitly supplied discovery and current control authority; never refreshes credentials.</summary>
     public Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
         TargetOecpSessionRequest? request = null, TargetControlCredentials? credentials = null,
         CancellationToken cancellationToken = default)
-        => client.CreateOecpSessionAsync(discovery, request ?? new(), credentials, cancellationToken);
+    {
+        request ??= new();
+        return client.ReadAsync(Session, () =>
+        {
+            ArgumentNullException.ThrowIfNull(discovery);
+            // No remote descriptor may influence credential-bearing dispatch until validated.
+            NativeClient.Admit(discovery, d => (credentials?.Authentication ?? TargetAuthentication.None) == d.Authentication,
+                "Discovery and supplied control authority are incompatible.");
+            _ = NativeRoutes.SameOriginPath(client.Origin, discovery.RunPath);
+            _ = NativeRoutes.SameOriginPath(client.Origin, discovery.OecpPath);
+            var endpoint = NativeRoutes.SameOriginPath(client.Origin, discovery.SessionPath);
+            if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
+                throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
+            return new HttpCall(endpoint, NativeJson.SerializeUtf8(request));
+        }, credentials, cancellationToken, validate: session =>
+        {
+            _ = NativeRoutes.SessionEndpoint(client.Origin, session.Endpoint);
+            if (discovery.Authentication == TargetAuthentication.None)
+            {
+                if (session.BearerToken is not null) throw new JsonException();
+            }
+            else TargetControlCredentials.ValidateBearer(session.BearerToken!);
+        });
+    }
 }
