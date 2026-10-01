@@ -10,7 +10,16 @@
   <ItemGroup>
     <None Include="Fixtures/*.json;Fixtures/cluster/*" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="TUnit" Version="1.68.17" />
+    <!-- Controlled HTTP and multi-connection WebSocket peers shared with the packed consumers. -->
+    <Compile Include="../../examples/BindingsConsumer/HttpPeer.cs;../../examples/BindingsConsumer/OecpPeer.cs" LinkBase="Peers" />
+  </ItemGroup>
+
+  <!-- Release qualification sets ZeroshotCandidateVersion to test the packed candidate library instead of the source. -->
+  <ItemGroup Condition="'$(ZeroshotCandidateVersion)' == ''">
     <ProjectReference Include="../../src/Zeroshot.Sdk/Zeroshot.Sdk.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ZeroshotCandidateVersion)' != ''">
+    <PackageReference Include="Zeroshot.Client" Version="[$(ZeroshotCandidateVersion)]" />
   </ItemGroup>
 
 </Project>

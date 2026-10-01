@@ -1,0 +1,4 @@
+#nullable enable
+Zeroshot.Native.NativeHttpOperationCanceledException
+Zeroshot.Native.NativeHttpOperationCanceledException.CorrelationId.get -> System.Guid
+Zeroshot.Native.NativeHttpOperationCanceledException.SendStarted.get -> bool

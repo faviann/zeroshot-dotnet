@@ -4,7 +4,7 @@ namespace Zeroshot.Native;
 
 public sealed partial class OecpRunsClient
 {
-    private const string ForceMethod = "run/force";
+    internal const string ForceMethod = "run/force";
 
     /// <summary>Sends one native force request as a control call. An acknowledged status can still be stopping; there is no retry or wait.</summary>
     public Task<NativeAttempt<RunForceResult>> ForceAsync(RunId runId, OecpRequest? request = null, CancellationToken cancellationToken = default)

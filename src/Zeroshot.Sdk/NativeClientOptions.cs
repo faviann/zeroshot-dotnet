@@ -8,6 +8,9 @@ public sealed record NativeClientOptions
 {
     public required Uri Origin { get; init; }
     public TransportOptions Transport { get; init; } = new();
+
+    /// <summary>The clock behind operation deadlines; tests substitute a manual one.</summary>
+    internal TimeProvider Time { get; init; } = TimeProvider.System;
 }
 
 /// <summary>Positive, finite limits shared by one native client.</summary>

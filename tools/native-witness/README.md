@@ -31,7 +31,14 @@ Pinned provenance:
 
 Each run also appends the SDK build under test to `provenance.txt`: the repository
 commit, whether the worktree was clean, `dotnet --version` and the SHA-256 of the packed
-`Zeroshot.Client` package that every consumer restores.
+`Zeroshot.Client` package that every consumer restores. The harness checks that the
+isolated package cache holds exactly that package.
+
+Release qualification sets `ZEROSHOT_WITNESS_CANDIDATE` to a directory that holds an
+already packed candidate (`Zeroshot.Client` and `Zeroshot.Cli` packages). The harness
+then packs nothing: the consumers restore that library package, and `cli.sh` installs that
+tool package at an explicit tool path. `provenance.txt` records `sdkCandidate=supplied`,
+both package hashes, the installed command's hashes and its `--version`.
 
 These are release provenance and local execution evidence, not remote executable
 attestation or a reproducible-build claim. Discovery itself publishes no product
@@ -149,6 +156,15 @@ proves terminal observation survives an actual target restart; it does not claim
 automatic reconnect, uninterrupted execution, or provider success. Consumer phases
 have a 30-second budget. Cleanup releases any waiting hook and terminates the target.
 
+Both consumer phases repeat the replay through the SDK's `Run.LogsAsync` and
+`Run.WatchAsync`. After completion, the live phase reads all logs through the SDK. It
+requires them to equal the retained records and saves the scoped `HistoryCheckpoint` of
+the `history-ready` record as `observation-checkpoint.json`. Each phase then parses that
+checkpoint and resumes exclusively after it; the second phase does so in a new process after
+the target restart. Each phase also replays the terminal watch history and requires both
+final checkpoints to return nothing. This exercises checkpointed SDK replay. It does not
+exercise interruption recovery, which deterministic tests cover.
+
 The observation consumer also reads run history before the gate is released, while
 the run is admitted and not terminal: an available definition without a terminal
 result and a complete but unfinished page. After completion it requires the retained
@@ -221,8 +237,17 @@ later status query must report that terminal result. A repeated force of the
 terminal run is acknowledged with its existing status; an unknown canonical run ID
 is a rejected `NOT_FOUND` attempt. `force.json` retains the active status, the
 acknowledgement, every history record, terminal status and both follow-up attempts.
-This proves native force against a controlled execution, not physical-cessation
-guarantees, provider service behavior or hosted force routes.
+
+The same consumer then admits a third controlled run through the SDK, waits for its
+active execution and calls `Run.ForceStopAsync`, which sends one force and returns
+the acknowledgement's terminal result or waits through the common helper. It
+requires `force_stopped` from the result and a later status. On the first, already
+terminal run, `ForceStopAsync` with a zero wait budget must return the
+acknowledgement's result without observing, and `ForceAttemptAsync` on the stopped
+run is an acknowledged attempt. The `sdk` object in `force.json` records these,
+including the result's evidence kind, which shows whether native's reply was
+already terminal. This proves native force against a controlled execution, not
+physical-cessation guarantees, provider service behavior or hosted force routes.
 
 `recovery.sh` then reuses the same target and sets a gate that makes the
 controlled provider fail each worker after checkout. The sixth packed consumer
@@ -242,6 +267,42 @@ A force-stopped workspace is disposed by native and is not resumable.
 This does not claim that provider execution succeeds, and it does not cover
 hosted recovery routes or live `INVALID_PHASE`, which needs a target without
 recovery support.
+
+`cli.sh` then reuses the same target and provider to drive the repository-built
+`zeroshot-dotnet` CLI (published from `src/Zeroshot.Cli` with its matching library, or the
+supplied candidate tool) as separate processes. The recovery gate is still set, so the first CLI run fails its worker:
+
+1. `run --request --save-request --save-run` writes a `submission` record and a
+   `worker_failed` `result` record, and exits with 3.
+2. `status --run-file` reports that failed run and exits with 0.
+3. `wait --run-file` exits with 3.
+4. `watch --run-file` replays the finished run's history and exits with 0 when native
+   closes the stream. It writes only `watch` records, the last one `worker_failed`, and
+   no `result`. `watch --after=CURSOR` from the next-to-last record returns only the last
+   record.
+5. `logs --run-file` replays the run's logs. The last record's `checkpoint`, saved as a
+   file, resumes with `logs --checkpoint` and returns no records. `logs --execution`
+   with the worker execution returns only that execution's records.
+
+The harness then clears the gate and empties the ready marker, so a second run keeps its
+worker active at the provider's first gate:
+
+1. `prepare`, then `run --prepared --detach --save-run`, exits with 0.
+2. `status --run-file` is polled until native reports an active execution.
+3. `attach --run-file` to that execution writes a live `working` `attachment` record with
+   no cursor or checkpoint. SIGINT then ends it with a `cancelled` error and exit 130.
+4. `force-stop --run-file --wait-timeout 60s` writes a `force_stopped` result and exits
+   with 3.
+5. `attach` to the stopped execution exits with 1: native refuses it with `GONE`.
+6. `force-stop --request-only` on the stopped run writes an acknowledged `force` record
+   and exits with 0.
+
+Native's public run history is read independently of the CLI. It must list each CLI
+run exactly once and no other new run. Before the request-only force, the forced run's
+history must hold exactly one `force_stop_requested` event. `cli/` retains every
+command's stdout, stderr and exit code, the history reads, and `result.json`. Native
+deduplicates by run ID, so run history cannot distinguish a duplicate send of the same
+submission. The deterministic CLI tests count sends directly.
 
 `private.sh` then stops that target and starts a separate private-mode target on the
 same port with fresh storage. Native selects private mode only when

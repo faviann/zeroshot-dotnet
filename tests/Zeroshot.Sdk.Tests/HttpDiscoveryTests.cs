@@ -229,13 +229,13 @@ public sealed class HttpDiscoveryTests
             { RequestMessage = request, Content = new StreamContent(new WaitingStream()) });
         });
         using var http = new HttpClient(handler);
-        using var native = NativeClient.ForHttp(Options(new()
-        {
-            RequestTimeout = TimeSpan.FromMilliseconds(250), MaxConcurrentRequests = 2, ReservedControlRequests = 1
-        }), http);
+        // The first request's deadline runs on a manual clock, so it holds its slot until the refusal is observed.
+        var time = new ManualTime();
+        using var native = NativeClient.ForHttp(Options(new() { MaxConcurrentRequests = 2, ReservedControlRequests = 1 }) with { Time = time }, http);
         var first = native.Target.DiscoverAsync();
         await started.Task;
         await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.Capacity);
+        time.Advance(new TransportOptions().RequestTimeout);
         await Failure(first, NativeHttpFailureKind.Deadline);
         Check(handler.Calls == 1);
     }
@@ -293,7 +293,9 @@ public sealed class HttpDiscoveryTests
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
+        using var ephemeral = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
+        // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
+        using var certificate = X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pkcs12), null);
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));

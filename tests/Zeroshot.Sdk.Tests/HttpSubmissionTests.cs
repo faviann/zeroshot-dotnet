@@ -232,11 +232,14 @@ public sealed class HttpSubmissionTests
             throw new InvalidOperationException();
         });
         using var http = new HttpClient(handler);
-        using var client = NativeClient.ForHttp(Options(new() { RequestTimeout = TimeSpan.FromMilliseconds(200), MaxConcurrentRequests = 2, ReservedControlRequests = 1 }), http);
+        // The first attempt's deadline runs on a manual clock, so it holds its slot until the refusal is observed.
+        var time = new Zeroshot.Client.Tests.ManualTime();
+        using var client = NativeClient.ForHttp(Options(new() { MaxConcurrentRequests = 2, ReservedControlRequests = 1 }) with { Time = time }, http);
         var first = client.Target.SubmitAttemptAsync(Typed());
         await entered.Task;
         var capacity = await client.Target.SubmitAttemptAsync(Typed());
         Check(capacity.Outcome == NativeAttemptOutcome.NotSent && capacity.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Capacity });
+        time.Advance(new TransportOptions().RequestTimeout);
         var expired = await first;
         Check(expired.Outcome == NativeAttemptOutcome.Unknown && expired.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Deadline } && handler.Calls == 1);
     }

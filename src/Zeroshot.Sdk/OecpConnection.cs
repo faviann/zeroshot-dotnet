@@ -68,7 +68,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         return CallAsync<InitializeResult>("initialize", NativeJson.SerializeUtf8(parameters), result =>
         {
             if (result.ProtocolVersion != requested || result.ProtocolVersion != ProtocolVersion) throw new JsonException();
-        }, cancellationToken, request);
+        }, cancellationToken, request, control: true);
     }
 
     /// <summary>Sends WebSocket $/cancelRequest for one unary ID. This has no acknowledgement and is neither subscription cancellation nor native run stop.
@@ -341,7 +341,7 @@ public sealed partial class OecpRunsClient
         ArgumentNullException.ThrowIfNull(runId);
         if (expectedSource is not null) _ = NativeJson.SerializeUtf8(expectedSource);
         return connection.CallAsync<RunStatusResult>("run/status", NativeJson.SerializeUtf8(new RunStatusParams { RunId = runId }), result => result.Require(runId, expectedSource),
-            cancellationToken, request);
+            cancellationToken, request, control: true);
     }
 }
 

@@ -131,15 +131,25 @@ public sealed class OecpTests
     {
         foreach (var disconnect in new[] { true, false })
         {
+            var answered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             await using var peer = new Peer(async socket =>
             {
                 await Read(socket);
+                await Reply(socket, await Read(socket), "{\"runs\":[]}");
+                await answered.Task;
                 if (disconnect) socket.Abort();
                 else { var cancel = await Read(socket); Check(cancel.GetProperty("method").GetString() == "$/cancelRequest"); }
             });
-            using var client = peer.Client(new() { RequestTimeout = TimeSpan.FromSeconds(2) });
+            // The deadline runs on a manual clock and expires only when advanced.
+            var time = new ManualTime();
+            using var client = NativeClient.ForHttp(new() { Origin = peer.Origin, Time = time });
             await using var connection = await client.ConnectOecpAsync(peer.Session);
-            var error = await Failure(connection.Runs.ListAsync(), disconnect ? NativeOecpFailureKind.Transport : NativeOecpFailureKind.Deadline);
+            var list = connection.Runs.ListAsync();
+            // Sends are serialized: an answered second call proves the first call's send completed.
+            Check((await connection.Runs.ListAsync()).Runs.Length == 0);
+            answered.SetResult();
+            if (!disconnect) time.Advance(new TransportOptions().RequestTimeout);
+            var error = await Failure(list, disconnect ? NativeOecpFailureKind.Transport : NativeOecpFailureKind.Deadline);
             Check(error.Dispatch.SendStarted && error.Dispatch.SendCompleted && !error.Dispatch.ResponseReceived);
             await peer.Finished;
         }
@@ -164,6 +174,30 @@ public sealed class OecpTests
         await connection.CancelRequestAsync(handle.Id);
         Check((await call).Runs.Length == 0);
         await Failure(client.ConnectOecpAsync(peer.Session), NativeOecpFailureKind.Capacity);
+        await peer.Finished;
+    }
+
+    [Test]
+    public async Task InitializeAndStatusUseReservedControlCapacity()
+    {
+        var ordinary = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var peer = new Peer(async socket =>
+        {
+            var list = await Read(socket); ordinary.SetResult();
+            await Reply(socket, await Read(socket), """{"protocolVersion":"openengine.cluster/v1","capabilities":{"graphProfiles":[],"logs":true,"agentAttach":true},"status":{"phase":"empty"}}""");
+            var status = await Read(socket);
+            Check(status.GetProperty("method").GetString() == "run/status");
+            await Reply(socket, status, OecpPeer.Status);
+            await Reply(socket, list, "{\"runs\":[]}");
+        });
+        using var client = peer.Client(new() { MaxConcurrentRequests = 2, ReservedControlRequests = 1 });
+        await using var connection = await client.ConnectOecpAsync(peer.Session);
+        var pending = connection.Runs.ListAsync();
+        await ordinary.Task;
+        await Failure(connection.Runs.ListAsync(), NativeOecpFailureKind.Capacity);
+        await connection.InitializeAsync();
+        Check((await connection.Runs.StatusAsync(new RunId("run-1"))).RunId.Value == "run-1");
+        Check((await pending).Runs.Length == 0);
         await peer.Finished;
     }
 
