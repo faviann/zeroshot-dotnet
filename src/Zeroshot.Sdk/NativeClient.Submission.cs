@@ -24,13 +24,6 @@ public sealed partial class NativeClient
         return SubmitAttemptAsync(prepared, prepared.WithCredentials(runCredentials), credentials, cancellationToken);
     }
 
-    private void ValidateHttpUse()
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
-        if (http.DefaultRequestHeaders.Authorization is not null)
-            throw new ArgumentException("Supply credentials per operation, not as HTTP default headers.");
-    }
-
     private async Task<TargetSubmissionAttempt> SubmitAttemptAsync(PreparedSubmission prepared, byte[] body,
         TargetControlCredentials? credentials, CancellationToken cancellationToken)
     {

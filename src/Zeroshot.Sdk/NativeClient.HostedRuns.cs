@@ -153,3 +153,11 @@ public sealed class NativeHostedRunsClient
         NativeClient.NoStore(request);
     }
 }
+
+public sealed partial class NativeClient
+{
+    // TEMP: removed once hosted runs and merge plans bind through the module.
+    private void ValidateHostedUse(TargetDiscoveryDocument discovery, TargetControlCredentials credentials) { ValidateHttpUse(); AdmitHosted(discovery, credentials); }
+    private byte[] PrepareHostedCall(TargetDiscoveryDocument discovery, TargetHttpContract request, TargetControlCredentials credentials)
+    { ArgumentNullException.ThrowIfNull(request); ValidateHostedUse(discovery, credentials); return NativeJson.SerializeUtf8(request); }
+}
