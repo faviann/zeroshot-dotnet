@@ -17,34 +17,27 @@ public sealed partial class NativeClient
         ArgumentNullException.ThrowIfNull(session);
         var endpoint = NativeRoutes.SessionEndpoint(Origin, session.Endpoint);
         if (session.BearerToken is not null) TargetControlCredentials.ValidateBearer(session.BearerToken);
-        ClientWebSocket? socket = null;
-        HttpMessageInvoker? invoker = null;
-        IDisposable? lease = null;
-        var connected = false;
-        try
+        return (await OecpConnect.ConnectAsync(new Host(this), ConnectOecpOperation, async (context, resources) =>
         {
-            return await executor.ExecuteAsync(ConnectOecpOperation, 0, async context =>
-            {
-                lease = executor.RegisterOecpConnection(ConnectOecpOperation);
-                socket = new ClientWebSocket();
-                socket.Options.KeepAliveInterval = transportOptions.EnableWebSocketLiveness ? transportOptions.WebSocketPingInterval : Timeout.InfiniteTimeSpan;
-                socket.Options.KeepAliveTimeout = transportOptions.EnableWebSocketLiveness ? transportOptions.WebSocketPongTimeout : Timeout.InfiniteTimeSpan;
-                if (session.BearerToken is not null) socket.Options.SetRequestHeader("Authorization", "Bearer " + session.BearerToken);
-                invoker = new HttpMessageInvoker(CreateHttpHandler(transportOptions));
-                await context.ConnectAsync(token => socket.ConnectAsync(endpoint, invoker, token)).ConfigureAwait(false);
-                context.ThrowIfCancelled();
-                var result = new OecpConnection(Origin, new WebSocketTransport(socket, invoker), lease, executor, limits, Observations, connection => oecpConnections.TryRemove(connection, out _));
-                oecpConnections.TryAdd(result, 0);
-                result.Start();
-                if (Volatile.Read(ref disposed) != 0) { result.Dispose(); context.ThrowIfCancelled(); }
-                connected = true;
-                return result;
-            }, cleanup: _ =>
-            {
-                if (!connected) { socket?.Dispose(); invoker?.Dispose(); lease?.Dispose(); }
-                return Task.CompletedTask;
-            }, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var socket = resources.Own(new ClientWebSocket());
+            socket.Options.KeepAliveInterval = transportOptions.EnableWebSocketLiveness ? transportOptions.WebSocketPingInterval : Timeout.InfiniteTimeSpan;
+            socket.Options.KeepAliveTimeout = transportOptions.EnableWebSocketLiveness ? transportOptions.WebSocketPongTimeout : Timeout.InfiniteTimeSpan;
+            if (session.BearerToken is not null) socket.Options.SetRequestHeader("Authorization", "Bearer " + session.BearerToken);
+            var invoker = resources.Own(new HttpMessageInvoker(CreateHttpHandler(transportOptions)));
+            await context.ConnectAsync(token => socket.ConnectAsync(endpoint, invoker, token)).ConfigureAwait(false);
+            return (Origin, new WebSocketTransport(socket, invoker));
+        }, cancellationToken).ConfigureAwait(false))!;
+    }
+
+    // Shares the client's budgets. The client disposes them, and its connections, when it is disposed.
+    private sealed class Host(NativeClient client) : OecpHost(client.executor, client.limits, client.Observations, processWideIds: false)
+    {
+        internal override bool Attach(OecpConnection connection)
+        {
+            client.oecpConnections.TryAdd(connection, 0);
+            return Volatile.Read(ref client.disposed) == 0;
         }
-        catch (OperationFailure failure) { throw new NativeOecpException(failure, new(null, false, false, false)); }
+
+        internal override void Released(OecpConnection connection) => client.oecpConnections.TryRemove(connection, out _);
     }
 }
