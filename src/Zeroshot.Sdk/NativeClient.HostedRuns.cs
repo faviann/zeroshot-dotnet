@@ -63,8 +63,7 @@ public sealed class NativeHostedRunsClient
         {
             subscription ??= record.SubscriptionId;
             source ??= record.Source;
-            if (record.SubscriptionId != subscription || record.RunId != parameters.RunId || record.Source != source)
-                throw new JsonException();
+            parameters.Require(record, subscription, source);
             return record.Cursor;
         }, cancellationToken);
     }
@@ -78,9 +77,7 @@ public sealed class NativeHostedRunsClient
             LogsQuery, ("from_cursor", parameters.FromCursor?.Value), ("execution", parameters.Execution?.Value)), credentials, record =>
         {
             subscription ??= record.SubscriptionId;
-            if (record.SubscriptionId != subscription || record.RunId != parameters.RunId ||
-                (parameters.Execution is not null && record.Execution != parameters.Execution))
-                throw new JsonException();
+            parameters.Require(record, subscription);
             return record.Cursor;
         }, cancellationToken);
     }

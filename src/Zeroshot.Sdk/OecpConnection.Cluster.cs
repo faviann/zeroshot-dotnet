@@ -33,7 +33,7 @@ public sealed class OecpClusterClient
 
     /// <summary>One cluster stop attempt as a control call. The effective mode can differ from the accepted mode.</summary>
     public Task<NativeAttempt<StopResult>> StopAsync(StopParams parameters, OecpRequest? request = null, CancellationToken cancellationToken = default)
-        => Attempt<StopResult>("stop", parameters, result => { if (result.AcceptedMode != parameters.Mode) throw new JsonException(); },
+        => Attempt<StopResult>("stop", parameters, parameters.Require,
             error => Refused(error, "GENERATION_CONFLICT", "IDEMPOTENCY_REUSE", "INVALID_PHASE"), request, cancellationToken, control: true);
 
     /// <summary>A NO_RETRYABLE_FRONTIER refusal exposes its reason through DomainErrorData.NoRetryableFrontierReason.</summary>
@@ -42,7 +42,7 @@ public sealed class OecpClusterClient
             "IDEMPOTENCY_REUSE", "INVALID_PHASE", "NO_RETRYABLE_FRONTIER"), request, cancellationToken);
 
     public Task<NativeAttempt<ResubmitResult>> ResubmitAsync(ResubmitParams parameters, OecpRequest? request = null, CancellationToken cancellationToken = default)
-        => Attempt<ResubmitResult>("resubmit", parameters, result => { if (result.PriorRunId != parameters.IfRunId) throw new JsonException(); },
+        => Attempt<ResubmitResult>("resubmit", parameters, parameters.Require,
             error => Refused(error, "GENERATION_CONFLICT", "RUN_CONFLICT", "IDEMPOTENCY_REUSE", "INVALID_PHASE", "CANCELLED"),
             request, cancellationToken);
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Zeroshot.Native.Contracts;
@@ -9,6 +10,16 @@ public sealed record RunAttachParams : NativeContract
     public required RunId RunId { get; init; }
     [JsonPropertyName("execution")]
     public required ExecutionRef Execution { get; init; }
+
+    internal void Require(RunAttachResult result)
+    {
+        if (result.RunId != RunId || result.Execution != Execution) throw new JsonException();
+    }
+
+    internal void Require(RunAttachEventNotification record, SubscriptionId subscription)
+    {
+        if (record.SubscriptionId != subscription || record.RunId != RunId || record.Execution != Execution) throw new JsonException();
+    }
 }
 
 [WireContract("RunAttachResult")]
