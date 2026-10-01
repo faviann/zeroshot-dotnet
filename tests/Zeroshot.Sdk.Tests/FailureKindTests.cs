@@ -10,8 +10,6 @@ namespace Zeroshot.Client.Tests;
 // without a translation fails here as well as at compile time.
 public sealed class FailureKindTests
 {
-    private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
-
     private static void SameName<TFrom, TTo>(Func<TFrom, TTo> map, params TFrom[] unmapped) where TFrom : struct, Enum where TTo : struct, Enum
     {
         foreach (var kind in Enum.GetValues<TFrom>())

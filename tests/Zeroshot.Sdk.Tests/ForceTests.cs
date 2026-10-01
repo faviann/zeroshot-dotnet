@@ -13,8 +13,6 @@ public sealed class ForceTests
     private const string Stopping = Identity + """{"phase":"stopping","activeExecutions":[{"execution":"worker:1","node":"worker"}]}}""";
     private const string Finished = Identity + """{"phase":"finished","terminalResult":{"status":"failed","reason":"force_stopped"}}}""";
     private static readonly RunId Run = new("run-1");
-    private static void Check(bool value, string message = "Force assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     // Reads every remaining frame until the client closes, so callers can prove there was no second force.
     private static async Task<List<string>> Methods(WebSocket socket, JsonElement first)

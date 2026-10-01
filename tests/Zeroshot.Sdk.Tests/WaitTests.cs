@@ -15,7 +15,6 @@ public sealed class WaitTests
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
     private static readonly NativeBinding Supported = NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa");
     private static readonly RunId RunOne = new("run-1");
-    private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 
     private const string Running = """{"phase":"running","activeExecutions":[]}""";
     private const string Stopping = """{"phase":"stopping","activeExecutions":[]}""";

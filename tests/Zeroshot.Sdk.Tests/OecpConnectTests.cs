@@ -4,20 +4,12 @@ using TUnit.Core;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 using Zeroshot.Native.Execution;
-using static Zeroshot.Client.Tests.SubscriptionContractTests;
 
 namespace Zeroshot.Client.Tests;
 
 public sealed class OecpConnectTests
 {
     private static readonly OperationDescriptor Dial = new("oecp.test", OperationTransport.Oecp);
-
-    private static async Task<T> Throws<T>(Task task) where T : Exception
-    {
-        try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
-        catch (T error) { return error; }
-        throw new InvalidOperationException($"Expected {typeof(T).Name}.");
-    }
 
     private static bool Disposed(StandaloneOecpHost host)
     {

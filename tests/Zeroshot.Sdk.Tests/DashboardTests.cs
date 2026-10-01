@@ -18,9 +18,6 @@ public sealed class DashboardTests
         """{"harness":"codex","provider":"openai","size":"small","nodes":{"work":{"kind":"agent","model":"gpt-5.6-sol"}}}"""u8);
     private static readonly JsonElement DraftRuntime = JsonDocument.Parse("""{"nodes":{"work":{"kind":"agent","model":""}}}""").RootElement.Clone();
 
-    private static void Check(bool value, string message = "Dashboard assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
     private static HttpResponseMessage Reply(HttpRequestMessage request, HttpStatusCode status, string? body = null,
         string? contentType = null, string? location = null)
     {

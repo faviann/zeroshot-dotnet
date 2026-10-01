@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Zeroshot;
+using Zeroshot.Client.Tests;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -15,11 +16,8 @@ public sealed class SubmitTests
     private const string Acknowledged = "0195af77-1000-7000-8000-000000000002";
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
     private static readonly NativeBinding Supported = NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa");
-    private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static PreparedSubmission Retained() => PreparedSubmission.ImportUtf8(File.ReadAllBytes(Path.Combine(Fixtures, "prepared.json")));
     private static string Receipt(string id) => JsonSerializer.Serialize(new { runId = id });
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
     private static ZeroshotClient Client(Handler handler, NativeBinding? binding = null, TransportOptions? transport = null)
         => new(NativeClient.ForHttp(new NativeClientOptions { Origin = new Uri("https://target.example/"), Transport = transport ?? new() },
@@ -193,14 +191,6 @@ public sealed class SubmitTests
         sdk.Dispose();
         await CatchAsync<ObjectDisposedException>(() => sdk.SubmitAsync(Retained()));
         Check(handler.Calls == 0, "Nothing dispatched.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        private int calls;
-        public int Calls => Volatile.Read(ref calls);
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Interlocked.Increment(ref calls); return send(request, cancellationToken); }
     }
 
     private sealed class CleanupContent(string body, Action cleanup) : StringContent(body)

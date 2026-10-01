@@ -19,22 +19,6 @@ public sealed class HttpDiscoveryTests
     {
         Origin = new Uri("https://target.example/"), Transport = transport ?? new()
     };
-    private static void Check(bool value, string message = "HTTP discovery assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException e) { Check(e.Kind == kind, e.ToString()); return e; }
-        throw new InvalidOperationException("Expected HTTP failure.");
-    }
-    private static void Invalid(Action action)
-    {
-        try { action(); }
-        catch (ArgumentException) { return; }
-        throw new InvalidOperationException("Expected invalid argument.");
-    }
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body = Direct, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body) };
 
     [Test]
     public async Task CompleteDiscoveryTypesPreserveWireNamesAndIgnoreOnlyUnknownExtensions()
@@ -97,7 +81,7 @@ public sealed class HttpDiscoveryTests
             {
                 Check(request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath == "/.well-known/zeroshot-native-v2");
                 Check(request.Content is null && request.Headers.Authorization is null);
-                return Task.FromResult(Reply(request, body, status));
+                return Task.FromResult(TextReply(request, body, status));
             });
             using var http = new HttpClient(handler);
             using var native = NativeClient.ForHttp(Options(), http);
@@ -126,7 +110,7 @@ public sealed class HttpDiscoveryTests
             // Received bytes are counted regardless of a smaller declared length; a larger one fails before reading.
             Check(stream.BytesRead == (declaredLength > 24 ? 0 : 25));
         }
-        using var errorHandler = new Handler((request, _) => Task.FromResult(Reply(request, "sensitive", HttpStatusCode.NotFound)));
+        using var errorHandler = new Handler((request, _) => Task.FromResult(TextReply(request, "sensitive", HttpStatusCode.NotFound)));
         using var errorHttp = new HttpClient(errorHandler);
         using var small = NativeClient.ForHttp(Options(new() { MaxErrorBodyBytes = 4 }), errorHttp);
         await Failure(small.Target.DiscoverAsync(), NativeHttpFailureKind.SizeLimit);
@@ -140,7 +124,7 @@ public sealed class HttpDiscoveryTests
     [Test]
     public void InvalidConfigurationFailsWithoutContact()
     {
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request)));
+        using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Direct)));
         using var http = new HttpClient(handler);
         foreach (var uri in new[] { "http://example.com", "http://localhost", "http://127.0.0.2", "http://127.1", "http://2130706433", "ftp://target.example", "https://u:p@target.example", "https://@target.example", "https://target.example/path", "https://target.example/../", "https://target.example/?", "https://target.example/#", "https://target.example/\\path", "/relative" })
             Invalid(() => NativeClient.ForHttp(Options() with { Origin = new Uri(uri, UriKind.RelativeOrAbsolute) }, http));
@@ -164,7 +148,7 @@ public sealed class HttpDiscoveryTests
                 started.TrySetResult();
                 await Task.Delay(Timeout.Infinite, token);
             }
-            return Reply(request);
+            return TextReply(request, Direct);
         });
         using var http = new HttpClient(handler);
         var native = NativeClient.ForHttp(Options(), http);
@@ -177,7 +161,7 @@ public sealed class HttpDiscoveryTests
         using var usable = await http.GetAsync("https://target.example/still-usable");
         try { await native.Target.DiscoverAsync(); throw new InvalidOperationException("Expected disposed client."); }
         catch (ObjectDisposedException) { }
-        using var ownedHandler = new Handler((request, _) => Task.FromResult(Reply(request)));
+        using var ownedHandler = new Handler((request, _) => Task.FromResult(TextReply(request, Direct)));
         var owned = new HttpClient(ownedHandler);
         await NativeClient.ForHttp(Options(), owned, ownsHttpClient: true).DisposeAsync();
         Check(ownedHandler.Disposed);
@@ -191,7 +175,7 @@ public sealed class HttpDiscoveryTests
         {
             started.TrySetResult();
             await Task.Delay(Timeout.Infinite, token);
-            return Reply(request);
+            return TextReply(request, Direct);
         });
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
@@ -211,7 +195,7 @@ public sealed class HttpDiscoveryTests
     [Test]
     public async Task DiscoveryRequiresExactly200()
     {
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, status: HttpStatusCode.Accepted)));
+        using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Direct, HttpStatusCode.Accepted)));
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
         var failure = await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.HttpStatus);
@@ -258,7 +242,7 @@ public sealed class HttpDiscoveryTests
         using var handler = new Handler((request, _) =>
         {
             request.RequestUri = new Uri("http://127.0.0.1/");
-            return Task.FromResult(Reply(request));
+            return Task.FromResult(TextReply(request, Direct));
         });
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
@@ -343,7 +327,7 @@ public sealed class HttpDiscoveryTests
                 head.Content.Headers.ContentLength = 29;
                 return Task.FromResult(head);
             }
-            return Task.FromResult(Reply(request, "{\"code\":\"x\",\"message\":\"y\"}", HttpStatusCode.NotFound));
+            return Task.FromResult(TextReply(request, "{\"code\":\"x\",\"message\":\"y\"}", HttpStatusCode.NotFound));
         });
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);

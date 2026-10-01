@@ -41,16 +41,6 @@ public sealed class HttpHostedRunTests
     private static string Closed(string reason) => $$"""{"type":"closed","reason":"{{reason}}"}""";
     private static string Json(string value) => System.Text.Json.JsonEncodedText.Encode(value).ToString();
 
-    private static void Check(bool value, string message = "Hosted run assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
-    private static NativeClient Client(Handler handler, TransportOptions? transport = null) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/"), Transport = transport ?? new() },
-        new HttpClient(handler), ownsHttpClient: true);
-
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-
     // Native requires no NDJSON Content-Type; this peer sends none.
     private static HttpResponseMessage Stream(HttpRequestMessage request, FeedStream feed)
         => new(HttpStatusCode.OK) { RequestMessage = request, Content = new StreamContent(feed) };
@@ -60,7 +50,7 @@ public sealed class HttpHostedRunTests
     {
         var seen = new List<(HttpMethod Method, string Url, string? Accept, bool NoStore, string? Body)>();
         var feeds = new List<FeedStream>();
-        using var native = Client(new Handler(async (request, token) =>
+        using var native = ClientFor(new Handler(async (request, token) =>
         {
             Check(request.Headers.Authorization!.ToString() == "Bearer " + Bearer);
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
@@ -146,7 +136,7 @@ public sealed class HttpHostedRunTests
     public async Task InvalidUseIsRefusedBeforeDispatch()
     {
         var handler = new Handler((_, _) => throw new InvalidOperationException("dispatched"));
-        using var native = Client(handler);
+        using var native = ClientFor(handler);
         var run = new RunId("run-1");
         static TargetHostedRunsDiscovery With(TargetHostedRunRoutes routes) => Capability with { RouteTemplates = routes };
         var refused = new (TargetDiscoveryDocument Discovery, TargetControlCredentials Credentials, RunId Run)[]
@@ -230,7 +220,7 @@ public sealed class HttpHostedRunTests
 
         // The execution filter admits only that execution's records.
         var feed = new FeedStream();
-        using var native = Client(new Handler((request, _) => Task.FromResult(Stream(request, feed))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Stream(request, feed))));
         await using var logs = await native.HostedRuns.LogsAsync(Discovery(Capability),
             new() { RunId = new(Run), Execution = new("worker:1") }, Hosted);
         feed.Write(Encoding.UTF8.GetBytes(Log(1) + "\n" + Log(2, execution: "worker:2") + "\n"));
@@ -263,7 +253,7 @@ public sealed class HttpHostedRunTests
     public async Task OverflowEndsTheStreamExplicitlyAfterQueuedRecordsDrain()
     {
         var feed = new FeedStream();
-        using var native = Client(new Handler((request, _) => Task.FromResult(Stream(request, feed))), new() { MaxQueuedObservationRecords = 2 });
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Stream(request, feed))), new() { MaxQueuedObservationRecords = 2 });
         await using var watch = await native.HostedRuns.WatchAsync(Discovery(Capability), new() { RunId = new(Run) }, Hosted);
         feed.Write(Encoding.UTF8.GetBytes(Watch(1) + "\n" + Watch(2) + "\n" + Watch(3) + "\n"));
         Check((await watch.Completion) is { Origin: NativeSubscriptionOrigin.LocalFailure, Failure.Kind: NativeSubscriptionFailureKind.RecordLimit } && feed.Disposed);
@@ -288,14 +278,14 @@ public sealed class HttpHostedRunTests
             (_ => throw new HttpRequestException("reset"), NativeAttemptOutcome.Unknown)
         })
         {
-            using var native = Client(new Handler((request, _) => Task.FromResult(reply(request))));
+            using var native = ClientFor(new Handler((request, _) => Task.FromResult(reply(request))));
             var attempt = await native.HostedRuns.ForceAsync(Discovery(Capability), run, Hosted);
             Check(attempt.Outcome == outcome && attempt.Response is null && attempt.Failure is not null &&
                 !attempt.ToString().Contains(Bearer), outcome.ToString());
         }
 
         var handler = new Handler((request, _) => Task.FromResult(Reply(request, Status(Finished))));
-        using (var native = Client(handler))
+        using (var native = ClientFor(handler))
         {
             using var cancelled = new CancellationTokenSource();
             cancelled.Cancel();
@@ -304,7 +294,7 @@ public sealed class HttpHostedRunTests
         }
 
         // A status for another run is foreign data; a refused stream is an HTTP failure before any record.
-        using var reads = Client(new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/watch")
+        using var reads = ClientFor(new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/watch")
             ? Reply(request, problem("unauthorized"), HttpStatusCode.Unauthorized) : Reply(request, Status(Queued, runId: "run-2")))));
         Check((await Expect(reads.HostedRuns.StatusAsync(Discovery(Capability), run, Hosted))).Kind == NativeHttpFailureKind.Protocol);
         Check((await Expect(reads.HostedRuns.WatchAsync(Discovery(Capability), new() { RunId = run }, Hosted)))
@@ -315,7 +305,7 @@ public sealed class HttpHostedRunTests
         ObserveWatch(string body, bool bytewise = false, byte[]? tail = null, TransportOptions? transport = null)
     {
         var feed = new FeedStream();
-        using var native = Client(new Handler((request, _) => Task.FromResult(Stream(request, feed))), transport);
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Stream(request, feed))), transport);
         await using var watch = await native.HostedRuns.WatchAsync(Discovery(Capability), new() { RunId = new(Run) }, Hosted);
         byte[] bytes = [.. Encoding.UTF8.GetBytes(body), .. tail ?? []];
         if (bytewise) foreach (var b in bytes) feed.Write([b]);

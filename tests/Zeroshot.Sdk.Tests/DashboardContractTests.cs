@@ -10,8 +10,6 @@ namespace Zeroshot.Client.Tests;
 
 public sealed class DashboardContractTests
 {
-    private static void Check(bool value, string message = "Dashboard contract assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
     private static void Rejected<T>(JsonNode json)
     {
         try { NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(json.ToJsonString())); }

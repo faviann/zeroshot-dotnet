@@ -14,12 +14,6 @@ public sealed class SubscriptionTests
     private static Task Event(WebSocket socket, string parameters) => Send(socket, $$"""{"jsonrpc":"2.0","method":"event","params":{{parameters}}}""");
     private static Task Closed(WebSocket socket, string id, string reason = "done", string cursor = "server-end")
         => Send(socket, $$$"""{"jsonrpc":"2.0","method":"subscription/closed","params":{"subscriptionId":"{{{id}}}","reason":"{{{reason}}}","lastDeliveredCursor":"{{{cursor}}}"}}""");
-    private static async Task<NativeSubscriptionException> Failure(Func<Task> action, NativeSubscriptionFailureKind kind)
-    {
-        try { await action(); }
-        catch (NativeSubscriptionException failure) { Check(failure.Kind == kind); return failure; }
-        throw new InvalidOperationException("Expected subscription failure.");
-    }
     private static async Task<List<T>> Drain<E, T>(NativeSubscription<E, T> subscription)
     {
         var records = new List<T>();

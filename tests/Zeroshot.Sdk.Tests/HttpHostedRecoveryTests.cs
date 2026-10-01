@@ -41,12 +41,6 @@ public sealed class HttpHostedRecoveryTests
         TargetAuthentication authentication = TargetAuthentication.HostedOauth, TargetHostedRunsDiscovery? hostedRuns = null)
         => TestDiscovery.Controller(authentication) with { Extensions = new() { HostedRuns = hostedRuns ?? HostedRuns, HostedWorkspaceRecovery = recovery } };
     private static readonly RunCheckpointsParams Checkpoints = new() { RunId = new(Run) };
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    private static void Check(bool value, string message = "Hosted recovery assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task EachOperationPostsItsContractBodyToItsRecoveryRouteUnderTheHostedRunsBase()
@@ -61,7 +55,7 @@ public sealed class HttpHostedRecoveryTests
                 request.Content.Headers.ContentType!.MediaType == "application/json");
             return Reply(request, url.EndsWith("/checkpoints") ? Page : url.EndsWith("/resume") ? Resumed : Discarded);
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var page = await client.HostedRecovery.CheckpointsAsync(Discovery(Capability),
             Checkpoints with { After = new("opaque/0"), Limit = 1 }, Hosted);
         var runCredentials = new TargetRunCredentials
@@ -116,16 +110,16 @@ public sealed class HttpHostedRecoveryTests
             (Discovery(Capability with { RouteTemplates = routes with { DiscardWorkspace = "https://attacker.example/{run_id}" } }), Hosted),
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Discarded)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var (discovery, credentials) in cases)
         {
             // Every operation refuses, because native compiles all three recovery routes together.
-            await Invalid(() => client.HostedRecovery.CheckpointsAsync(discovery, Checkpoints, credentials));
-            await Invalid(() => client.HostedRecovery.ResumeAsync(discovery, new(Run), new(Successor), credentials));
-            await Invalid(() => client.HostedRecovery.DiscardWorkspaceAsync(discovery, new(Run), credentials));
+            await Invalid(() => client.HostedRecovery.CheckpointsAsync(discovery, Checkpoints, credentials), Bearer);
+            await Invalid(() => client.HostedRecovery.ResumeAsync(discovery, new(Run), new(Successor), credentials), Bearer);
+            await Invalid(() => client.HostedRecovery.DiscardWorkspaceAsync(discovery, new(Run), credentials), Bearer);
         }
         // Native's path-segment setter would drop this ID and address another route.
-        await Invalid(() => client.HostedRecovery.DiscardWorkspaceAsync(Discovery(Capability), new(".."), Hosted));
+        await Invalid(() => client.HostedRecovery.DiscardWorkspaceAsync(Discovery(Capability), new(".."), Hosted), Bearer);
         Check(handler.Calls == 0, $"{handler.Calls} requests sent");
     }
 
@@ -134,7 +128,7 @@ public sealed class HttpHostedRecoveryTests
     {
         var reply = "";
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, reply)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var page in new[]
         {
             Page.Replace("\"runId\":\"run/1\"", "\"runId\":\"run-9\""),
@@ -169,7 +163,7 @@ public sealed class HttpHostedRecoveryTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
                 JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var resume = await client.HostedRecovery.ResumeAsync(Discovery(Capability), new(Run), new(Successor), Hosted);
             var discard = await client.HostedRecovery.DiscardWorkspaceAsync(Discovery(Capability), new(Run), Hosted);
             Check(resume.Outcome == discard.Outcome &&
@@ -179,7 +173,7 @@ public sealed class HttpHostedRecoveryTests
         }
 
         using (var lost = new Handler((_, _) => throw new HttpRequestException("connection reset")))
-        using (var peer = Client(lost))
+        using (var peer = ClientFor(lost))
         {
             var resume = await peer.HostedRecovery.ResumeAsync(Discovery(Capability), new(Run), new(Successor), Hosted);
             var discard = await peer.HostedRecovery.DiscardWorkspaceAsync(Discovery(Capability), new(Run), Hosted);
@@ -189,24 +183,10 @@ public sealed class HttpHostedRecoveryTests
         // Native reads every hosted recovery result under 64 KiB.
         using var large = new Handler((request, _) => Task.FromResult(Reply(request,
             request.RequestUri!.OriginalString.EndsWith("/checkpoints") ? Page + new string(' ', 64 * 1024) : Resumed + new string(' ', 64 * 1024))));
-        using var bounded = Client(large);
+        using var bounded = ClientFor(large);
         var oversized = await bounded.HostedRecovery.ResumeAsync(Discovery(Capability), new(Run), new(Successor), Hosted);
         Check(oversized is { Outcome: NativeAttemptOutcome.Unknown, Failure: NativeHttpException { Kind: NativeHttpFailureKind.SizeLimit } });
         await Failure(bounded.HostedRecovery.CheckpointsAsync(Discovery(Capability), Checkpoints, Hosted), NativeHttpFailureKind.SizeLimit);
     }
 
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Bearer)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected native failure.");
-    }
 }

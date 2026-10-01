@@ -1,4 +1,10 @@
+global using static Zeroshot.Client.Tests.TestKit;
+using System.Net;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Channels;
+using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Client.Tests;
@@ -64,4 +70,57 @@ internal static class TestDiscovery
         Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = authentication,
         RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp"
     };
+}
+
+// Assertions and fixtures shared by every test file (imported by the global using above).
+internal static class TestKit
+{
+    /// <summary>Fails with the asserted expression so a bare check still says what broke.</summary>
+    public static void Check(bool condition, string? message = null, [CallerArgumentExpression(nameof(condition))] string? expression = null)
+    { if (!condition) throw new InvalidOperationException(message is null ? $"Check failed: {expression}" : $"{message} (check: {expression})"); }
+
+    // Not "Client": inside namespace Zeroshot.Client.Tests that name binds to the Zeroshot.Client namespace first.
+    public static NativeClient ClientFor(Handler handler, TransportOptions? transport = null) => NativeClient.ForHttp(
+        new NativeClientOptions { Origin = new Uri("https://target.example/"), Transport = transport ?? new() },
+        new HttpClient(handler), ownsHttpClient: true);
+
+    /// <summary>A JSON response ("application/json; charset=utf-8").</summary>
+    public static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
+    /// <summary>The same body labelled "text/plain; charset=utf-8", for routes whose parsing must not depend on Content-Type.</summary>
+    public static HttpResponseMessage TextReply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status) { RequestMessage = request, Content = new StringContent(body) };
+
+    public static async Task<TException> Failure<TException>(Func<Task> action, Func<TException, bool> expected) where TException : Exception
+    {
+        try { await action(); }
+        catch (TException error) { Check(expected(error), error.ToString()); return error; }
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+    }
+    public static Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind) => Failure<NativeHttpException>(() => task, error => error.Kind == kind);
+    public static Task<NativeOecpException> Failure(Task task, NativeOecpFailureKind kind) => Failure<NativeOecpException>(() => task, error => error.Kind == kind);
+    public static Task<NativeSubscriptionException> Failure(Func<Task> action, NativeSubscriptionFailureKind kind)
+        => Failure<NativeSubscriptionException>(action, error => error.Kind == kind);
+
+    /// <summary>Caller input refused before anything is sent, without echoing any of <paramref name="secrets"/>.</summary>
+    public static async Task Invalid(Func<Task> action, params string[] secrets)
+    {
+        try { await action(); }
+        catch (Exception error) when (error is ArgumentException or JsonException)
+        { var text = error.ToString(); Check(!secrets.Any(text.Contains), $"Invalid-input error echoed a secret: {text}"); return; }
+        throw new InvalidOperationException("Expected invalid caller input.");
+    }
+    public static void Invalid(Action action)
+    {
+        try { action(); }
+        catch (ArgumentException) { return; }
+        throw new InvalidOperationException("Expected ArgumentException.");
+    }
+
+    public static async Task<T> Throws<T>(Task task, int seconds = 5) where T : Exception
+    {
+        try { await task.WaitAsync(TimeSpan.FromSeconds(seconds)); }
+        catch (T error) { return error; }
+        throw new InvalidOperationException($"Expected {typeof(T).Name}.");
+    }
 }

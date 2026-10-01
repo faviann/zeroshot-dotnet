@@ -22,17 +22,12 @@ public sealed class PrivateExportsTests
           {"id":"2","runId":"{{Run}}","code":"runtime_failed","operation":"supervisor.drive",
            "stdout":"","stderr":"supervisor.drive: lost","stdoutTruncated":false,"stderrTruncated":false}]}
         """;
-    private static void Check(bool value, string message = "Private export assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
 
     [Test]
     public async Task ReadsUseTheFixedRoutesExactBodiesAndPrivateCapability()
     {
         var seen = new List<(HttpRequestMessage Request, string? Body)>();
-        using var native = Client(new Handler(async (request, token) =>
+        using var native = ClientFor(new Handler(async (request, token) =>
         {
             seen.Add((request, request.Content is null ? null : await request.Content.ReadAsStringAsync(token)));
             var path = request.RequestUri!.AbsolutePath;
@@ -77,7 +72,7 @@ public sealed class PrivateExportsTests
     public async Task InvalidAuthorityOrArgumentsAreNeverSent(string name, Func<NativeClient, Task> call)
     {
         var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var native = Client(handler);
+        using var native = ClientFor(handler);
         try { await call(native); }
         catch (ArgumentException error) { Check(handler.Calls == 0 && !error.ToString().Contains(Capability), name); return; }
         throw new InvalidOperationException("Expected invalid use: " + name);
@@ -96,7 +91,7 @@ public sealed class PrivateExportsTests
     public async Task RefusalsKeepStatusProblemAndOperationSpecificCategory(string operation, int status, string code, RunHistoryProblemCode? history)
     {
         const string message = "PROBLEM-MESSAGE-CANARY";
-        using var native = Client(new Handler((request, _) => Task.FromResult(
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(
             Reply(request, JsonSerializer.Serialize(new { code, message }), (HttpStatusCode)status))));
         var error = await Expect(Call(native, operation), NativeHttpFailureKind.HttpStatus);
         Check(error.StatusCode == (HttpStatusCode)status && error.Problem?.Code == code && error.HistoryProblem == history, $"{operation} {code}");
@@ -121,7 +116,7 @@ public sealed class PrivateExportsTests
     public async Task MalformedOrOversizedResponsesFailBounded(string name, string operation, Func<string> body, NativeHttpFailureKind kind)
     {
         var text = body();
-        using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, text))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, text))));
         var error = await Expect(Call(native, operation), kind);
         Check(error.StatusCode == HttpStatusCode.OK && !error.ToString().Contains(Output), name);
     }
@@ -131,7 +126,7 @@ public sealed class PrivateExportsTests
     {
         // 4096 UTF-8 bytes in 2048 two-byte characters: native cuts on a character boundary within 4 KiB.
         var text = new string('é', 2048);
-        using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, Diagnostics(text)))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, Diagnostics(text)))));
         var snapshot = await native.Private.GetOperatorDiagnosticsAsync(new RunId(Run), Private);
         Check(snapshot.Diagnostics[0].Stdout == text);
     }
@@ -150,6 +145,4 @@ public sealed class PrivateExportsTests
         throw new InvalidOperationException("Expected HTTP failure.");
     }
 
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
 }
