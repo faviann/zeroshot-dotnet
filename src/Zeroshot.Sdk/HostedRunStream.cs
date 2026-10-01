@@ -14,14 +14,17 @@ namespace Zeroshot.Native;
 /// </summary>
 public sealed class HostedRunStream<TEvent> : IAsyncDisposable
 {
-    private readonly HttpObservation<TEvent> observation;
+    private readonly ObservationLifecycle<TEvent> observation;
     public Task<NativeSubscriptionCompletion> Completion => observation.Completion;
     /// <summary>Last cursor handed to the caller, including records drained after closure. Not a processing checkpoint.</summary>
     public Cursor? LastDeliveredCursor => observation.LastDeliveredCursor;
 
     internal HostedRunStream(ObservationQueue<TEvent, Cursor> queue, HttpResponseMessage response, Stream body,
         int frameBytes, Func<TEvent, Cursor> validate)
-        => observation = new(queue, response, (target, token) => ReadAsync(target, body, frameBytes, validate, token));
+    {
+        observation = new(queue);
+        observation.Start(response, token => ReadAsync(observation, body, frameBytes, validate, token));
+    }
 
     public IAsyncEnumerable<TEvent> ReadAllAsync(CancellationToken cancellationToken = default)
         => observation.ReadAllAsync(cancellationToken);
@@ -29,7 +32,7 @@ public sealed class HostedRunStream<TEvent> : IAsyncDisposable
     public ValueTask DisposeAsync() => observation.DisposeAsync();
 
     // Native HostedRunStreamFrame: strict {"type":"event","event":E} or {"type":"closed","reason":R}.
-    private static async Task<NativeSubscriptionException?> ReadAsync(HttpObservation<TEvent> observation, Stream body,
+    private static async Task<NativeSubscriptionException?> ReadAsync(ObservationLifecycle<TEvent> observation, Stream body,
         int frameBytes, Func<TEvent, Cursor> validate, CancellationToken cancellationToken)
     {
         var reader = new FrameReader(body, frameBytes);
@@ -47,12 +50,8 @@ public sealed class HostedRunStream<TEvent> : IAsyncDisposable
                 observation.Enqueue(record, frame.Length, validate(record));
             }
             else if (type.ValueEquals("closed") && root.TryGetProperty("reason", out var reason))
-                return NativeJson.DeserializeUtf8<SubscriptionCloseReason>(JsonMarshal.GetRawUtf8Value(reason)) switch
-                {
-                    SubscriptionCloseReason.SlowConsumer => new(NativeSubscriptionFailureKind.SlowConsumer),
-                    SubscriptionCloseReason.SourceUnavailable => new(NativeSubscriptionFailureKind.SourceUnavailable),
-                    _ => null
-                };
+                return ObservationLifecycle<TEvent>.CloseFailure(
+                    NativeJson.DeserializeUtf8<SubscriptionCloseReason>(JsonMarshal.GetRawUtf8Value(reason)));
             else throw new JsonException();
         }
         // Native follow loops reconnect after EOF without a closed frame; it never completes the subscription.
