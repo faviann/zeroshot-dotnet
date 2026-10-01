@@ -311,7 +311,7 @@ public sealed class HttpDiscoveryTests
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
         var uri = new Uri("https://target.example/ui-routed");
-        var result = await native.ExecuteHeadAsync(operation, uri, null, default);
+        var result = await native.HeadAsync(new HttpBinding<NativeHeadResult>(operation), () => uri, null, default);
         Check(result.StatusCode == HttpStatusCode.OK && result.ContentLength == 29 && result.MediaType == "application/json");
         // The operation's refusal-body bound applies below the shared diagnostic ceiling.
         var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, uri, null, null, _ => { }, default),
@@ -319,14 +319,6 @@ public sealed class HttpDiscoveryTests
         Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null && refused.UiProblem is null);
     }
 
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        public bool Disposed { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
-        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
-    }
     private sealed class CountingStream(byte[] bytes) : MemoryStream(bytes)
     {
         public int BytesRead { get; private set; }

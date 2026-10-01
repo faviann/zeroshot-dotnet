@@ -20,12 +20,11 @@ public sealed class HistoryTests
 
     private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.None,
         string baseUrl = "https://target.example/history", string list = "/runs{?after}",
-        string detail = "/runs/{run_id}", string page = "/runs/{run_id}/page{?after}", string kind = NativeHistoryClient.Kind) => new()
-    {
-        Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = authentication,
-        RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp",
-        Extensions = new() { RunHistory = new() { Kind = kind, BaseUrl = baseUrl, RouteTemplates = new() { List = list, Detail = detail, Page = page } } }
-    };
+        string detail = "/runs/{run_id}", string page = "/runs/{run_id}/page{?after}", string kind = NativeHistoryClient.Kind)
+        => TestDiscovery.Controller(authentication) with
+        {
+            Extensions = new() { RunHistory = new() { Kind = kind, BaseUrl = baseUrl, RouteTemplates = new() { List = list, Detail = detail, Page = page } } }
+        };
 
     private static NativeClient Client(Handler handler, TransportOptions? transport = null)
         => NativeClient.ForHttp(new() { Origin = new Uri("https://target.example/"), Transport = transport ?? new() }, new HttpClient(handler), ownsHttpClient: true);
@@ -359,12 +358,5 @@ public sealed class HistoryTests
         var reply = new HttpResponseMessage(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
         reply.Content.Headers.ContentType = new("application/json");
         return reply;
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 }

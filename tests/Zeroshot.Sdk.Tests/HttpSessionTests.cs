@@ -17,11 +17,8 @@ public sealed class HttpSessionTests
     private const string Run = "0195af77-1000-7000-8000-000000000001";
     private const string Control = "CONTROL-CREDENTIAL-CANARY";
     private const string Session = "SESSION-CREDENTIAL-CANARY";
-    private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.None) => new()
-    {
-        Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = authentication,
-        RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp"
-    };
+    private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.None)
+        => TestDiscovery.Controller(authentication);
     private static NativeClientOptions Options(TransportOptions? transport = null) => new()
     { Origin = new Uri("https://target.example/"), Transport = transport ?? new() };
     private static void Check(bool value, string message = "Session assertion failed.")
@@ -409,12 +406,5 @@ public sealed class HttpSessionTests
             credentials: new(TargetAuthentication.HostedOauth, Control), cancellationToken: timeout.Token);
         Check(session.Endpoint == endpoint && session.BearerToken == Session);
         await server;
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 }

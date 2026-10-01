@@ -24,12 +24,8 @@ public sealed class HttpOAuthTests
         DeviceExchangeFields = ["device_label", "device_token"]
     };
     private static readonly TargetLoginSessionDiscovery Login = new() { RouteTemplate = "/login/session", Method = "GET", CachePolicy = "no-store" };
-    private static TargetDiscoveryDocument Discovery(TargetOAuthDiscovery? oauth = null, TargetLoginSessionDiscovery? login = null) => new()
-    {
-        Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = TargetAuthentication.HostedOauth,
-        RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp",
-        Oauth = oauth ?? OAuth, LoginSession = login ?? Login
-    };
+    private static TargetDiscoveryDocument Discovery(TargetOAuthDiscovery? oauth = null, TargetLoginSessionDiscovery? login = null)
+        => TestDiscovery.Controller(TargetAuthentication.HostedOauth) with { Oauth = oauth ?? OAuth, LoginSession = login ?? Login };
     private static readonly DeviceAuthorization Authorization = new()
     {
         DeviceCode = DeviceCode, UserCode = "ABCD-EFGH", VerificationUri = "https://login.example/device",
@@ -350,12 +346,5 @@ public sealed class HttpOAuthTests
         try { await task; }
         catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
         throw new InvalidOperationException("Expected native failure.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 }

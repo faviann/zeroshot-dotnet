@@ -152,14 +152,4 @@ public sealed class DashboardTests
             Check(handler.Calls == 0);
         }
     }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Calls++;
-            return send(request, cancellationToken);
-        }
-    }
 }
