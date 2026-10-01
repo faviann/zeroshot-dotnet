@@ -90,6 +90,22 @@ public sealed partial class NativeClient
             binding.Configure(configure), readSuccess, binding.Validate(id, validate)).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Opens one streaming GET whose response becomes a bounded observation. Queue admission precedes dispatch,
+    /// and the opening token also cancels the observation later. A refusal before the stream starts is a
+    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response. Native bounds
+    /// frames at <paramref name="frameBytes"/>; the configured message ceiling can only lower it.
+    /// </summary>
+    internal Task<TStream> OpenStreamAsync<TRecord, TStream>(HttpBinding<TStream> binding, Func<HttpCall> route,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure, int frameBytes,
+        Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, int, TStream> create, CancellationToken cancellationToken)
+    {
+        ValidateHttpUse();
+        var call = route();
+        return StartStreamAsync<TRecord, TStream>(binding.Operation(call), call.Uri, credentials, admits, binding.Configure(configure),
+            (queue, response, body) => create(queue, response, body, Math.Min(limits.MessageBytes, frameBytes)), cancellationToken);
+    }
+
     /// <summary>A body-less HEAD; refusals keep their status like any other HTTP operation.</summary>
     internal Task<NativeHeadResult> HeadAsync(HttpBinding<NativeHeadResult> binding, Func<HttpCall> route,
         TargetControlCredentials? credentials, CancellationToken cancellationToken)
@@ -107,6 +123,8 @@ public sealed partial class NativeClient
             configure: binding.Configure(), redirectIsResult: redirectIsResult);
     }
 
+    // Before any argument or discovery check. SendAsync repeats the authorization check: a supplied client's
+    // default headers can still change before dispatch.
     private void ValidateHttpUse()
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);

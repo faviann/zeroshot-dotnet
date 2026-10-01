@@ -113,22 +113,6 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
             }, cancellationToken, onDispatch, configure);
 
-    /// <summary>
-    /// Opens one streaming GET whose response becomes a bounded observation. Queue admission precedes dispatch,
-    /// and the opening token also cancels the observation later. A refusal before the stream starts is a
-    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response. Native bounds
-    /// frames at <paramref name="frameBytes"/>; the configured message ceiling can only lower it.
-    /// </summary>
-    internal Task<TStream> OpenStreamAsync<TRecord, TStream>(HttpBinding<TStream> binding, Func<HttpCall> route,
-        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure, int frameBytes,
-        Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, int, TStream> create, CancellationToken cancellationToken)
-    {
-        ValidateHttpUse();
-        var call = route();
-        return StartStreamAsync<TRecord, TStream>(binding.Operation(call), call.Uri, credentials, admits, binding.Configure(configure),
-            (queue, response, body) => create(queue, response, body, Math.Min(limits.MessageBytes, frameBytes)), cancellationToken);
-    }
-
     private async Task<TStream> StartStreamAsync<TRecord, TStream>(OperationDescriptor operation, Uri requestUri,
         TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage>? configure,
         Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, TStream> create, CancellationToken cancellationToken)
