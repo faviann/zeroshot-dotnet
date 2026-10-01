@@ -203,6 +203,24 @@ public sealed class HttpSubmissionTests
     }
 
     [Test]
+    public async Task CapturedReceiptSurvivesCancellationThatLandsBeforeTheOperationCompletes()
+    {
+        using var handler = new Handler(async (request, _) =>
+        {
+            await Task.Yield(); // The operation must be pending, not complete synchronously, when cancellation lands.
+            return Reply(request, Receipt(Acknowledged));
+        });
+        using var http = new HttpClient(handler);
+        using var client = NativeClient.ForHttp(Options(), http);
+        using var cancellation = new CancellationTokenSource();
+        // Cancels inside the operation, after validation and capture: the executor reports cancellation, not the result.
+        var attempt = await client.AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation, new Uri(client.Origin, "/native-v2/run"),
+            NativeJson.SerializeUtf8(Typed()), null, (_, _) => false, cancellation.Token, afterCapture: cancellation.Cancel);
+        Check(cancellation.IsCancellationRequested && attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Failure: null });
+        Check(attempt.Response!.RunId.Value == Acknowledged && attempt.CorrelationId != Guid.Empty && handler.Calls == 1);
+    }
+
+    [Test]
     public async Task DeadlineAndCapacityAreEvidenceWithDispatchSpecificOutcomes()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

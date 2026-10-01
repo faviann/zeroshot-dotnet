@@ -26,10 +26,9 @@ public sealed partial class NativeClient
         var uri = HostedRecoveryRoute(discovery, credentials, routes => routes.Resume, runId);
         var body = RunResumeParams.SerializeUtf8(runId, successorRunId, from, runCredentials);
         var operation = NativeHostedRecoveryClient.ResumeOperation;
-        var (correlationId, outcome, response, failure) = await AttemptAsync<RunResumeResult>(operation, uri, body, credentials,
+        return await AttemptAsync<RunResumeResult>(operation, uri, body, credentials,
             IsHostedRefusal, cancellationToken, configure: NoStore,
             validate: result => result.Require(runId, successorRunId)).ConfigureAwait(false);
-        return new NativeAttempt<RunResumeResult>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     internal async Task<NativeAttempt<RunDiscardWorkspaceResult>> HostedDiscardWorkspaceAsync(TargetDiscoveryDocument discovery,
@@ -37,10 +36,9 @@ public sealed partial class NativeClient
     {
         var uri = HostedRecoveryRoute(discovery, credentials, routes => routes.DiscardWorkspace, runId);
         var operation = NativeHostedRecoveryClient.DiscardWorkspaceOperation;
-        var (correlationId, outcome, response, failure) = await AttemptAsync<RunDiscardWorkspaceResult>(operation, uri,
+        return await AttemptAsync<RunDiscardWorkspaceResult>(operation, uri,
             NativeJson.SerializeUtf8(new RunDiscardWorkspaceParams { RunId = runId }), credentials, IsHostedRefusal,
             cancellationToken, configure: NoStore, validate: result => result.Require(runId)).ConfigureAwait(false);
-        return new NativeAttempt<RunDiscardWorkspaceResult>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     // Native compiles the recovery routes within the hosted-runs descriptor (contract/hosted_runs.rs): they append

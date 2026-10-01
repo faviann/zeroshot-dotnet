@@ -27,9 +27,8 @@ public sealed partial class NativeClient
             throw new ArgumentException("Private bootstrap requires private-capability discovery.", nameof(discovery));
         var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.PrivateBootstrapPath);
         // The route is unauthenticated: no bearer is sent, and acceptance issues no client credential.
-        var (correlationId, outcome, response, failure) = await AttemptAsync(NativePrivateClient.BootstrapOperation, endpoint, body,
+        return await AttemptAsync(NativePrivateClient.BootstrapOperation, endpoint, body,
             null, IsBootstrapRefusal, cancellationToken, readSuccess: ReadEmptyAsync).ConfigureAwait(false);
-        return new NativeAttempt<EmptyResponse>(Origin, NativePrivateClient.BootstrapOperation.Name, correlationId, outcome, response, failure);
     }
 
     private static async Task<EmptyResponse> ReadEmptyAsync(HttpResponseMessage response, OperationContext context)

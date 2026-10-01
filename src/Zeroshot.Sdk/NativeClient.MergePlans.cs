@@ -12,9 +12,8 @@ public sealed partial class NativeClient
     {
         var body = PrepareHostedCall(discovery, request, credentials);
         var uri = MergePlanRoute(discovery, routes => routes.Create, planId: null);
-        var (correlationId, outcome, response, failure) = await AttemptAsync<MergePlan>(NativeMergePlansClient.CreateOperation,
+        return await AttemptAsync<MergePlan>(NativeMergePlansClient.CreateOperation,
             uri, body, credentials, IsHostedRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
-        return new NativeAttempt<MergePlan>(Origin, NativeMergePlansClient.CreateOperation.Name, correlationId, outcome, response, failure);
     }
 
     internal Task<MergePlan> MergePlanStatusAsync(TargetDiscoveryDocument discovery, RunId planId,
@@ -37,10 +36,9 @@ public sealed partial class NativeClient
         ValidateHostedUse(discovery, credentials);
         ArgumentNullException.ThrowIfNull(planId);
         var uri = MergePlanRoute(discovery, routes => routes.Force, planId);
-        var (correlationId, outcome, response, failure) = await AttemptAsync<MergePlan>(NativeMergePlansClient.ForceOperation,
+        return await AttemptAsync<MergePlan>(NativeMergePlansClient.ForceOperation,
             uri, "{}"u8.ToArray(), credentials, IsHostedRefusal, cancellationToken, configure: NoStore,
             validate: plan => RequirePlan(plan, planId)).ConfigureAwait(false);
-        return new NativeAttempt<MergePlan>(Origin, NativeMergePlansClient.ForceOperation.Name, correlationId, outcome, response, failure);
     }
 
     // A plan answered for another ID is foreign data, never this plan's state.

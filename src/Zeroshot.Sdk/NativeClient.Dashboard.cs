@@ -67,10 +67,9 @@ public sealed partial class NativeClient
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         var body = NativeJson.SerializeUtf8(request);
-        var (correlationId, outcome, response, failure) = await AttemptAsync<DashboardProfile>(operation, new Uri(Origin, path), body,
+        return await AttemptAsync<DashboardProfile>(operation, new Uri(Origin, path), body,
             null, IsProfileSaveRefusal, cancellationToken,
             configure: message => message.Headers.Add("X-Zeroshot-Workspace", workspaceId)).ConfigureAwait(false);
-        return new NativeAttempt<DashboardProfile>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     // The browser boundary, the workspace check, decoding/admission and the revision check all answer before

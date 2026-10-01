@@ -293,52 +293,37 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// Sends one mutation and classifies its evidence without retrying. The response is JSON unless
-    /// <paramref name="readSuccess"/> reads the operation's own success shape.
+    /// <paramref name="readSuccess"/> reads the operation's own success shape. A request may have been sent once
+    /// dispatch begins; a refusal is an HTTP status whose problem code <paramref name="isRefusal"/> accepts.
     /// </summary>
-    private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptAsync<T>(
+    internal Task<NativeAttempt<T>> AttemptAsync<T>(
         OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
         Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken,
         Action<HttpRequestMessage>? configure = null,
-        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null, Action<T>? validate = null) where T : class
+        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null, Action<T>? validate = null,
+        Action? afterCapture = null) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
-        T? response = null;
-        Exception? failure = null;
         void OnDispatch(Guid id) { correlationId = id; Interlocked.Exchange(ref dispatched, 1); }
-        void Capture(T value) => Volatile.Write(ref response, value);
-        try
-        {
-            await (readSuccess is null
-                ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, validate ?? (_ => { }), cancellationToken,
-                    onDispatch: OnDispatch, onResponse: Capture, configure: configure)
-                : ExecuteHttpAsync(operation, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
-                {
-                    var value = await readSuccess(message, context).ConfigureAwait(false);
-                    Capture(value);
-                    return value;
-                }, cancellationToken, OnDispatch, configure)).ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
-        {
-            failure = error;
-            correlationId = error switch
+        return SubmissionAttempt.RunAsync<T>(Origin, operation.Name, capture => readSuccess is null
+            ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, validate ?? (_ => { }), cancellationToken,
+                onDispatch: OnDispatch, onResponse: value => capture(correlationId, value), configure: configure)
+            : ExecuteHttpAsync(operation, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
             {
-                NativeHttpException httpFailure => httpFailure.CorrelationId,
-                OperationCancelled cancelled => cancelled.CorrelationId,
-                _ => correlationId
-            };
-        }
-
-        // The request has finished its bounded cleanup. A response already validated
-        // by the adapter wins a cancellation race, including cancellation during cleanup.
-        var captured = Volatile.Read(ref response);
-        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
-            : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
-            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus } refused &&
-                (refused.Problem?.Code ?? refused.UiProblem?.Code) is { } code && isRefusal(refused.StatusCode, code)
-                ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
-        return (correlationId, outcome, captured, captured is null ? failure : null);
+                var value = await readSuccess(message, context).ConfigureAwait(false);
+                capture(correlationId, value);
+                return value;
+            }, cancellationToken, OnDispatch, configure), error => error switch
+            {
+                NativeHttpException refused => new(refused.CorrelationId, Volatile.Read(ref dispatched) != 0,
+                    // A recognized OAuth error is the server's statement that no tokens were issued.
+                    refused.DeviceTokenError is not null || refused.Kind == NativeHttpFailureKind.HttpStatus &&
+                        (refused.Problem?.Code ?? refused.UiProblem?.Code) is { } code && isRefusal(refused.StatusCode, code)),
+                OperationCancelled cancelled => new(cancelled.CorrelationId, Volatile.Read(ref dispatched) != 0, false),
+                OperationCanceledException => new(correlationId, Volatile.Read(ref dispatched) != 0, false),
+                _ => null
+            }, afterCapture);
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, OperationContext context)

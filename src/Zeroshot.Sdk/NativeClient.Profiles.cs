@@ -18,9 +18,8 @@ public sealed partial class NativeClient
         TargetControlCredentials credentials, CancellationToken cancellationToken) where T : class
     {
         var (uri, body) = PrepareProfileCall(route, discovery, request, credentials);
-        var (correlationId, outcome, response, failure) = await AttemptAsync<T>(operation, uri, body, credentials,
+        return await AttemptAsync<T>(operation, uri, body, credentials,
             IsHostedRefusal, cancellationToken, configure: NoStore).ConfigureAwait(false);
-        return new NativeAttempt<T>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     // Native build_profiles_descriptor compiles all six routes. Invalid use throws before any request is sent.

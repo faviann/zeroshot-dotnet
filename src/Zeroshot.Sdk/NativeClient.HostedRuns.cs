@@ -50,10 +50,9 @@ public sealed partial class NativeClient
         TargetControlCredentials credentials, CancellationToken cancellationToken)
     {
         var operation = NativeHostedRunsClient.ForceOperation;
-        var (correlationId, outcome, response, failure) = await AttemptAsync<HostedRunStatusResult>(operation, route, "{}"u8.ToArray(),
+        return await AttemptAsync<HostedRunStatusResult>(operation, route, "{}"u8.ToArray(),
             credentials, IsHostedRefusal, cancellationToken,
             validate: result => { if (result.RunId != runId) throw new JsonException(); }).ConfigureAwait(false);
-        return new NativeAttempt<HostedRunStatusResult>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 }
 

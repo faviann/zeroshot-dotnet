@@ -34,9 +34,9 @@ public sealed partial class NativeClient
     private async Task<TargetSubmissionAttempt> SubmitAttemptAsync(PreparedSubmission prepared, byte[] body,
         TargetControlCredentials? credentials, CancellationToken cancellationToken)
     {
-        var (correlationId, outcome, receipt, failure) = await AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation,
+        var attempt = await AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation,
             new Uri(Origin, "/native-v2/run"), body, credentials, IsSubmissionRefusal, cancellationToken).ConfigureAwait(false);
-        return new TargetSubmissionAttempt(Origin, correlationId, prepared, outcome, receipt, failure);
+        return new TargetSubmissionAttempt(Origin, attempt.CorrelationId, prepared, attempt.Outcome, attempt.Response, attempt.Failure);
     }
 
     private static bool IsSubmissionRefusal(HttpStatusCode? status, string code) =>

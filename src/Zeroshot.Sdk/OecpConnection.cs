@@ -171,34 +171,18 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>Sends one mutation and returns its evidence. Only isRefusal errors prove that native had no effect.</summary>
     // afterCapture lets tests place cancellation between capture and operation completion. That placement is
     // deterministic only because the cancelled WaitAsync continuation runs inline during Cancel().
-    internal async Task<NativeAttempt<T>> AttemptAsync<T>(string method, byte[] parameters, Action<T>? validate,
+    internal Task<NativeAttempt<T>> AttemptAsync<T>(string method, byte[] parameters, Action<T>? validate,
         Func<JsonRpcError, bool> isRefusal, bool control, OecpRequest? request, CancellationToken cancellationToken,
         Action? afterCapture = null) where T : class
-    {
-        var correlationId = Guid.Empty;
-        T? acknowledged = null;
-        Exception? failure = null;
-        var sendStarted = false;
-        try
-        {
-            await CallAsync(method, parameters, validate, cancellationToken, request, control: control, onResponse: (id, result) =>
+        => SubmissionAttempt.RunAsync<T>(Origin, method,
+            capture => CallAsync(method, parameters, validate, cancellationToken, request, control: control, onResponse: capture),
+            error => error switch
             {
-                correlationId = id;
-                Volatile.Write(ref acknowledged, result);
-                afterCapture?.Invoke();
-            }).ConfigureAwait(false);
-        }
-        catch (NativeOecpException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
-        catch (OecpOperationCanceledException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
-
-        // Cancellation can end the call after validation but before the operation completes.
-        var captured = Volatile.Read(ref acknowledged);
-        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
-            : !sendStarted ? NativeAttemptOutcome.NotSent
-            : failure is NativeOecpException { RpcError: { } rpcError } && isRefusal(rpcError) ? NativeAttemptOutcome.Rejected
-            : NativeAttemptOutcome.Unknown;
-        return new(Origin, method, correlationId, outcome, captured, captured is null ? failure : null);
-    }
+                NativeOecpException failure => new(failure.CorrelationId, failure.Dispatch.SendStarted,
+                    failure.RpcError is { } rpcError && isRefusal(rpcError)),
+                OecpOperationCanceledException cancelled => new(cancelled.CorrelationId, cancelled.Dispatch.SendStarted, false),
+                _ => null
+            }, afterCapture);
 
     // Connection admission and dispatch answer these before any backend method runs
     // (openengine-cluster-server connection/admission.rs and dispatch.rs).

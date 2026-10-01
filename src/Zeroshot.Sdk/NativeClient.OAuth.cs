@@ -41,12 +41,8 @@ public sealed partial class NativeClient
             ("client_id", oauth.ClientId), ("device_token", deviceToken.ToString("D")),
             ("device_label", NativeOAuthClient.DeviceLabel), ("audience", discovery.Audience));
         var operation = NativeOAuthClient.DeviceTokenOperation;
-        var (correlationId, outcome, response, failure) = await AttemptAsync<OAuthTokens>(operation, routes.Token, body, null,
+        return await AttemptAsync<OAuthTokens>(operation, routes.Token, body, null,
             (_, _) => false, cancellationToken, configure: FormContent).ConfigureAwait(false);
-        // A recognized OAuth error is the server's statement that no tokens were issued.
-        if (outcome == NativeAttemptOutcome.Unknown && failure is NativeHttpException { DeviceTokenError: not null })
-            outcome = NativeAttemptOutcome.Rejected;
-        return new NativeAttempt<OAuthTokens>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     internal async Task<NativeAttempt<OAuthTokens>> RefreshOAuthAsync(TargetDiscoveryDocument discovery,
@@ -59,9 +55,8 @@ public sealed partial class NativeClient
         var body = Form(("grant_type", "refresh_token"), ("client_id", oauth.ClientId),
             ("refresh_token", refreshToken), ("audience", discovery.Audience));
         var operation = NativeOAuthClient.RefreshOperation;
-        var (correlationId, outcome, response, failure) = await AttemptAsync<OAuthTokens>(operation, routes.Token, body, null,
+        return await AttemptAsync<OAuthTokens>(operation, routes.Token, body, null,
             IsHostedRefusal, cancellationToken, configure: FormContent).ConfigureAwait(false);
-        return new NativeAttempt<OAuthTokens>(Origin, operation.Name, correlationId, outcome, response, failure);
     }
 
     internal Task<TargetLoginSession> VerifyLoginSessionAsync(TargetDiscoveryDocument discovery,
