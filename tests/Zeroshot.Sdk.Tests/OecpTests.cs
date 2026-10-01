@@ -14,14 +14,6 @@ public sealed class OecpTests
 {
     private const string Empty = """{"spec":null,"status":{"phase":"empty","observedGeneration":null,"currentRunId":null,"atCursor":null},"atCursor":null}""";
     private const string Status = """{"runId":"run-1","title":"test","source":{"repository":"acme/project","branch":"main","revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"size":"small","atCursor":"cursor-1","status":{"phase":"finished","terminalResult":{"status":"failed","reason":"test"},"metadata":{"tokenUsage":{"inputTokens":4,"outputTokens":2,"complete":true}}},"workspaceRecovery":{"recoverable":true,"connectionRequirements":{"gateway":["GATEWAY_API_KEY"]},"successorRunId":"run-2"}}""";
-    private static void Check(bool value, string message = "OECP assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-    private static async Task<NativeOecpException> Failure(Task task, NativeOecpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeOecpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected OECP failure.");
-    }
 
     [Test]
     public async Task CorrelatesConcurrentFragmentedRepliesAndPreservesFullNativeProjections()

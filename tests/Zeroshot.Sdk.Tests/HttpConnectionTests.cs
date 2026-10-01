@@ -29,14 +29,8 @@ public sealed class HttpConnectionTests
     };
     private static readonly ConnectionDeleteRequest DeleteRequest = new() { Key = new("github"), Scope = ConnectionScope.Org };
     private static readonly ConnectionListRequest ListRequest = new() { Scope = ConnectionScope.User };
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
     private static string Summary(string scope = "user", string kind = "static") =>
         $$"""{"key":"github","scope":"{{scope}}","kind":"{{kind}}","fields":["GH_TOKEN"]}""";
-    private static void Check(bool value, string message = "Connection assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task EachOperationPostsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
@@ -58,7 +52,7 @@ public sealed class HttpConnectionTests
                     _ => Reply(request, """{"deleted":false}""", HttpStatusCode.Accepted)
                 };
             });
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var list = await client.Connections.ListAsync(Discovery(Capability), new() { Scope = scope }, Hosted);
             var set = await client.Connections.SetAsync(Discovery(Capability), SetRequest() with { Scope = scope }, Hosted);
             var delete = await client.Connections.DeleteAsync(Discovery(Capability), DeleteRequest with { Scope = scope }, Hosted);
@@ -106,12 +100,12 @@ public sealed class HttpConnectionTests
             (Discovery(Capability with { RouteTemplates = routes with { Delete = "" } }), Hosted),
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var (discovery, credentials) in cases)
         {
-            await Invalid(() => client.Connections.ListAsync(discovery, ListRequest, credentials));
-            await Invalid(() => client.Connections.SetAsync(discovery, SetRequest(), credentials));
-            await Invalid(() => client.Connections.DeleteAsync(discovery, DeleteRequest, credentials));
+            await Invalid(() => client.Connections.ListAsync(discovery, ListRequest, credentials), Secret, Bearer);
+            await Invalid(() => client.Connections.SetAsync(discovery, SetRequest(), credentials), Secret, Bearer);
+            await Invalid(() => client.Connections.DeleteAsync(discovery, DeleteRequest, credentials), Secret, Bearer);
         }
         Check(handler.Calls == 0);
     }
@@ -128,10 +122,10 @@ public sealed class HttpConnectionTests
             ImmutableDictionary<string, string>.Empty.Add("1_INVALID", "v")
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var values in invalidValues)
-            await Invalid(() => client.Connections.SetAsync(Discovery(Capability), SetRequest(values), Hosted));
-        await Invalid(() => client.Connections.ListAsync(Discovery(Capability), new() { Scope = (ConnectionScope)7 }, Hosted));
+            await Invalid(() => client.Connections.SetAsync(Discovery(Capability), SetRequest(values), Hosted), Secret, Bearer);
+        await Invalid(() => client.Connections.ListAsync(Discovery(Capability), new() { Scope = (ConnectionScope)7 }, Hosted), Secret, Bearer);
         Check(handler.Calls == 0);
         var boundary = await client.Connections.SetAsync(Discovery(Capability), SetRequest(Values(64, _ => "v")), Hosted);
         Check(boundary.Outcome == NativeAttemptOutcome.Unknown && handler.Calls == 1, "Valid bounds must dispatch.");
@@ -148,7 +142,7 @@ public sealed class HttpConnectionTests
         {
             using var malformed = new Handler((request, _) => Task.FromResult(Reply(request,
                 request.RequestUri!.AbsolutePath.EndsWith("list") ? $$"""{"connections":[{{summary}}]}""" : $$"""{"connection":{{summary}}}""")));
-            using var peer = Client(malformed);
+            using var peer = ClientFor(malformed);
             await Failure(peer.Connections.ListAsync(Discovery(Capability), ListRequest, Hosted), NativeHttpFailureKind.Protocol);
             var set = await peer.Connections.SetAsync(Discovery(Capability), SetRequest(), Hosted);
             Check(set.Outcome == NativeAttemptOutcome.Unknown && set.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Protocol });
@@ -156,7 +150,7 @@ public sealed class HttpConnectionTests
         foreach (var body in new[] { """{"deleted":"true"}""", """{"deleted":true,"key":"github"}""", "{}" })
         {
             using var malformed = new Handler((request, _) => Task.FromResult(Reply(request, body)));
-            using var peer = Client(malformed);
+            using var peer = ClientFor(malformed);
             var delete = await peer.Connections.DeleteAsync(Discovery(Capability), DeleteRequest, Hosted);
             Check(delete.Outcome == NativeAttemptOutcome.Unknown && delete.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Protocol });
         }
@@ -174,7 +168,7 @@ public sealed class HttpConnectionTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
                 JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var set = await client.Connections.SetAsync(Discovery(Capability), SetRequest(), Hosted);
             var delete = await client.Connections.DeleteAsync(Discovery(Capability), DeleteRequest, Hosted);
             foreach (var (outcome, failure) in new[] { (set.Outcome, set.Failure), (delete.Outcome, delete.Failure) })
@@ -186,7 +180,7 @@ public sealed class HttpConnectionTests
             Check(list.Problem!.Code == code && handler.Calls == 3);
         }
         using var invalidProblem = new Handler((request, _) => Task.FromResult(Reply(request, "not json", HttpStatusCode.BadRequest)));
-        using var peer = Client(invalidProblem);
+        using var peer = ClientFor(invalidProblem);
         var unproven = await peer.Connections.DeleteAsync(Discovery(Capability), DeleteRequest, Hosted);
         Check(unproven.Outcome == NativeAttemptOutcome.Unknown && unproven.Failure is NativeHttpException { Problem: null, StatusCode: HttpStatusCode.BadRequest });
     }
@@ -197,7 +191,7 @@ public sealed class HttpConnectionTests
         const string Remote = "REMOTE-MESSAGE-CANARY";
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
             JsonSerializer.Serialize(new { code = "invalid_request", message = Remote, details = new { echoed = Secret } }), HttpStatusCode.BadRequest)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var request = SetRequest();
         var attempt = await client.Connections.SetAsync(Discovery(Capability), request, Hosted);
         var list = await Failure(client.Connections.ListAsync(Discovery(Capability), ListRequest, Hosted), NativeHttpFailureKind.HttpStatus);
@@ -210,18 +204,4 @@ public sealed class HttpConnectionTests
         Check(Encoding.UTF8.GetString(NativeJson.SerializeUtf8(request)).Contains(Secret));
     }
 
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Secret) && !error.ToString().Contains(Bearer)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected native failure.");
-    }
 }

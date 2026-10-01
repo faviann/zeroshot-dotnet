@@ -27,9 +27,6 @@ public sealed class DashboardProfileTests
         ExpectedRevision = expectedRevision
     };
 
-    private static void Check(bool value, string message = "Dashboard profile assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
     private static HttpResponseMessage Reply(HttpRequestMessage request, HttpStatusCode status, string body = "", string? contentType = "application/json")
     {
         var reply = new HttpResponseMessage(status) { RequestMessage = request, Content = new ByteArrayContent(Encoding.UTF8.GetBytes(body)) };

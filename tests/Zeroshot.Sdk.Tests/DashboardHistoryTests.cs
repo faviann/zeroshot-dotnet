@@ -14,9 +14,6 @@ public sealed class DashboardHistoryTests
     private static readonly Uri Origin = new("http://127.0.0.1:4173/");
     private static readonly JsonNode Golden = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures/history.json")))!;
 
-    private static void Check(bool value, string message = "Dashboard history assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
     // The golden page restricted to (from, to] with native's cursor/completeness fields for that slice.
     private static string Page(int from, int to, int head = 9)
     {

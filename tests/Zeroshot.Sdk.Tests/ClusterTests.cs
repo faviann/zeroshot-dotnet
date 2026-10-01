@@ -16,8 +16,6 @@ public sealed class ClusterTests
     private static readonly byte[] Graph = Encoding.UTF8.GetBytes(JsonNode.Parse(File.ReadLines(Fixture("admission-lifecycle.ndjson")).ElementAt(2))!["params"]!["graph"]!.ToJsonString());
     private static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures/cluster", name);
     private static T Parse<T>(string json) => NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(json));
-    private static void Check(bool value, string message = "Cluster assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
     private static bool Same(string expected, byte[] actual) => JsonNode.DeepEquals(JsonNode.Parse(expected), JsonNode.Parse(actual));
     private static Task Frame(WebSocket socket, string method, string parameters)
         => Send(socket, $$"""{"jsonrpc":"2.0","method":"{{method}}","params":{{parameters}}}""");

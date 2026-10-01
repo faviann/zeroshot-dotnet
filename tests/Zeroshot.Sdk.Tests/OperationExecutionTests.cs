@@ -11,7 +11,6 @@ public sealed class OperationExecutionTests
     private static readonly OperationDescriptor Control = new("run.force", OperationTransport.Http, isControl: true);
     private static readonly OperationLimits SmallCapacity = new() { ConcurrentRequests = 2, ReservedControlRequests = 1 };
     private static TaskCompletionSource<T> Signal<T>() => new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static async Task<OperationFailure> Fails(Task task, OperationFailureKind kind, OperationStage? stage = null)
     {
         try { await task; }
@@ -27,12 +26,6 @@ public sealed class OperationExecutionTests
         try { await task; }
         catch (OperationCanceledException) { return; }
         throw new InvalidOperationException("Expected cancellation.");
-    }
-    private static void Invalid(Action action)
-    {
-        try { action(); }
-        catch (ArgumentException) { return; }
-        throw new InvalidOperationException("Expected invalid configuration.");
     }
     private static Task<int> Value(OperationContext _) => Task.FromResult(42);
 

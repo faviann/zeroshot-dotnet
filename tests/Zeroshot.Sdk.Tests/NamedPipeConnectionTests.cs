@@ -8,7 +8,6 @@ using Microsoft.Win32.SafeHandles;
 using TUnit.Core;
 using TUnit.Core.Enums;
 using Zeroshot.Native;
-using static Zeroshot.Client.Tests.SubscriptionContractTests;
 
 namespace Zeroshot.Client.Tests;
 
@@ -24,13 +23,6 @@ public sealed class NamedPipeConnectionTests
     private static string NewPath() => @"\\.\pipe\zeroshot-test-" + Guid.NewGuid().ToString("N");
     private static long Id(string line) => JsonDocument.Parse(line).RootElement.GetProperty("id").GetInt64();
     private static byte[] Reply(long id, string result) => Encoding.UTF8.GetBytes($$"""{"jsonrpc":"2.0","id":{{id}},"result":{{result}}}""" + "\n");
-
-    private static async Task<T> Throws<T>(Task task) where T : Exception
-    {
-        try { await task.WaitAsync(TimeSpan.FromSeconds(30)); }
-        catch (T error) { return error; }
-        throw new InvalidOperationException($"Expected {typeof(T).Name}.");
-    }
 
     [Test]
     public async Task PrivatePipeCarriesOecpUntilTheControllerDisconnects()
@@ -57,7 +49,7 @@ public sealed class NamedPipeConnectionTests
         var pending = connection.Runs.ListAsync();
         await reader.ReadLineAsync();
         server.Disconnect();
-        Check((await Throws<NativeOecpException>(pending)).Kind == NativeOecpFailureKind.Transport);
+        Check((await Throws<NativeOecpException>(pending, 30)).Kind == NativeOecpFailureKind.Transport);
         Check((await connection.Completion)!.Kind == NativeOecpFailureKind.Transport, "A disconnect is never a completion.");
     }
 
@@ -76,7 +68,7 @@ public sealed class NamedPipeConnectionTests
         var path = NewPath();
         await using var server = Server(path, descriptor);
         var accepted = server.WaitForConnectionAsync();
-        await Throws<UnauthorizedAccessException>(OecpConnection.ConnectNamedPipeAsync(path));
+        await Throws<UnauthorizedAccessException>(OecpConnection.ConnectNamedPipeAsync(path), 30);
         if (opens)
         {
             await accepted;
@@ -115,14 +107,14 @@ public sealed class NamedPipeConnectionTests
     [Test]
     public async Task OnlyExactLocalPipesAreAcceptedAndConnectingIsCancellableAndBounded()
     {
-        await Throws<ArgumentException>(OecpConnection.ConnectNamedPipeAsync(@"\\remote-host\pipe\zeroshot-test"));
-        await Throws<ArgumentException>(OecpConnection.ConnectNamedPipeAsync(@"\\.\pipe\zeroshot/test"));
+        await Throws<ArgumentException>(OecpConnection.ConnectNamedPipeAsync(@"\\remote-host\pipe\zeroshot-test"), 30);
+        await Throws<ArgumentException>(OecpConnection.ConnectNamedPipeAsync(@"\\.\pipe\zeroshot/test"), 30);
 
         // .NET waits for a missing or busy instance until ConnectTimeout (Deadline); native's client fails immediately.
         using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
-        await Throws<OperationCanceledException>(OecpConnection.ConnectNamedPipeAsync(NewPath(), cancellationToken: cancel.Token));
+        await Throws<OperationCanceledException>(OecpConnection.ConnectNamedPipeAsync(NewPath(), cancellationToken: cancel.Token), 30);
         var expired = await Throws<NativeOecpException>(OecpConnection.ConnectNamedPipeAsync(NewPath(),
-            new TransportOptions { ConnectTimeout = TimeSpan.FromMilliseconds(200) }));
+            new TransportOptions { ConnectTimeout = TimeSpan.FromMilliseconds(200) }), 30);
         Check(expired.Kind == NativeOecpFailureKind.Deadline);
     }
 

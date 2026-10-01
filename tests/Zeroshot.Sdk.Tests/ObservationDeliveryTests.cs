@@ -18,8 +18,6 @@ public sealed class ObservationDeliveryTests
         Origin = new Uri("https://target.example/"), Transport = options ?? Small
     }, http);
     private static TaskCompletionSource<T> Signal<T>() => new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private static void Check(bool condition, string message = "Observation assertion failed.")
-    { if (!condition) throw new InvalidOperationException(message); }
     private static TException Throws<TException>(Action action) where TException : Exception
     {
         try { action(); }
@@ -477,11 +475,9 @@ public sealed class ObservationDeliveryTests
             {
                 DiscoveryStarted.TrySetResult(true);
                 await ReleaseDiscovery.Task.WaitAsync(token);
-                return Reply(request, Discovery);
+                return TextReply(request, Discovery);
             }
-            return Reply(request, """{"endpoint":"wss://target.example/native-v2/oecp"}""");
+            return TextReply(request, """{"endpoint":"wss://target.example/native-v2/oecp"}""");
         }
-        private static HttpResponseMessage Reply(HttpRequestMessage request, string body)
-            => new(HttpStatusCode.OK) { RequestMessage = request, Content = new StringContent(body) };
     }
 }

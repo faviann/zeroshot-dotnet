@@ -30,21 +30,12 @@ public sealed class ConnectionResolverTests
     private static readonly string RequestJson =
         """{"runId":"0195af77-1000-7000-8000-000000000001","connections":{"github":["GH_TOKEN"]}}""";
     private static readonly string ResultJson = "{\"connections\":{\"github\":{\"GH_TOKEN\":\"" + Secret + "\"}}}";
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    private static void Check(bool value, string message = "Resolver assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     private static async Task<ConnectionResolutionException> Failure(Task task, ConnectionResolutionError error)
     {
-        try { await task; }
-        catch (ConnectionResolutionException failure)
-        {
-            Check(failure.Error == error, $"{failure.Error} {failure.InnerException}");
-            Check(!failure.ToString().Contains(Bearer) && !failure.ToString().Contains(Secret));
-            return failure;
-        }
-        throw new InvalidOperationException("Expected a resolution failure.");
+        var failure = await TestKit.Failure<ConnectionResolutionException>(() => task, candidate => candidate.Error == error);
+        Check(!failure.ToString().Contains(Bearer) && !failure.ToString().Contains(Secret));
+        return failure;
     }
 
     [Test]

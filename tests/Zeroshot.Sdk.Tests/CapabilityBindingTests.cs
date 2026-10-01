@@ -7,9 +7,6 @@ namespace Zeroshot.Client.Tests;
 
 public sealed class CapabilityBindingTests
 {
-    private static void Check(bool value, string message = "Capability-binding assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-
     // Every HTTP operation, each with arguments its route would refuse. The client's own usability is checked first.
     private static Func<Task>[] InvalidCalls(NativeClient client) =>
     [

@@ -21,28 +21,12 @@ public sealed class HttpSessionTests
         => TestDiscovery.Controller(authentication);
     private static NativeClientOptions Options(TransportOptions? transport = null) => new()
     { Origin = new Uri("https://target.example/"), Transport = transport ?? new() };
-    private static void Check(bool value, string message = "Session assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Control) && !error.ToString().Contains(Session)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
     private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
     {
-        try { await task; }
-        catch (NativeHttpException error)
-        {
-            Check(error.Kind == kind, error.ToString());
-            Check(!error.ToString().Contains(Control) && !error.ToString().Contains(Session));
-            return error;
-        }
-        throw new InvalidOperationException("Expected native failure.");
+        var error = await TestKit.Failure(task, kind);
+        Check(!error.ToString().Contains(Control) && !error.ToString().Contains(Session));
+        return error;
     }
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body) };
     private static string Result(string endpoint = "wss://target.example/native-v2/oecp", string? token = null)
         => Encoding.UTF8.GetString(NativeJson.SerializeUtf8(new TargetOecpSession { Endpoint = endpoint, BearerToken = token }));
 
@@ -60,7 +44,7 @@ public sealed class HttpSessionTests
                 if (request.Method == HttpMethod.Get)
                 {
                     Check(request.Headers.Authorization is null);
-                    return Reply(request, Encoding.UTF8.GetString(NativeJson.SerializeUtf8(Discovery(authentication))));
+                    return TextReply(request, Encoding.UTF8.GetString(NativeJson.SerializeUtf8(Discovery(authentication))));
                 }
                 Check(request.Method == HttpMethod.Post && request.RequestUri!.AbsoluteUri == "https://target.example/native-v2/oecp-session");
                 Check(request.Headers.Authorization?.Scheme == (expectedBearer is null ? null : "Bearer"));
@@ -68,7 +52,7 @@ public sealed class HttpSessionTests
                 Check(request.Content!.Headers.ContentType!.MediaType == "application/json");
                 var body = await request.Content.ReadAsStringAsync();
                 Check(body == (handlerBodyWithRun ? $"{{\"runId\":\"{Run}\"}}" : "{}"));
-                return Reply(request, Result(token: issuedBearer), HttpStatusCode.Created);
+                return TextReply(request, Result(token: issuedBearer), HttpStatusCode.Created);
             });
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options(), http);
@@ -89,20 +73,20 @@ public sealed class HttpSessionTests
     [Test]
     public async Task WrongAuthorityAndMalformedDescriptorsRefuseBeforeSendingCredentials()
     {
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Result(token: Session))));
+        using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Result(token: Session))));
         using var http = new HttpClient(handler);
         using var client = NativeClient.ForHttp(Options(), http);
         var credentials = new TargetControlCredentials(TargetAuthentication.HostedOauth, Control);
         foreach (var path in new[] { "https://foreign.example/", "//foreign.example/session", "/session?x=1", "/session#x", "/session/{run_id}", "/session{?run_id}", "/session\\x", "/../session", "/session/%", "/session/ space" })
         {
             var discovery = Discovery(TargetAuthentication.HostedOauth) with { SessionPath = path };
-            await Invalid(() => client.Target.CreateOecpSessionAsync(discovery, credentials: credentials));
+            await Invalid(() => client.Target.CreateOecpSessionAsync(discovery, credentials: credentials), Control, Session);
         }
-        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(), credentials: credentials));
-        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.PrivateCapability), credentials: credentials));
-        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.HostedOauth)));
+        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(), credentials: credentials), Control, Session);
+        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.PrivateCapability), credentials: credentials), Control, Session);
+        await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.HostedOauth)), Control, Session);
         foreach (var id in new[] { "not-a-run", Run.ToUpperInvariant(), "0195af77-1000-4000-8000-000000000001", "0195af77-1000-7000-c000-000000000001" })
-            await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(), new() { RunId = new(id) }));
+            await Invalid(() => client.Target.CreateOecpSessionAsync(Discovery(), new() { RunId = new(id) }), Control, Session);
         Check(handler.Calls == 0);
     }
 
@@ -113,7 +97,7 @@ public sealed class HttpSessionTests
         {
             Check(request.RequestUri!.AbsoluteUri == "https://target.example/sessions/%41");
             Check(request.Headers.Authorization!.Parameter == Control);
-            return Task.FromResult(Reply(request, Result(token: Session)));
+            return Task.FromResult(TextReply(request, Result(token: Session)));
         });
         using var http = new HttpClient(handler);
         using var client = NativeClient.ForHttp(Options(), http);
@@ -126,13 +110,13 @@ public sealed class HttpSessionTests
     [Test]
     public async Task BearerBoundariesAndDefaultHttpAuthorityCannotBypassScoping()
     {
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Result())));
+        using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Result())));
         using var http = new HttpClient(handler);
         foreach (var token in new[] { "", "a b", "a\r\nb", "é", new string('a', 16385) })
-            await Invalid(() => Task.FromResult(new TargetControlCredentials(TargetAuthentication.HostedOauth, token)));
+            await Invalid(() => Task.FromResult(new TargetControlCredentials(TargetAuthentication.HostedOauth, token)), Control, Session);
         _ = new TargetControlCredentials(TargetAuthentication.PrivateCapability, new string('a', 16384));
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Control);
-        await Invalid(() => Task.FromResult(NativeClient.ForHttp(Options(), http)));
+        await Invalid(() => Task.FromResult(NativeClient.ForHttp(Options(), http)), Control, Session);
         Check(handler.Calls == 0);
     }
 
@@ -147,7 +131,7 @@ public sealed class HttpSessionTests
             "wss://target.example/native-v2/oe cp", "wss://target.example/\\foreign", "wss://target.example/%zz"
         })
         {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Result(endpoint, Session))));
+            using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Result(endpoint, Session))));
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options(), http);
             await Failure(client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.HostedOauth),
@@ -162,7 +146,7 @@ public sealed class HttpSessionTests
             ("http://[::1]", "ws://[::1]:80/native-v2/oecp")
         })
         {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Result(endpoint))));
+            using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, Result(endpoint))));
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options() with { Origin = new(origin) }, http);
             Check((await client.Target.CreateOecpSessionAsync(Discovery())).Endpoint == endpoint);
@@ -184,7 +168,7 @@ public sealed class HttpSessionTests
             (Result(token: new string('x', 16385)), TargetAuthentication.PrivateCapability)
         })
         {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body)));
+            using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, body)));
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options(), http);
             await Failure(client.Target.CreateOecpSessionAsync(Discovery(authentication), credentials:
@@ -198,7 +182,7 @@ public sealed class HttpSessionTests
     public async Task RefusalsRetainStatusAndValidatedProblemWithoutImplicitRemoteText()
     {
         var body = $"{{\"code\":\"request.unauthorized\",\"message\":\"{Control}\",\"details\":{{\"fact\":\"{Session}\",\"httpStatus\":123}}}}";
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body, HttpStatusCode.Forbidden)));
+        using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, body, HttpStatusCode.Forbidden)));
         using var http = new HttpClient(handler);
         using var client = NativeClient.ForHttp(Options(new() { CaptureRawDiagnostics = true }), http);
         var failure = await Failure(client.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.HttpStatus);
@@ -219,7 +203,7 @@ public sealed class HttpSessionTests
             JsonSerializer.Serialize(new { code = "valid", message = "bad", details = new { content = new string('x', 61440) } })
         })
         {
-            using var badHandler = new Handler((request, _) => Task.FromResult(Reply(request, badProblem, HttpStatusCode.Unauthorized)));
+            using var badHandler = new Handler((request, _) => Task.FromResult(TextReply(request, badProblem, HttpStatusCode.Unauthorized)));
             using var badHttp = new HttpClient(badHandler);
             using var badClient = NativeClient.ForHttp(Options(), badHttp);
             var malformed = await Failure(badClient.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.HttpStatus);
@@ -236,7 +220,7 @@ public sealed class HttpSessionTests
             // The latter two cases are exactly 61440 and 61441 serialized detail bytes.
             var text = string.Concat(Enumerable.Repeat("😀", count)) + suffix;
             var body = "{\"code\":\"refused\",\"message\":\"request refused\",\"details\":{\"text\":\"" + text + "\"}}";
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body, HttpStatusCode.Forbidden)));
+            using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, body, HttpStatusCode.Forbidden)));
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options(), http);
             var failure = await Failure(client.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.HttpStatus);
@@ -277,10 +261,10 @@ public sealed class HttpSessionTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var handler = new Handler(async (request, cancellationToken) =>
         {
-            if (request.Method == HttpMethod.Post) return Reply(request, Result());
+            if (request.Method == HttpMethod.Post) return TextReply(request, Result());
             if (Interlocked.Increment(ref entered) == 2) discoveriesStarted.TrySetResult();
             await release.Task.WaitAsync(cancellationToken);
-            return Reply(request, Encoding.UTF8.GetString(NativeJson.SerializeUtf8(Discovery())));
+            return TextReply(request, Encoding.UTF8.GetString(NativeJson.SerializeUtf8(Discovery())));
         });
         using var http = new HttpClient(handler);
         using var client = NativeClient.ForHttp(Options(new() { MaxConcurrentRequests = 3, ReservedControlRequests = 1 }), http);
@@ -310,13 +294,13 @@ public sealed class HttpSessionTests
             (HttpStatusCode.OK, new TransportOptions { MaxResponseBytes = 8 }, Result())
         })
         {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body, status)));
+            using var handler = new Handler((request, _) => Task.FromResult(TextReply(request, body, status)));
             using var http = new HttpClient(handler);
             using var client = NativeClient.ForHttp(Options(transport), http);
             var failure = await Failure(client.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.SizeLimit);
             Check(failure.StatusCode == status);
         }
-        using var noDispatch = new Handler((request, _) => Task.FromResult(Reply(request, Result())));
+        using var noDispatch = new Handler((request, _) => Task.FromResult(TextReply(request, Result())));
         using var noDispatchHttp = new HttpClient(noDispatch);
         using var limited = NativeClient.ForHttp(Options(new() { MaxRequestBytes = 1 }), noDispatchHttp);
         await Failure(limited.Target.CreateOecpSessionAsync(Discovery()), NativeHttpFailureKind.SizeLimit);
@@ -332,7 +316,7 @@ public sealed class HttpSessionTests
             {
                 Check(request.Headers.Authorization!.Parameter == Control);
                 if (!redirected) request.RequestUri = new Uri("https://foreign.example/");
-                var reply = Reply(request, Result(token: Session), redirected ? HttpStatusCode.TemporaryRedirect : HttpStatusCode.OK);
+                var reply = TextReply(request, Result(token: Session), redirected ? HttpStatusCode.TemporaryRedirect : HttpStatusCode.OK);
                 reply.Headers.Location = new Uri("https://foreign.example/");
                 return Task.FromResult(reply);
             });
@@ -354,11 +338,11 @@ public sealed class HttpSessionTests
             .AbsoluteUri == "https://target.example/api/v1/list");
         Check(NativeRoutes.CompileLiteralRoute(NativeRoutes.SameOriginUrl(origin, "https://target.example/api//"), "/list")
             .AbsoluteUri == "https://target.example/api//list");
-        await Invalid(() => Task.FromResult(NativeRoutes.SessionEndpoint(new Uri("https://127.0.0.1/"), "wss://127.1/session")));
+        await Invalid(() => Task.FromResult(NativeRoutes.SessionEndpoint(new Uri("https://127.0.0.1/"), "wss://127.1/session")), Control, Session);
         foreach (var invalid in new[] { "https://foreign.example/api", "http://target.example/api", "https://TARGET.example/api", "https://target.example:443/api", "https://target.example", "https://@target.example/api", "https://target.example/a/../b", "https://target.example/api?", "https://target.example/api#", "https://target.example/%2e%2e/session", "https://target.example/é" })
-            await Invalid(() => Task.FromResult(NativeRoutes.SameOriginUrl(origin, invalid)));
+            await Invalid(() => Task.FromResult(NativeRoutes.SameOriginUrl(origin, invalid)), Control, Session);
         foreach (var invalid in new[] { "relative", "//foreign", "/", "/a//b", "/a/", "/a/..", "/a/.", "/{run_id}", "/{unknown}", "/{run_id}/{run_id}", "/list{?after}", "/list?x", "/list#x", "/a\\b", "/%2e", "/a b", "/" + new string('a', 2048) })
-            await Invalid(() => Task.FromResult(NativeRoutes.CompileLiteralRoute(origin, invalid)));
+            await Invalid(() => Task.FromResult(NativeRoutes.CompileLiteralRoute(origin, invalid)), Control, Session);
     }
 
     [Test]

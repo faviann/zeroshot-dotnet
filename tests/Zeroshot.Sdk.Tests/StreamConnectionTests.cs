@@ -19,13 +19,6 @@ public sealed class StreamConnectionTests
     private static string WatchReply(JsonElement request)
         => $$$"""{"jsonrpc":"2.0","id":{{{request.GetProperty("id")}}},"result":{"subscriptionId":"watch","runId":"run-1","atCursor":"start"}}""" + "\n";
 
-    private static async Task<T> Throws<T>(Task task) where T : Exception
-    {
-        try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
-        catch (T error) { return error; }
-        throw new InvalidOperationException($"Expected {typeof(T).Name}.");
-    }
-
     [Test]
     public async Task FramesEachRequestAsOneLineAndReassemblesSplitAndCoalescedReplies()
     {
