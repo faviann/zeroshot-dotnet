@@ -14,7 +14,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     private readonly IDisposable lease;
     private readonly OperationExecutor executor;
     private readonly OperationLimits limits;
-    private readonly Action<OecpConnection> released;
+    private readonly OecpHost host;
     private readonly SemaphoreSlim sendGate = new(1);
     private readonly CancellationTokenSource lifetime = new();
     private readonly object gate = new();
@@ -35,18 +35,15 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>The HTTP target origin, the Unix socket as a file URI, or null for caller-supplied streams.</summary>
     internal Uri? Origin { get; }
 
-    internal OecpConnection(Uri? origin, IOecpTransport transport, IDisposable lease,
-        OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released,
-        bool processWideIds = false)
+    internal OecpConnection(Uri? origin, IOecpTransport transport, IDisposable lease, OecpHost host)
     {
         Origin = origin;
         // A borrowed stream can outlive its connection, so a late reply can reach a later one.
         // Process-wide IDs never match its calls, and the seed makes that reply a retired ID.
-        this.processWideIds = processWideIds;
+        processWideIds = host.ProcessWideIds;
         if (processWideIds) nextId = Interlocked.Read(ref streamRequestIds);
-        this.transport = transport; this.lease = lease; this.executor = executor;
-        this.limits = limits; this.released = released;
-        this.observations = observations;
+        this.transport = transport; this.lease = lease; this.host = host;
+        executor = host.Executor; limits = host.Limits; observations = host.Observations;
         Cluster = new(this); Runs = new(this);
     }
 
@@ -287,7 +284,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
             subscriptions.Clear();
         }
         lifetime.Cancel();
-        transport.Abort(); lease.Dispose(); released(this);
+        transport.Abort(); lease.Dispose(); host.Released(this);
         completion.TrySetResult(failure is { } kind ? new(kind) : null);
     }
 
