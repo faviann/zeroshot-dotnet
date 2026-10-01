@@ -14,7 +14,7 @@ public enum RunProfileScope
 }
 
 /// <summary>A stored profile with its complete graph and runtime definitions.</summary>
-public sealed record RunProfile : TargetHttpContract
+public sealed record RunProfile : TargetHttpContract, IWirePredecoded
 {
     [JsonPropertyName("id")]
     public required string Id { get; init; }
@@ -28,6 +28,16 @@ public sealed record RunProfile : TargetHttpContract
     public required RuntimePlan Runtime { get; init; }
     [JsonPropertyName("isDefault")]
     public required bool IsDefault { get; init; }
+
+    static void IWirePredecoded.CheckRaw(JsonElement json) => CheckDefinitions(json);
+
+    // Missing or misplaced members are left to typed decoding, which reports them.
+    internal static void CheckDefinitions(JsonElement profile)
+    {
+        if (profile.ValueKind != JsonValueKind.Object) return;
+        if (profile.TryGetProperty("graph", out var graph)) WireValidation.Validate(graph, typeof(GraphSpec));
+        if (profile.TryGetProperty("runtime", out var runtime)) WireValidation.Validate(runtime, typeof(RuntimePlan));
+    }
 }
 
 public sealed record RunProfileSummary : TargetHttpContract
@@ -56,7 +66,7 @@ public sealed record RunProfileSelector : TargetHttpContract
     public required RunProfileName Name { get; init; }
 }
 
-public sealed record RunProfileSetRequest : TargetHttpContract
+public sealed record RunProfileSetRequest : TargetHttpContract, IWirePredecoded
 {
     [JsonPropertyName("name")]
     public required RunProfileName Name { get; init; }
@@ -68,6 +78,8 @@ public sealed record RunProfileSetRequest : TargetHttpContract
     public required RuntimePlan Runtime { get; init; }
     [JsonPropertyName("setDefault")]
     public bool SetDefault { get; init; }
+
+    static void IWirePredecoded.CheckRaw(JsonElement json) => RunProfile.CheckDefinitions(json);
 }
 
 /// <summary>Selects the scope's default profile; an omitted name clears it.</summary>
@@ -86,10 +98,15 @@ public sealed record RunProfileListResult : TargetHttpContract
     public required ImmutableArray<RunProfileSummary> Profiles { get; init; }
 }
 
-public sealed record RunProfileMutationResult : TargetHttpContract
+public sealed record RunProfileMutationResult : TargetHttpContract, IWirePredecoded
 {
     [JsonPropertyName("profile")]
     public required RunProfile Profile { get; init; }
+
+    static void IWirePredecoded.CheckRaw(JsonElement json)
+    {
+        if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("profile", out var profile)) RunProfile.CheckDefinitions(profile);
+    }
 }
 
 public sealed record RunProfileDeleteResult : TargetHttpContract
@@ -133,4 +150,11 @@ public sealed record RunProfileRunRequest : TargetHttpContract
     [JsonPropertyName("githubToken")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GithubToken { get; init; }
+
+    internal override void Validate(JsonElement json)
+    {
+        StaticConnectionValues.ValidateRun(Connections);
+        WireValidation.Validate(json.GetProperty("source"), typeof(ResolvedSource));
+        if (Environment is not null) WireValidation.Validate(json.GetProperty("environment"), typeof(RuntimeEnvironment));
+    }
 }

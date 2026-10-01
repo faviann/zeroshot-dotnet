@@ -340,10 +340,8 @@ public sealed partial class OecpRunsClient
     {
         ArgumentNullException.ThrowIfNull(runId);
         if (expectedSource is not null) _ = NativeJson.SerializeUtf8(expectedSource);
-        return connection.CallAsync<RunStatusResult>("run/status", NativeJson.SerializeUtf8(new RunStatusParams { RunId = runId }), result =>
-        {
-            if (result.RunId != runId || (expectedSource is not null && result.Source != expectedSource)) throw new JsonException();
-        }, cancellationToken, request);
+        return connection.CallAsync<RunStatusResult>("run/status", NativeJson.SerializeUtf8(new RunStatusParams { RunId = runId }), result => result.Require(runId, expectedSource),
+            cancellationToken, request);
     }
 }
 

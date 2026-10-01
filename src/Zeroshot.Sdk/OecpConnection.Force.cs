@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Native;
@@ -17,7 +16,7 @@ public sealed partial class OecpRunsClient
     internal Task<NativeAttempt<RunForceResult>> ForceAsync(RunId runId, OecpRequest? request,
         Action? afterCapture, CancellationToken cancellationToken)
         => connection.AttemptAsync<RunForceResult>(ForceMethod, NativeJson.SerializeUtf8(new RunForceParams { RunId = runId }),
-            result => { if (result.RunId != runId) throw new JsonException(); }, IsForceRefusal, control: true,
+            result => result.Require(runId), IsForceRefusal, control: true,
             request, cancellationToken, afterCapture);
 
     // Pinned native answers these before force_stop or request_force_stop; NOT_FOUND is the

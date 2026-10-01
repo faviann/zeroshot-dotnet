@@ -8,11 +8,8 @@ using System.Text.Json.Serialization;
 namespace Zeroshot.Native.Contracts;
 
 /// <summary>Source-backed run-history records. Required nullable fields are always present on the wire.</summary>
-public abstract record HistoryContract : NativeContract
-{
-    // Native numeric domains that System.Text.Json does not express by type alone.
-    internal virtual void CheckShape() { }
-}
+// Validate checks native numeric domains that System.Text.Json does not express by type alone.
+public abstract record HistoryContract : NativeContract;
 
 public enum RunHistoryProblemCode
 {
@@ -412,7 +409,7 @@ public sealed record DurableExecution : HistoryContract
     [JsonPropertyName("state")]
     public required DurableExecutionState State { get; init; }
 
-    internal override void CheckShape()
+    internal override void Validate(JsonElement json)
     {
         if (DispatchPosition > long.MaxValue || NodeInstance == 0 || Execution == 0) throw new JsonException();
     }
@@ -431,7 +428,7 @@ public sealed record SettledExecutionState : DurableExecutionState
     public required ulong Position { get; init; }
     [JsonPropertyName("outcome")]
     public required WorkerOutcome Outcome { get; init; }
-    internal override void CheckShape() { if (Position > long.MaxValue) throw new JsonException(); }
+    internal override void Validate(JsonElement json) { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
@@ -441,7 +438,7 @@ public sealed record VoidedExecutionState : DurableExecutionState
     public required ulong Position { get; init; }
     [JsonPropertyName("reason")]
     public required ExecutionVoidReason Reason { get; init; }
-    internal override void CheckShape() { if (Position > long.MaxValue) throw new JsonException(); }
+    internal override void Validate(JsonElement json) { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 internal sealed class DurableExecutionStateConverter : JsonConverter<DurableExecutionState>

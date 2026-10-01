@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Zeroshot.Native.Contracts;
@@ -7,6 +8,18 @@ public abstract record NativeContract
 {
     // Record-generated formatting would recursively expose authored inputs, instructions and scripts.
     public sealed override string ToString() => GetType().Name;
+
+    /// <summary>
+    /// The contract's own wire rules beyond strict typed decoding and the pinned schema. WireValidation
+    /// runs them on a decoded root with its raw JSON, which nested pinned-schema values validate against.
+    /// </summary>
+    internal virtual void Validate(JsonElement json) { }
+}
+
+/// <summary>Raw-JSON rules a contract runs before typed decoding, which cannot classify every malformed nested value.</summary>
+internal interface IWirePredecoded
+{
+    static abstract void CheckRaw(JsonElement json);
 }
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum)]

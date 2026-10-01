@@ -18,61 +18,21 @@ internal static class WireValidation
     internal static object? Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
-        if (typeof(DashboardContract).IsAssignableFrom(type))
-        {
-            var dashboard = JsonSerializer.Deserialize(value, type, NativeJson.Options) as DashboardContract ?? throw new JsonException();
-            dashboard.Validate(value);
-            return dashboard;
-        }
-        if (typeof(DiscoveryContract).IsAssignableFrom(type) || typeof(TargetHttpContract).IsAssignableFrom(type))
+        if (typeof(DashboardContract).IsAssignableFrom(type) || typeof(DiscoveryContract).IsAssignableFrom(type) ||
+            typeof(TargetHttpContract).IsAssignableFrom(type) || typeof(HistoryContract).IsAssignableFrom(type))
         {
             // Nested pinned-schema definitions validate first: typed decoding cannot classify every malformed runtime.
-            if (type == typeof(RunProfile) || type == typeof(RunProfileSetRequest)) CheckProfile(value);
-            if (type == typeof(RunProfileMutationResult) && value.ValueKind == JsonValueKind.Object &&
-                value.TryGetProperty("profile", out var profile)) CheckProfile(profile);
-            if (type == typeof(HostedRunStatusResult)) CheckHosted(value, typeof(RunStatusResult));
-            if (type == typeof(HostedRunWatchEventNotification)) CheckHosted(value, typeof(RunWatchEventNotification));
-            if (type == typeof(HostedRunListResult) && value.ValueKind == JsonValueKind.Object &&
-                value.TryGetProperty("runs", out var runs) && runs.ValueKind == JsonValueKind.Array)
-                foreach (var entry in runs.EnumerateArray()) CheckHosted(entry, typeof(RunStatusResult));
+            Predecoders.GetOrAdd(type, Predecoder)?.Invoke(value);
             // Required fields, nullability, exact field names and per-type extension strictness.
-            var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
-            if (result is TargetHttpProblem problem) problem.Validate();
-            if (result is TargetRunCredentials credentials) credentials.Validate();
-            if (result is ConnectionSetRequest connection) StaticConnectionValues.Validate(connection.Values);
-            if (result is TargetPrivateBootstrapRequest bootstrap) bootstrap.Validate();
-            if (result is RunProfileRunRequest run)
+            var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) as NativeContract ?? throw new JsonException();
+            // History records are walked whole: each nested record runs its own rules.
+            if (result is HistoryContract) CheckHistory(value, result);
+            else
             {
-                StaticConnectionValues.ValidateRun(run.Connections);
-                Validate(value.GetProperty("source"), typeof(ResolvedSource));
-                if (run.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
+                result.Validate(value);
+                if (result is not DashboardContract) CheckDiscovery(value, type);
             }
-            if (result is MergePlanSubmitRequest plan)
-            {
-                // Native MAX_MERGE_PLAN_RUNS; dependency-graph checks stay with the host.
-                if (plan.Runs.Length is < 1 or > MergePlanSubmitRequest.MaxRuns) throw new JsonException();
-                if (plan.Connections is not null) StaticConnectionValues.ValidateRun(plan.Connections);
-                if (plan.Environment is not null) Validate(value.GetProperty("environment"), typeof(RuntimeEnvironment));
-            }
-            if (result is DeviceAuthorization authorization) authorization.Validate();
-            if (result is OAuthTokens tokens) tokens.Validate();
-            if (result is TargetLoginSession session) session.Validate();
-            if (result is ConnectionResolveRequest resolve) resolve.Validate();
-            if (result is ConnectionResolveResult resolved) StaticConnectionValues.ValidateRun(resolved.Connections);
-            if (result is TargetRunRequest request)
-            {
-                TargetRunRequest.ValidateRunId(request.RunId);
-                Validate(value.GetProperty("submission"), typeof(RunSubmission));
-            }
-            CheckDiscovery(value, type);
             return result;
-        }
-        if (typeof(HistoryContract).IsAssignableFrom(type))
-        {
-            // Typed decoding owns field names, presence and nullability; nested pinned-schema values still validate.
-            var history = JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
-            CheckHistory(value, history);
-            return history;
         }
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
         if (name is null)
@@ -91,29 +51,12 @@ internal static class WireValidation
         return null;
     }
 
-    // A hosted record is its pinned OECP shape, except that the status may be the host-only queued phase.
-    // Queued is validated as another phase; its own exact shape is the typed converter's.
-    private static void CheckHosted(JsonElement value, Type shape)
-    {
-        if (value.ValueKind == JsonValueKind.Object && value.TryGetProperty("status", out var status) &&
-            status.ValueKind == JsonValueKind.Object && status.TryGetProperty("phase", out var phase) &&
-            phase.ValueKind == JsonValueKind.String && phase.GetString() == "queued")
-        {
-            var projected = JsonNode.Parse(value.GetRawText())!.AsObject();
-            projected["status"] = new JsonObject { ["phase"] = "admitted" };
-            using var document = JsonDocument.Parse(projected.ToJsonString());
-            Validate(document.RootElement, shape);
-        }
-        else Validate(value, shape);
-    }
-
-    // Missing or misplaced members are left to typed decoding, which reports them.
-    private static void CheckProfile(JsonElement profile)
-    {
-        if (profile.ValueKind != JsonValueKind.Object) return;
-        if (profile.TryGetProperty("graph", out var graph)) Validate(graph, typeof(GraphSpec));
-        if (profile.TryGetProperty("runtime", out var runtime)) Validate(runtime, typeof(RuntimePlan));
-    }
+    private static readonly ConcurrentDictionary<Type, Action<JsonElement>?> Predecoders = new();
+    private static Action<JsonElement>? Predecoder(Type type) => typeof(IWirePredecoded).IsAssignableFrom(type)
+        ? (Action<JsonElement>)typeof(WireValidation).GetMethod(nameof(BindPredecoder), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(type).Invoke(null, null)!
+        : null;
+    private static Action<JsonElement> BindPredecoder<T>() where T : IWirePredecoded => json => T.CheckRaw(json);
 
     private static void CheckDiscovery(JsonElement value, Type type)
     {
@@ -144,7 +87,7 @@ internal static class WireValidation
         {
             case null or JsonElement or NativeString or string: return; // Arbitrary JSON or already validated text.
             case HistoryContract contract:
-                contract.CheckShape();
+                contract.Validate(value);
                 // Externally tagged durable state wraps its fields in one variant-named member.
                 if (contract is DurableExecutionState && value.ValueKind == JsonValueKind.Object)
                     value = value.EnumerateObject().Single().Value;

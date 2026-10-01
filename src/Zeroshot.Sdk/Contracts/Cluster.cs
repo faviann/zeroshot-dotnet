@@ -113,6 +113,11 @@ public sealed record StopParams : NativeContract
     public required Generation IfGeneration { get; init; }
     [JsonPropertyName("idempotencyKey")]
     public required IdempotencyKey IdempotencyKey { get; init; }
+
+    internal void Require(StopResult result)
+    {
+        if (result.AcceptedMode != Mode) throw new JsonException();
+    }
 }
 
 /// <summary>The requested mode and the mode the backend actually applied can differ.</summary>
@@ -184,6 +189,11 @@ public sealed record ResubmitParams : NativeContract
     /// <summary>Present null replaces the input with null; omission reuses the predecessor's input.</summary>
     [JsonPropertyName("replacementInput"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Optional<JsonElement> ReplacementInput { get; init; }
+
+    internal void Require(ResubmitResult result)
+    {
+        if (result.PriorRunId != IfRunId) throw new JsonException();
+    }
 }
 
 [WireContract("ResubmitResult")]
