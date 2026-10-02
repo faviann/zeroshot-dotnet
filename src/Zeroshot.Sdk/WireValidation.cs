@@ -18,23 +18,17 @@ internal static class WireValidation
     internal static object? Validate(JsonElement value, Type type)
     {
         CheckUnicode(value);
-        if (typeof(DashboardContract).IsAssignableFrom(type) || typeof(DiscoveryContract).IsAssignableFrom(type) ||
-            typeof(TargetHttpContract).IsAssignableFrom(type) || typeof(HistoryContract).IsAssignableFrom(type))
+        if (type.GetCustomAttribute<WireContractAttribute>() is not null)
         {
-            // Nested pinned-schema definitions validate first: typed decoding cannot classify every malformed runtime.
-            Predecoders.GetOrAdd(type, Predecoder)?.Invoke(value);
-            // Required fields, nullability, exact field names and per-type extension strictness.
-            var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) as NativeContract ?? throw new JsonException();
-            result.Validate(value);
-            return result;
+            CheckSchema(value, type);
+            return null;
         }
-        if (type.GetCustomAttribute<WireContractAttribute>() is null)
-        {
-            if (typeof(NativeString).IsAssignableFrom(type)) return null;
-            throw new ArgumentException("Unsupported native contract type.");
-        }
-        CheckSchema(value, type);
-        return null;
+        if (typeof(NativeString).IsAssignableFrom(type)) return null;
+        if (!typeof(NativeContract).IsAssignableFrom(type)) throw new ArgumentException("Unsupported native contract type.");
+        // Required fields, nullability, exact field names, per-type extension strictness and nested pinned schemas.
+        var result = (NativeContract?)JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
+        result.Validate(value);
+        return result;
     }
 
     /// <summary>The pinned schema and native rules of a schema-named contract and everything nested in it.</summary>
@@ -51,12 +45,6 @@ internal static class WireValidation
         CheckNative(value, Definitions[name]!, name);
     }
 
-    private static readonly ConcurrentDictionary<Type, Action<JsonElement>?> Predecoders = new();
-    private static Action<JsonElement>? Predecoder(Type type) => typeof(IWirePredecoded).IsAssignableFrom(type)
-        ? (Action<JsonElement>)typeof(WireValidation).GetMethod(nameof(BindPredecoder), BindingFlags.NonPublic | BindingFlags.Static)!
-            .MakeGenericMethod(type).Invoke(null, null)!
-        : null;
-    private static Action<JsonElement> BindPredecoder<T>() where T : IWirePredecoded => json => T.CheckRaw(json);
 
     private static JsonObject LoadDefinitions()
     {

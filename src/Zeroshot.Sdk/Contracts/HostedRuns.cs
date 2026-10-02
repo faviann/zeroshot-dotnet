@@ -23,7 +23,7 @@ public sealed record TargetHostedRunStatus : HostedRunStatus
 }
 
 /// <summary>Hosted status, list entry and force result. Status does not prove a submission key or request digest.</summary>
-public sealed record HostedRunStatusResult : TargetHttpContract, IWirePredecoded
+public sealed record HostedRunStatusResult : TargetHttpContract
 {
     [JsonPropertyName("runId")]
     public required RunId RunId { get; init; }
@@ -41,7 +41,7 @@ public sealed record HostedRunStatusResult : TargetHttpContract, IWirePredecoded
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
 
-    static void IWirePredecoded.CheckRaw(JsonElement json) => CheckTarget(json, typeof(RunStatusResult));
+    internal override void Validate(JsonElement json) => CheckTarget(json, typeof(RunStatusResult));
 
     // A hosted record is its pinned OECP shape, except that the status may be the host-only queued phase.
     // Queued is validated as another phase; its own exact shape is the typed converter's.
@@ -60,20 +60,19 @@ public sealed record HostedRunStatusResult : TargetHttpContract, IWirePredecoded
     }
 }
 
-public sealed record HostedRunListResult : TargetHttpContract, IWirePredecoded
+public sealed record HostedRunListResult : TargetHttpContract
 {
     [JsonPropertyName("runs")]
     public required ImmutableArray<HostedRunStatusResult> Runs { get; init; }
 
-    static void IWirePredecoded.CheckRaw(JsonElement json)
+    internal override void Validate(JsonElement json)
     {
-        if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("runs", out var runs) && runs.ValueKind == JsonValueKind.Array)
-            foreach (var entry in runs.EnumerateArray()) HostedRunStatusResult.CheckTarget(entry, typeof(RunStatusResult));
+        foreach (var entry in json.GetProperty("runs").EnumerateArray()) HostedRunStatusResult.CheckTarget(entry, typeof(RunStatusResult));
     }
 }
 
 /// <summary>One hosted watch record. Unlike status, it never carries <c>workspaceRecovery</c>.</summary>
-public sealed record HostedRunWatchEventNotification : TargetHttpContract, IWirePredecoded
+public sealed record HostedRunWatchEventNotification : TargetHttpContract
 {
     [JsonPropertyName("subscriptionId")]
     public required SubscriptionId SubscriptionId { get; init; }
@@ -90,7 +89,7 @@ public sealed record HostedRunWatchEventNotification : TargetHttpContract, IWire
     [JsonPropertyName("status")]
     public required HostedRunStatus Status { get; init; }
 
-    static void IWirePredecoded.CheckRaw(JsonElement json) => HostedRunStatusResult.CheckTarget(json, typeof(RunWatchEventNotification));
+    internal override void Validate(JsonElement json) => HostedRunStatusResult.CheckTarget(json, typeof(RunWatchEventNotification));
 }
 
 internal sealed class HostedRunStatusConverter : JsonConverter<HostedRunStatus>
