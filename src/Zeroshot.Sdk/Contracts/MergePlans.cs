@@ -100,7 +100,6 @@ public sealed record MergePlanSubmitRequest : TargetHttpContract
         // Native MAX_MERGE_PLAN_RUNS; dependency-graph checks stay with the host.
         if (Runs.Length is < 1 or > MaxRuns) throw new JsonException();
         if (Connections is not null) StaticConnectionValues.ValidateRun(Connections);
-        if (Environment is not null) WireValidation.Validate(json.GetProperty("environment"), typeof(RuntimeEnvironment));
     }
 }
 

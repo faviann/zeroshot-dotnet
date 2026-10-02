@@ -137,7 +137,5 @@ public sealed record RunProfileRunRequest : TargetHttpContract
     internal override void Validate(JsonElement json)
     {
         StaticConnectionValues.ValidateRun(Connections);
-        WireValidation.Validate(json.GetProperty("source"), typeof(ResolvedSource));
-        if (Environment is not null) WireValidation.Validate(json.GetProperty("environment"), typeof(RuntimeEnvironment));
     }
 }

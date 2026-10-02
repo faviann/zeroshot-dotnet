@@ -31,7 +31,6 @@ public sealed record TargetRunRequest : TargetRunCredentials
     {
         base.Validate(json);
         ValidateRunId(RunId);
-        WireValidation.Validate(json.GetProperty("submission"), typeof(RunSubmission));
     }
 
     internal static void ValidateRunId(RunId runId)

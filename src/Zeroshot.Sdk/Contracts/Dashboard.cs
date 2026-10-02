@@ -56,11 +56,7 @@ public sealed record DashboardTemplate : DashboardContract
 
     internal override void Validate(JsonElement json)
     {
-        foreach (var binding in json.GetProperty("runtimeBindings").EnumerateObject())
-        {
-            _ = new NodeName(binding.Name);
-            WireValidation.Validate(binding.Value, typeof(NodeRuntimeBinding));
-        }
+        foreach (var name in RuntimeBindings.Keys) _ = new NodeName(name);
     }
 }
 
