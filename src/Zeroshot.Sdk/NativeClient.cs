@@ -97,47 +97,10 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         catch { socket?.Dispose(); lease.Dispose(); throw; }
     }
 
-    internal Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken)
-        => ExecuteJsonAsync<TargetDiscoveryDocument>(NativeTargetClient.DiscoveryOperation, new Uri(Origin, NativeTargetClient.DiscoveryPath),
-            null, null, discovery =>
-            {
-                if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller")
-                    throw new JsonException();
-            }, cancellationToken);
-
-    internal Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
-        TargetOecpSessionRequest request, TargetControlCredentials? credentials, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
-        ArgumentNullException.ThrowIfNull(discovery);
-        ArgumentNullException.ThrowIfNull(request);
-        // No remote descriptor may influence credential-bearing dispatch until validated.
-        _ = NativeJson.SerializeUtf8(discovery);
-        if (discovery.Kind != "zeroshot.native-v2-target/v2" || discovery.Audience != "controller" ||
-            (credentials?.Authentication ?? TargetAuthentication.None) != discovery.Authentication)
-            throw new ArgumentException("Discovery and supplied control authority are incompatible.");
-        _ = NativeRoutes.SameOriginPath(Origin, discovery.RunPath);
-        _ = NativeRoutes.SameOriginPath(Origin, discovery.OecpPath);
-        var endpoint = NativeRoutes.SameOriginPath(Origin, discovery.SessionPath);
-        if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
-            throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
-        var bytes = NativeJson.SerializeUtf8(request);
-        return ExecuteJsonAsync(NativeTargetClient.SessionOperation, endpoint, bytes, credentials,
-            (TargetOecpSession session) =>
-            {
-                _ = NativeRoutes.SessionEndpoint(Origin, session.Endpoint);
-                if (discovery.Authentication == TargetAuthentication.None)
-                {
-                    if (session.BearerToken is not null) throw new JsonException();
-                }
-                else TargetControlCredentials.ValidateBearer(session.BearerToken!);
-            }, cancellationToken);
-    }
-
-    internal Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, Uri requestUri, byte[]? body,
+    internal Task<T> ExecuteJsonAsync<T>(OperationDescriptor operation, HttpResponsePolicy policy, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Action<T> validate, CancellationToken cancellationToken,
         Action<Guid>? onDispatch = null, Action<T>? onResponse = null, Action<HttpRequestMessage>? configure = null)
-        => ExecuteHttpAsync(operation, body is null ? HttpMethod.Get : HttpMethod.Post, requestUri, body, credentials,
+        => ExecuteHttpAsync(operation, policy, body is null ? HttpMethod.Get : HttpMethod.Post, requestUri, body, credentials,
             async (response, context) =>
             {
                 var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
@@ -153,21 +116,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 { throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode); }
             }, cancellationToken, onDispatch, configure);
 
-    /// <summary>A body-less HEAD binding; refusals keep their status like any other HTTP operation.</summary>
-    internal Task<NativeHeadResult> ExecuteHeadAsync(OperationDescriptor operation, Uri requestUri,
-        TargetControlCredentials? credentials, CancellationToken cancellationToken, Action<HttpRequestMessage>? configure = null)
-        => ExecuteHttpAsync(operation, HttpMethod.Head, requestUri, null, credentials,
-            (response, _) => Task.FromResult(new NativeHeadResult(response.StatusCode,
-                response.Content.Headers.ContentLength, response.Content.Headers.ContentType?.MediaType)),
-            cancellationToken, configure: configure);
-
-    /// <summary>
-    /// Opens one streaming GET whose response becomes a bounded observation. Queue admission precedes dispatch,
-    /// and the opening token also cancels the observation later. A refusal before the stream starts is a
-    /// <see cref="NativeHttpException"/>; <paramref name="admits"/> checks a successful response.
-    /// </summary>
-    internal async Task<TStream> OpenStreamAsync<TRecord, TStream>(OperationDescriptor operation, Uri requestUri,
-        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage> configure,
+    private async Task<TStream> StartStreamAsync<TRecord, TStream>(OperationDescriptor operation, HttpResponsePolicy policy, Uri requestUri,
+        TargetControlCredentials? credentials, Func<HttpResponseMessage, bool> admits, Action<HttpRequestMessage>? configure,
         Func<ObservationQueue<TRecord, Cursor>, HttpResponseMessage, Stream, TStream> create, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
@@ -176,7 +126,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         catch (ObservationFailure failure) { throw NativeSubscriptionException.From(failure); }
         try
         {
-            var (response, body) = await ExecuteHttpAsync(operation, HttpMethod.Get, requestUri, null, credentials, async (response, context) =>
+            var (response, body) = await ExecuteHttpAsync(operation, policy, HttpMethod.Get, requestUri, null, credentials, async (response, context) =>
             {
                 if (!admits(response))
                     throw context.Failure(OperationFailureKind.Protocol, OperationStage.Response, statusCode: response.StatusCode);
@@ -192,10 +142,7 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         }
     }
 
-    /// <summary>Per-request header hook for operations whose native caller sends Cache-Control: no-store.</summary>
-    internal static void NoStore(HttpRequestMessage request) => request.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
-
-    private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpMethod method, Uri requestUri, byte[]? body,
+    private async Task<T> ExecuteHttpAsync<T>(OperationDescriptor operation, HttpResponsePolicy policy, HttpMethod method, Uri requestUri, byte[]? body,
         TargetControlCredentials? credentials, Func<HttpResponseMessage, OperationContext, Task<T>> readSuccess,
         CancellationToken cancellationToken, Action<Guid>? onDispatch = null, Action<HttpRequestMessage>? configure = null,
         bool redirectIsResult = false, bool keepResponse = false)
@@ -204,10 +151,9 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         var responseGate = new object();
         HttpResponseMessage? ownedResponse = null;
         HttpResponseMessage? handedOff = null;
-        TargetHttpProblem? problem = null;
-        UiProblem? uiProblem = null;
-        DeviceTokenError? deviceTokenError = null;
+        HttpRefusal refusal = default;
         HttpStatusCode? receivedStatus = null;
+        var sendStarted = 0;
         var cleanupStarted = false;
         try
         {
@@ -223,15 +169,13 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                     request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 }
-                // A direct target hands every later request on a UI-routed connection to its UI
-                // router (native transport.rs serve_connection), so pooled reuse would send control
-                // requests there. Close it after this exchange instead.
-                if (operation.UiRouter) request.Headers.ConnectionClose = true;
+                if (policy.ClosesConnection) request.Headers.ConnectionClose = true;
                 configure?.Invoke(request);
                 if (credentials is not null)
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.BearerToken);
                 request.Options.Set(ContextKey, context);
                 context.ThrowIfCancelled();
+                Volatile.Write(ref sendStarted, 1);
                 onDispatch?.Invoke(context.CorrelationId);
                 var response = await SendAsync(request, context).ConfigureAwait(false);
                 bool retained;
@@ -251,21 +195,11 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 if (!response.IsSuccessStatusCode && !redirect)
                 {
                     var stream = await response.Content.ReadAsStreamAsync(context.CancellationToken).ConfigureAwait(false);
-                    var bytes = await context.ReadResponseAsync(stream, Math.Min(limits.DiagnosticBytes,
-                        operation.ProblemBytes ?? int.MaxValue)).ConfigureAwait(false);
-                    // Native's UI router answers with its own {code,message} problems, not TargetHttpProblem.
-                    try
-                    {
-                        if (operation.UiRouter) uiProblem = NativeJson.DeserializeUtf8<UiProblem>(bytes);
-                        else if (operation.OAuthErrors)
-                            deviceTokenError = NativeJson.DeserializeUtf8<OAuthErrorResponse>(bytes).Known;
-                        else problem = NativeJson.DeserializeUtf8<TargetHttpProblem>(bytes);
-                    }
-                    catch (JsonException) { } // Status remains an observed refusal even without a valid problem.
+                    var bytes = await context.ReadResponseAsync(stream, policy.RefusalBytes(limits.DiagnosticBytes)).ConfigureAwait(false);
+                    refusal = policy.ReadRefusal(bytes);
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, bytes, response.StatusCode);
                 }
-                if ((operation == NativeTargetClient.DiscoveryOperation || operation == NativeTargetClient.SubmitOperation) &&
-                    response.StatusCode != HttpStatusCode.OK)
+                if (!policy.Admits(response.StatusCode))
                     throw context.Failure(OperationFailureKind.HttpStatus, OperationStage.Response, statusCode: response.StatusCode);
                 var result = await readSuccess(response, context).ConfigureAwait(false);
                 // A streaming result owns the response beyond this operation's deadline and cleanup.
@@ -287,61 +221,45 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         {
             // The operation can still fail after a streaming result was handed off; nothing else owns it then.
             lock (responseGate) handedOff?.Dispose();
+            if (error is OperationCancelled cancelled) throw new NativeHttpOperationCanceledException(cancelled, Volatile.Read(ref sendStarted) != 0);
             if (error is not OperationFailure failure) throw;
-            throw new NativeHttpException(failure, problem, receivedStatus, uiProblem,
-                // The direct UI mount and hosted hosts send the same closed code in their own problem shapes.
-                operation.HistoryProblems ? RunHistoryProblems.Parse(uiProblem?.Code ?? problem?.Code) : null, deviceTokenError);
+            throw policy.Failure(failure, refusal, receivedStatus);
         }
     }
 
     /// <summary>
     /// Sends one mutation and classifies its evidence without retrying. The response is JSON unless
-    /// <paramref name="readSuccess"/> reads the operation's own success shape.
+    /// <paramref name="readSuccess"/> reads the operation's own success shape. A request may have been sent once
+    /// dispatch begins; a refusal is an HTTP status whose problem code <paramref name="isRefusal"/> accepts.
     /// </summary>
-    private async Task<(Guid CorrelationId, NativeAttemptOutcome Outcome, T? Response, Exception? Failure)> AttemptAsync<T>(
-        OperationDescriptor operation, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
+    internal Task<NativeAttempt<T>> AttemptAsync<T>(
+        OperationDescriptor operation, HttpResponsePolicy policy, Uri requestUri, byte[] body, TargetControlCredentials? credentials,
         Func<HttpStatusCode?, string, bool> isRefusal, CancellationToken cancellationToken,
         Action<HttpRequestMessage>? configure = null,
-        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null, Action<T>? validate = null) where T : class
+        Func<HttpResponseMessage, OperationContext, Task<T>>? readSuccess = null, Action<T>? validate = null,
+        Action? afterCapture = null) where T : class
     {
         var dispatched = 0;
         var correlationId = Guid.Empty;
-        T? response = null;
-        Exception? failure = null;
         void OnDispatch(Guid id) { correlationId = id; Interlocked.Exchange(ref dispatched, 1); }
-        void Capture(T value) => Volatile.Write(ref response, value);
-        try
-        {
-            await (readSuccess is null
-                ? ExecuteJsonAsync<T>(operation, requestUri, body, credentials, validate ?? (_ => { }), cancellationToken,
-                    onDispatch: OnDispatch, onResponse: Capture, configure: configure)
-                : ExecuteHttpAsync(operation, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
-                {
-                    var value = await readSuccess(message, context).ConfigureAwait(false);
-                    Capture(value);
-                    return value;
-                }, cancellationToken, OnDispatch, configure)).ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is NativeHttpException or OperationCanceledException)
-        {
-            failure = error;
-            correlationId = error switch
+        return SubmissionAttempt.RunAsync<T>(Origin, operation.Name, capture => readSuccess is null
+            ? ExecuteJsonAsync<T>(operation, policy, requestUri, body, credentials, validate ?? (_ => { }), cancellationToken,
+                onDispatch: OnDispatch, onResponse: value => capture(correlationId, value), configure: configure)
+            : ExecuteHttpAsync(operation, policy, HttpMethod.Post, requestUri, body, credentials, async (message, context) =>
             {
-                NativeHttpException httpFailure => httpFailure.CorrelationId,
-                OperationCancelled cancelled => cancelled.CorrelationId,
-                _ => correlationId
-            };
-        }
-
-        // The request has finished its bounded cleanup. A response already validated
-        // by the adapter wins a cancellation race, including cancellation during cleanup.
-        var captured = Volatile.Read(ref response);
-        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
-            : Volatile.Read(ref dispatched) == 0 ? NativeAttemptOutcome.NotSent
-            : failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus } refused &&
-                (refused.Problem?.Code ?? refused.UiProblem?.Code) is { } code && isRefusal(refused.StatusCode, code)
-                ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown;
-        return (correlationId, outcome, captured, captured is null ? failure : null);
+                var value = await readSuccess(message, context).ConfigureAwait(false);
+                capture(correlationId, value);
+                return value;
+            }, cancellationToken, OnDispatch, configure), error => error switch
+            {
+                NativeHttpException refused => new(refused.CorrelationId, Volatile.Read(ref dispatched) != 0,
+                    // A recognized OAuth error is the server's statement that no tokens were issued.
+                    refused.DeviceTokenError is not null || refused.Kind == NativeHttpFailureKind.HttpStatus &&
+                        (refused.Problem?.Code ?? refused.UiProblem?.Code) is { } code && isRefusal(refused.StatusCode, code)),
+                NativeHttpOperationCanceledException cancelled => new(cancelled.CorrelationId, cancelled.SendStarted, false),
+                OperationCanceledException => new(correlationId, Volatile.Read(ref dispatched) != 0, false),
+                _ => null
+            }, afterCapture);
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, OperationContext context)
@@ -414,14 +332,42 @@ public sealed partial class NativeTargetClient
     internal static readonly OperationDescriptor DiscoveryOperation = new("target.discover", OperationTransport.Http);
     internal static readonly OperationDescriptor SessionOperation = new("target.createOecpSession", OperationTransport.Http, isControl: true,
         requestBytes: 4 * 1024 * 1024, responseBytes: 64 * 1024);
+    private static readonly HttpBinding<TargetDiscoveryDocument> Discovery = new(DiscoveryOperation, response: HttpResponsePolicy.OkOnly);
+    private static readonly HttpBinding<TargetOecpSession> Session = new(SessionOperation);
     private readonly NativeClient client;
     internal NativeTargetClient(NativeClient client) => this.client = client;
     public Task<TargetDiscoveryDocument> DiscoverAsync(CancellationToken cancellationToken = default)
-        => client.DiscoverAsync(cancellationToken);
+        => client.ReadAsync(Discovery, () => new Uri(client.Origin, DiscoveryPath), null, cancellationToken, validate: discovery =>
+        {
+            if (!NativeClient.IsControllerDiscovery(discovery)) throw new JsonException();
+        });
 
     /// <summary>Obtains one session with explicitly supplied discovery and current control authority; never refreshes credentials.</summary>
     public Task<TargetOecpSession> CreateOecpSessionAsync(TargetDiscoveryDocument discovery,
         TargetOecpSessionRequest? request = null, TargetControlCredentials? credentials = null,
         CancellationToken cancellationToken = default)
-        => client.CreateOecpSessionAsync(discovery, request ?? new(), credentials, cancellationToken);
+    {
+        request ??= new();
+        return client.ReadAsync(Session, () =>
+        {
+            ArgumentNullException.ThrowIfNull(discovery);
+            // No remote descriptor may influence credential-bearing dispatch until validated.
+            NativeClient.Admit(discovery, d => (credentials?.Authentication ?? TargetAuthentication.None) == d.Authentication,
+                "Discovery and supplied control authority are incompatible.");
+            _ = NativeRoutes.SameOriginPath(client.Origin, discovery.RunPath);
+            _ = NativeRoutes.SameOriginPath(client.Origin, discovery.OecpPath);
+            var endpoint = NativeRoutes.SameOriginPath(client.Origin, discovery.SessionPath);
+            if (request.RunId is { Value: var id } && !TargetRunRequest.IsCanonicalRunId(id))
+                throw new ArgumentException("A session run selector must be a canonical UUIDv7.", nameof(request));
+            return new HttpCall(endpoint, NativeJson.SerializeUtf8(request));
+        }, credentials, cancellationToken, validate: session =>
+        {
+            _ = NativeRoutes.SessionEndpoint(client.Origin, session.Endpoint);
+            if (discovery.Authentication == TargetAuthentication.None)
+            {
+                if (session.BearerToken is not null) throw new JsonException();
+            }
+            else TargetControlCredentials.ValidateBearer(session.BearerToken!);
+        });
+    }
 }

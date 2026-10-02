@@ -20,12 +20,8 @@ public sealed class HttpConnectionTests
         DynamicKinds = ["github-app-installation", new string('é', 64)]
     };
     private static TargetDiscoveryDocument Discovery(TargetConnectionsDiscovery? connections = null,
-        TargetAuthentication authentication = TargetAuthentication.HostedOauth) => new()
-    {
-        Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = authentication,
-        RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp",
-        Extensions = new() { Connections = connections }
-    };
+        TargetAuthentication authentication = TargetAuthentication.HostedOauth)
+        => TestDiscovery.Controller(authentication) with { Extensions = new() { Connections = connections } };
     private static ConnectionSetRequest SetRequest(ImmutableDictionary<string, string>? values = null) => new()
     {
         Key = new("github"), Scope = ConnectionScope.User,
@@ -227,12 +223,5 @@ public sealed class HttpConnectionTests
         try { await task; }
         catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
         throw new InvalidOperationException("Expected native failure.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 }

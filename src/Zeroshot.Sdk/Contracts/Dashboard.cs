@@ -10,9 +10,6 @@ namespace Zeroshot.Native.Contracts;
 /// <summary>Native browser-dashboard data. Drafts are editor state, not admitted or stored profiles.</summary>
 public abstract record DashboardContract : NativeContract
 {
-    /// <summary>Validates generated nested contracts against the pinned schema after strict deserialization.</summary>
-    internal virtual void Validate(JsonElement json) { }
-
     private protected static void Nested(JsonElement json, string property, Type type)
         => WireValidation.Validate(json.GetProperty(property), type);
 }

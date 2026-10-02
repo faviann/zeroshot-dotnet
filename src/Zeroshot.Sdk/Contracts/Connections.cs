@@ -36,6 +36,8 @@ public sealed record ConnectionSetRequest : TargetHttpContract
     public required ConnectionScope Scope { get; init; }
     [JsonPropertyName("values")]
     public required ImmutableDictionary<string, string> Values { get; init; }
+
+    internal override void Validate(JsonElement json) => StaticConnectionValues.Validate(Values);
 }
 
 public sealed record ConnectionDeleteRequest : TargetHttpContract
@@ -85,7 +87,7 @@ public sealed record ConnectionResolveRequest : TargetHttpContract
     [JsonPropertyName("connections")]
     public required ImmutableDictionary<string, ImmutableArray<EnvironmentVariableName>> Connections { get; init; }
 
-    internal void Validate()
+    internal override void Validate(JsonElement json)
     {
         foreach (var key in Connections.Keys) _ = new ConnectionKey(key);
     }
@@ -96,6 +98,8 @@ public sealed record ConnectionResolveResult : TargetHttpContract
 {
     [JsonPropertyName("connections")]
     public required ImmutableDictionary<string, ImmutableDictionary<string, string>> Connections { get; init; }
+
+    internal override void Validate(JsonElement json) => StaticConnectionValues.ValidateRun(Connections);
 }
 
 // Native StaticConnectionValues::new, shared by run credentials and stored connections.

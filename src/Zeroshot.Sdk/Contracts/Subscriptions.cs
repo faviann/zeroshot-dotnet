@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Zeroshot.Native.Contracts;
@@ -10,6 +11,22 @@ public sealed record RunWatchParams : NativeContract
     /// <summary>Opaque exclusive history position; the boundary record is not replayed.</summary>
     [JsonPropertyName("fromCursor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Cursor? FromCursor { get; init; }
+
+    internal void Require(RunWatchResult result)
+    {
+        if (result.RunId != RunId || (FromCursor is not null && result.AtCursor != FromCursor)) throw new JsonException();
+    }
+
+    // Shared by the OECP and hosted HTTP watches: every record keeps the subscription, this run and the first source.
+    internal void Require(RunWatchEventNotification record, SubscriptionId subscription, ResolvedSource source)
+    {
+        if (record.SubscriptionId != subscription || record.RunId != RunId || record.Source != source) throw new JsonException();
+    }
+
+    internal void Require(HostedRunWatchEventNotification record, SubscriptionId subscription, ResolvedSource source)
+    {
+        if (record.SubscriptionId != subscription || record.RunId != RunId || record.Source != source) throw new JsonException();
+    }
 }
 
 [WireContract("RunLogsParams")]
@@ -22,6 +39,18 @@ public sealed record RunLogsParams : NativeContract
     /// <summary>Exact opaque active or settled execution selector.</summary>
     [JsonPropertyName("execution"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ExecutionRef? Execution { get; init; }
+
+    internal void Require(RunLogsResult result)
+    {
+        if (result.RunId != RunId || (FromCursor is not null && result.AtCursor != FromCursor)) throw new JsonException();
+    }
+
+    // Shared by the OECP and hosted HTTP log streams.
+    internal void Require(RunLogEventNotification record, SubscriptionId subscription)
+    {
+        if (record.SubscriptionId != subscription || record.RunId != RunId || (Execution is not null && record.Execution != Execution))
+            throw new JsonException();
+    }
 }
 
 [WireContract("RunWatchResult")]

@@ -103,7 +103,7 @@ internal sealed record RunResumeParams : NativeContract
     // An empty connection map is omitted, as native does.
     internal static byte[] SerializeUtf8(RunId runId, RunId successorRunId, RunResumeFrom? from, TargetRunCredentials? credentials)
     {
-        credentials?.Validate();
+        if (credentials is not null) StaticConnectionValues.ValidateRun(credentials.Connections);
         return NativeJson.SerializeUtf8(new RunResumeParams
         {
             RunId = runId, SuccessorRunId = successorRunId, From = from,

@@ -184,6 +184,41 @@ public sealed class HttpDiscoveryTests
     }
 
     [Test]
+    public async Task CallerCancellationCarriesCorrelationDispatchAndTheCallersToken()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new Handler(async (request, token) =>
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return Reply(request);
+        });
+        using var http = new HttpClient(handler);
+        using var native = NativeClient.ForHttp(Options(), http);
+        using var cancellation = new CancellationTokenSource();
+        var pending = native.Target.DiscoverAsync(cancellation.Token);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        try { await pending; throw new InvalidOperationException("Expected cancellation."); }
+        catch (NativeHttpOperationCanceledException error)
+        {
+            Check(error.SendStarted && error.CorrelationId != Guid.Empty && error.CancellationToken == cancellation.Token, error.ToString());
+        }
+        try { await native.Target.DiscoverAsync(cancellation.Token); throw new InvalidOperationException("Expected cancellation."); }
+        catch (NativeHttpOperationCanceledException error) { Check(!error.SendStarted && error.CorrelationId != Guid.Empty && handler.Calls == 1); }
+    }
+
+    [Test]
+    public async Task DiscoveryRequiresExactly200()
+    {
+        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, status: HttpStatusCode.Accepted)));
+        using var http = new HttpClient(handler);
+        using var native = NativeClient.ForHttp(Options(), http);
+        var failure = await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.HttpStatus);
+        Check(failure.StatusCode == HttpStatusCode.Accepted && failure.Problem is null);
+    }
+
+    [Test]
     public async Task WholeBodyDeadlineAndImmediateRequestCapacityAreEnforced()
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -296,8 +331,8 @@ public sealed class HttpDiscoveryTests
     [Test]
     public async Task SharedCoreReportsHeadHeadersBoundsProblemsAndClosesUiRoutedConnections()
     {
-        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.ui", Zeroshot.Native.Execution.OperationTransport.Http,
-            problemBytes: 8, uiRouter: true);
+        var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.ui", Zeroshot.Native.Execution.OperationTransport.Http);
+        var policy = HttpResponsePolicy.UiRouter with { ProblemBytes = 8 };
         using var handler = new Handler((request, _) =>
         {
             Check(request.Headers.ConnectionClose == true && request.Content is null);
@@ -313,22 +348,14 @@ public sealed class HttpDiscoveryTests
         using var http = new HttpClient(handler);
         using var native = NativeClient.ForHttp(Options(), http);
         var uri = new Uri("https://target.example/ui-routed");
-        var result = await native.ExecuteHeadAsync(operation, uri, null, default);
+        var result = await native.HeadAsync(new HttpBinding<NativeHeadResult>(operation, response: policy), () => uri, null, default);
         Check(result.StatusCode == HttpStatusCode.OK && result.ContentLength == 29 && result.MediaType == "application/json");
         // The operation's refusal-body bound applies below the shared diagnostic ceiling.
-        var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, uri, null, null, _ => { }, default),
+        var refused = await Failure(native.ExecuteJsonAsync<TargetDiscoveryDocument>(operation, policy, uri, null, null, _ => { }, default),
             NativeHttpFailureKind.SizeLimit);
         Check(refused.StatusCode == HttpStatusCode.NotFound && refused.Problem is null && refused.UiProblem is null);
     }
 
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        public bool Disposed { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
-        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
-    }
     private sealed class CountingStream(byte[] bytes) : MemoryStream(bytes)
     {
         public int BytesRead { get; private set; }

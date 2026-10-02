@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Zeroshot.Client.Tests;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 
@@ -203,6 +204,24 @@ public sealed class HttpSubmissionTests
     }
 
     [Test]
+    public async Task CapturedReceiptSurvivesCancellationThatLandsBeforeTheOperationCompletes()
+    {
+        using var handler = new Handler(async (request, _) =>
+        {
+            await Task.Yield(); // The operation must be pending, not complete synchronously, when cancellation lands.
+            return Reply(request, Receipt(Acknowledged));
+        });
+        using var http = new HttpClient(handler);
+        using var client = NativeClient.ForHttp(Options(), http);
+        using var cancellation = new CancellationTokenSource();
+        // Cancels inside the operation, after validation and capture: the executor reports cancellation, not the result.
+        var attempt = await client.AttemptAsync<TargetRunReceipt>(NativeTargetClient.SubmitOperation, HttpResponsePolicy.OkOnly, new Uri(client.Origin, "/native-v2/run"),
+            NativeJson.SerializeUtf8(Typed()), null, (_, _) => false, cancellation.Token, afterCapture: cancellation.Cancel);
+        Check(cancellation.IsCancellationRequested && attempt is { Outcome: NativeAttemptOutcome.Acknowledged, Failure: null });
+        Check(attempt.Response!.RunId.Value == Acknowledged && attempt.CorrelationId != Guid.Empty && handler.Calls == 1);
+    }
+
+    [Test]
     public async Task DeadlineAndCapacityAreEvidenceWithDispatchSpecificOutcomes()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -249,13 +268,6 @@ public sealed class HttpSubmissionTests
         try { await action(); }
         catch (T) { return; }
         throw new InvalidOperationException("Expected invalid-use exception.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 
     private sealed class CleanupContent(string body, Action cleanup) : StringContent(body)

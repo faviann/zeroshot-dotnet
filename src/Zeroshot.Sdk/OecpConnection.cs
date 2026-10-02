@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Zeroshot.Native.Contracts;
@@ -14,7 +15,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     private readonly IDisposable lease;
     private readonly OperationExecutor executor;
     private readonly OperationLimits limits;
-    private readonly Action<OecpConnection> released;
+    private readonly OecpHost host;
     private readonly SemaphoreSlim sendGate = new(1);
     private readonly CancellationTokenSource lifetime = new();
     private readonly object gate = new();
@@ -35,18 +36,15 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>The HTTP target origin, the Unix socket as a file URI, or null for caller-supplied streams.</summary>
     internal Uri? Origin { get; }
 
-    internal OecpConnection(Uri? origin, IOecpTransport transport, IDisposable lease,
-        OperationExecutor executor, OperationLimits limits, ObservationDelivery observations, Action<OecpConnection> released,
-        bool processWideIds = false)
+    internal OecpConnection(Uri? origin, IOecpTransport transport, IDisposable lease, OecpHost host)
     {
         Origin = origin;
         // A borrowed stream can outlive its connection, so a late reply can reach a later one.
         // Process-wide IDs never match its calls, and the seed makes that reply a retired ID.
-        this.processWideIds = processWideIds;
+        processWideIds = host.ProcessWideIds;
         if (processWideIds) nextId = Interlocked.Read(ref streamRequestIds);
-        this.transport = transport; this.lease = lease; this.executor = executor;
-        this.limits = limits; this.released = released;
-        this.observations = observations;
+        this.transport = transport; this.lease = lease; this.host = host;
+        executor = host.Executor; limits = host.Limits; observations = host.Observations;
         Cluster = new(this); Runs = new(this);
     }
 
@@ -143,7 +141,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
                     }
                 }
                 catch (ConnectionInterrupted interrupted)
-                { throw context.Failure(Enum.Parse<OperationFailureKind>(interrupted.Kind.ToString()), OperationStage.Response); }
+                { throw context.Failure(ConnectionInterrupted.KindOf(interrupted.Kind), OperationStage.Response); }
                 finally { lock (gate) pending.Remove(id); }
             }, cleanup: async token =>
             {
@@ -174,34 +172,18 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
     /// <summary>Sends one mutation and returns its evidence. Only isRefusal errors prove that native had no effect.</summary>
     // afterCapture lets tests place cancellation between capture and operation completion. That placement is
     // deterministic only because the cancelled WaitAsync continuation runs inline during Cancel().
-    internal async Task<NativeAttempt<T>> AttemptAsync<T>(string method, byte[] parameters, Action<T>? validate,
+    internal Task<NativeAttempt<T>> AttemptAsync<T>(string method, byte[] parameters, Action<T>? validate,
         Func<JsonRpcError, bool> isRefusal, bool control, OecpRequest? request, CancellationToken cancellationToken,
         Action? afterCapture = null) where T : class
-    {
-        var correlationId = Guid.Empty;
-        T? acknowledged = null;
-        Exception? failure = null;
-        var sendStarted = false;
-        try
-        {
-            await CallAsync(method, parameters, validate, cancellationToken, request, control: control, onResponse: (id, result) =>
+        => SubmissionAttempt.RunAsync<T>(Origin, method,
+            capture => CallAsync(method, parameters, validate, cancellationToken, request, control: control, onResponse: capture),
+            error => error switch
             {
-                correlationId = id;
-                Volatile.Write(ref acknowledged, result);
-                afterCapture?.Invoke();
-            }).ConfigureAwait(false);
-        }
-        catch (NativeOecpException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
-        catch (OecpOperationCanceledException error) { (failure, correlationId, sendStarted) = (error, error.CorrelationId, error.Dispatch.SendStarted); }
-
-        // Cancellation can end the call after validation but before the operation completes.
-        var captured = Volatile.Read(ref acknowledged);
-        var outcome = captured is not null ? NativeAttemptOutcome.Acknowledged
-            : !sendStarted ? NativeAttemptOutcome.NotSent
-            : failure is NativeOecpException { RpcError: { } rpcError } && isRefusal(rpcError) ? NativeAttemptOutcome.Rejected
-            : NativeAttemptOutcome.Unknown;
-        return new(Origin, method, correlationId, outcome, captured, captured is null ? failure : null);
-    }
+                NativeOecpException failure => new(failure.CorrelationId, failure.Dispatch.SendStarted,
+                    failure.RpcError is { } rpcError && isRefusal(rpcError)),
+                OecpOperationCanceledException cancelled => new(cancelled.CorrelationId, cancelled.Dispatch.SendStarted, false),
+                _ => null
+            }, afterCapture);
 
     // Connection admission and dispatch answer these before any backend method runs
     // (openengine-cluster-server connection/admission.rs and dispatch.rs).
@@ -287,7 +269,7 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
             subscriptions.Clear();
         }
         lifetime.Cancel();
-        transport.Abort(); lease.Dispose(); released(this);
+        transport.Abort(); lease.Dispose(); host.Released(this);
         completion.TrySetResult(failure is { } kind ? new(kind) : null);
     }
 
@@ -331,7 +313,19 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         public OecpDispatchFacts Facts => new(id, SendStarted, SendCompleted, ResponseReceived);
     }
     internal sealed class ConnectionInterrupted(NativeOecpFailureKind kind) : Exception
-    { public NativeOecpFailureKind Kind { get; } = kind; }
+    {
+        public NativeOecpFailureKind Kind { get; } = kind;
+        internal static OperationFailureKind KindOf(NativeOecpFailureKind kind) => kind switch
+        {
+            NativeOecpFailureKind.Capacity => OperationFailureKind.Capacity,
+            NativeOecpFailureKind.Deadline => OperationFailureKind.Deadline,
+            NativeOecpFailureKind.SizeLimit => OperationFailureKind.SizeLimit,
+            NativeOecpFailureKind.Transport => OperationFailureKind.Transport,
+            NativeOecpFailureKind.Protocol => OperationFailureKind.Protocol,
+            // A JSON-RPC error answers one request; it never interrupts the connection.
+            NativeOecpFailureKind.RpcError => throw new UnreachableException("An RPC error does not interrupt a connection.")
+        };
+    }
 }
 
 public sealed partial class OecpRunsClient
@@ -346,10 +340,8 @@ public sealed partial class OecpRunsClient
     {
         ArgumentNullException.ThrowIfNull(runId);
         if (expectedSource is not null) _ = NativeJson.SerializeUtf8(expectedSource);
-        return connection.CallAsync<RunStatusResult>("run/status", NativeJson.SerializeUtf8(new RunStatusParams { RunId = runId }), result =>
-        {
-            if (result.RunId != runId || (expectedSource is not null && result.Source != expectedSource)) throw new JsonException();
-        }, cancellationToken, request, control: true);
+        return connection.CallAsync<RunStatusResult>("run/status", NativeJson.SerializeUtf8(new RunStatusParams { RunId = runId }), result => result.Require(runId, expectedSource),
+            cancellationToken, request, control: true);
     }
 }
 

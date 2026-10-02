@@ -38,7 +38,7 @@ public sealed record TargetPrivateBootstrapRequest : TargetHttpContract
     public required string Ciphertext { get; init; }
 
     // Native rejects any other envelope before decryption; it is never sent.
-    internal void Validate()
+    internal override void Validate(JsonElement json)
     {
         if (!IsLowerHex(Nonce, 12) || !IsLowerHex(Ciphertext, 64 + 16)) throw new JsonException();
     }
@@ -124,7 +124,7 @@ public sealed record TargetHttpProblem : TargetHttpContract
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Details { get; init; }
 
-    internal void Validate()
+    internal override void Validate(JsonElement json)
     {
         if (string.IsNullOrEmpty(Code) || Code.Length > 128 ||
             Code.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')) ||

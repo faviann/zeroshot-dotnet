@@ -16,7 +16,7 @@ public record TargetRunCredentials : TargetHttpContract
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GithubToken { get; init; }
 
-    internal void Validate() => StaticConnectionValues.ValidateRun(Connections);
+    internal override void Validate(JsonElement json) => StaticConnectionValues.ValidateRun(Connections);
 }
 
 /// <summary>The complete fixed target HTTP envelope; no identity or content is generated at send time.</summary>
@@ -26,6 +26,13 @@ public sealed record TargetRunRequest : TargetRunCredentials
     public required RunId RunId { get; init; }
     [JsonPropertyName("submission")]
     public required RunSubmission Submission { get; init; }
+
+    internal override void Validate(JsonElement json)
+    {
+        base.Validate(json);
+        ValidateRunId(RunId);
+        WireValidation.Validate(json.GetProperty("submission"), typeof(RunSubmission));
+    }
 
     internal static void ValidateRunId(RunId runId)
     {

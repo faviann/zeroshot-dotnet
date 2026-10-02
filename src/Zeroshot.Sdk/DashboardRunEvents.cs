@@ -33,19 +33,22 @@ public sealed record DashboardHistoryErrorEvent : DashboardRunEvent
 /// </summary>
 public sealed class DashboardRunEvents : IAsyncDisposable
 {
-    private readonly HttpObservation<DashboardRunEvent> observation;
+    private readonly ObservationLifecycle<DashboardRunEvent> observation;
     public Task<NativeSubscriptionCompletion> Completion => observation.Completion;
     /// <summary>Last page cursor handed to the caller, including pages drained after closure. Not a processing checkpoint.</summary>
     public Cursor? LastDeliveredCursor => observation.LastDeliveredCursor;
 
     internal DashboardRunEvents(ObservationQueue<DashboardRunEvent, Cursor> queue, HttpResponseMessage response, Stream body,
         Cursor start, int eventBytes)
-        => observation = new(queue, response, (target, token) => ReadAsync(target, body, start, eventBytes, token));
+    {
+        observation = new(queue);
+        observation.Start(response, token => ReadAsync(observation, body, start, eventBytes, token));
+    }
 
     public IAsyncEnumerable<DashboardRunEvent> ReadAllAsync(CancellationToken cancellationToken = default)
         => observation.ReadAllAsync(cancellationToken);
 
-    private static async Task<NativeSubscriptionException?> ReadAsync(HttpObservation<DashboardRunEvent> observation,
+    private static async Task<NativeSubscriptionException?> ReadAsync(ObservationLifecycle<DashboardRunEvent> observation,
         Stream body, Cursor after, int eventBytes, CancellationToken cancellationToken)
     {
         var reader = new SseReader(body, eventBytes);

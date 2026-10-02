@@ -105,11 +105,11 @@ public sealed partial class OecpRunsClient
         ArgumentNullException.ThrowIfNull(parameters);
         return connection.SubscribeAsync<RunAttachResult, RunAttachEventNotification>("run/attach", NativeJson.SerializeUtf8(parameters), result =>
         {
-            if (result.RunId != parameters.RunId || result.Execution != parameters.Execution) throw new JsonException();
+            parameters.Require(result);
             return result.SubscriptionId;
         }, (id, record) =>
         {
-            if (record.SubscriptionId != id || record.RunId != parameters.RunId || record.Execution != parameters.Execution) throw new JsonException();
+            parameters.Require(record, id);
             return null;
         }, cancellationToken);
     }
@@ -123,12 +123,12 @@ public sealed partial class OecpRunsClient
         var source = expectedSource;
         return connection.SubscribeAsync<RunWatchResult, RunWatchEventNotification>("run/watch", NativeJson.SerializeUtf8(parameters), result =>
         {
-            if (result.RunId != parameters.RunId || (parameters.FromCursor is not null && result.AtCursor != parameters.FromCursor)) throw new JsonException();
+            parameters.Require(result);
             return result.SubscriptionId;
         }, (id, record) =>
         {
             source ??= record.Source;
-            if (record.SubscriptionId != id || record.RunId != parameters.RunId || record.Source != source) throw new JsonException();
+            parameters.Require(record, id, source);
             return record.Cursor;
         }, cancellationToken);
     }
@@ -140,12 +140,11 @@ public sealed partial class OecpRunsClient
         ArgumentNullException.ThrowIfNull(parameters);
         return connection.SubscribeAsync<RunLogsResult, RunLogEventNotification>("run/logs", NativeJson.SerializeUtf8(parameters), result =>
         {
-            if (result.RunId != parameters.RunId || (parameters.FromCursor is not null && result.AtCursor != parameters.FromCursor)) throw new JsonException();
+            parameters.Require(result);
             return result.SubscriptionId;
         }, (id, record) =>
         {
-            if (record.SubscriptionId != id || record.RunId != parameters.RunId ||
-                (parameters.Execution is not null && record.Execution != parameters.Execution)) throw new JsonException();
+            parameters.Require(record, id);
             return record.Cursor;
         }, cancellationToken);
     }

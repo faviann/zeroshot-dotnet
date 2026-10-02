@@ -190,6 +190,11 @@ public sealed record RunStatusResult : NativeContract
     [JsonPropertyName("workspaceRecovery")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
+
+    internal void Require(RunId runId, ResolvedSource? expectedSource)
+    {
+        if (RunId != runId || (expectedSource is not null && Source != expectedSource)) throw new JsonException();
+    }
 }
 
 [WireContract("RunForceParams")]
@@ -218,6 +223,11 @@ public sealed record RunForceResult : NativeContract
     [JsonPropertyName("workspaceRecovery")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
+
+    internal void Require(RunId runId)
+    {
+        if (RunId != runId) throw new JsonException();
+    }
 }
 
 /// <summary>Native run status. Finished status contains exactly one terminal result.</summary>

@@ -312,10 +312,4 @@ public sealed class ConnectionResolverTests
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         { await Task.Delay(Timeout.Infinite, cancellationToken); return 0; }
     }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => send(request, cancellationToken);
-    }
 }

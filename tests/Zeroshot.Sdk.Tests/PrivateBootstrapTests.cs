@@ -13,12 +13,8 @@ public sealed class PrivateBootstrapTests
     private static readonly string Ciphertext = string.Concat(Enumerable.Repeat("0123456789abcdef", 10));
     private static readonly TargetPrivateBootstrapRequest Envelope = new() { Nonce = Nonce, Ciphertext = Ciphertext };
     private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.PrivateCapability,
-        string? path = "/native-v2/private-bootstrap") => new()
-    {
-        Kind = "zeroshot.native-v2-target/v2", Audience = "controller", Authentication = authentication,
-        RunPath = "/native-v2/run", SessionPath = "/native-v2/oecp-session", OecpPath = "/native-v2/oecp",
-        PrivateBootstrapPath = path
-    };
+        string? path = "/native-v2/private-bootstrap")
+        => TestDiscovery.Controller(authentication) with { PrivateBootstrapPath = path };
     private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
         new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
     private static HttpResponseMessage Reply(HttpRequestMessage request, HttpStatusCode status, string? body = null) => new(status)
@@ -112,12 +108,5 @@ public sealed class PrivateBootstrapTests
         try { await action(); }
         catch (Exception error) { Check(error.GetType() == typeof(TException), error.ToString()); return; }
         throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    {
-        public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        { Calls++; return send(request, cancellationToken); }
     }
 }
