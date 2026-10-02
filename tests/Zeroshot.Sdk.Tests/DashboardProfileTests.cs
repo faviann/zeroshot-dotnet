@@ -90,38 +90,14 @@ public sealed class DashboardProfileTests
         }
     }
 
+    // Refusal pairs and a lost exchange: CapabilityConformanceTests.
     [Test]
-    public async Task OnlyNativePreWriteRefusalsRejectASave()
-    {
-        foreach (var (status, code, rejected) in new[]
-        {
-            // workspace_changed is also native's answer to a matching header after the store was replaced.
-            (409, "workspace_changed", true), (409, "profile_conflict", true), (422, "invalid_profile", true),
-            (403, "origin_rejected", true), (415, "json_required", true), (503, "server_stopping", true),
-            // A store error can follow the write; a code under another status or a non-UI refusal proves nothing.
-            (500, "profile_store_error", false), (409, "invalid_profile", false), (404, "request.not_found", false)
-        })
-        {
-            var (native, handler) = Client((request, _) => Task.FromResult(Reply(request, (HttpStatusCode)status,
-                JsonSerializer.Serialize(new { code, message = "refused" }))));
-            using (native)
-            {
-                var attempt = await native.Dashboard.SaveProfileAsync(Save("rev-1"), Workspace);
-                Check(attempt.Outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown) && attempt.Response is null &&
-                    attempt.Failure is NativeHttpException { Kind: NativeHttpFailureKind.HttpStatus, UiProblem: { } problem } http &&
-                    problem.Code == code && http.StatusCode == (HttpStatusCode)status && handler.Calls == 1, $"{status} {code}");
-            }
-        }
-    }
-
-    [Test]
-    public async Task ALostOrUnreadableReplyLeavesTheSaveUnknownAndIsNeverResent()
+    public async Task AnUnreadableOrUnansweredReplyLeavesTheSaveUnknownAndIsNeverResent()
     {
         // The unanswered save's deadline runs on a manual clock that expires once the request is in flight.
         var time = new ManualTime();
         foreach (var (send, kind) in new (Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>, NativeHttpFailureKind)[]
         {
-            ((_, _) => throw new HttpRequestException("connection reset"), NativeHttpFailureKind.Transport),
             ((request, _) => Task.FromResult(Reply(request, HttpStatusCode.OK, """{"profile":null,"revision":"rev-1"}""")), NativeHttpFailureKind.Protocol),
             (async (_, token) =>
             {

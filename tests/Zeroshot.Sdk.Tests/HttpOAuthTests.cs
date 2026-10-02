@@ -39,25 +39,18 @@ public sealed class HttpOAuthTests
         $$"""{"access_token":"{{access}}","refresh_token":"{{Refresh}}","token_type":"{{type}}","expires_in":{{expires}},"refresh_expires_in":{{refreshExpires}},"scope":"{{scope}}"}""";
     private static Handler Replying(string body, HttpStatusCode status = HttpStatusCode.OK) => new((request, _) => Task.FromResult(Reply(request, body, status)));
 
+    // Wire, discovery gate, refresh refusal pairs and refusal formatting: CapabilityConformanceTests.
     [Test]
-    public async Task EachOperationSendsTheExactNativeRequestToItsDiscoveredUrl()
+    public async Task EachOperationDecodesItsNativeResult()
     {
-        var seen = new List<(HttpMethod Method, string Uri, string? Authorization, string? Accept, string? Type, bool NoStore, string? Body)>();
-        using var handler = new Handler(async (request, token) =>
+        using var handler = new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
         {
-            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
-            seen.Add((request.Method, request.RequestUri!.AbsoluteUri, request.Headers.Authorization?.ToString(),
-                request.Headers.Accept.Count == 0 ? null : request.Headers.Accept.ToString(), request.Content?.Headers.ContentType?.ToString(),
-                request.Headers.CacheControl?.NoStore == true, body));
-            return request.RequestUri!.AbsolutePath switch
-            {
-                "/.well-known/oauth-authorization-server" => Reply(request, Metadata()),
-                // Hosts may use any 2xx status.
-                "/oauth/device" => Reply(request, Code(""","verification_uri_complete":"https://login.example/device?code=1" """), HttpStatusCode.Created),
-                "/oauth/token" => Reply(request, Tokens()),
-                _ => Reply(request, """{"kind":"openengine.target-session/v1","organization_id":"org-1"}""")
-            };
-        });
+            "/.well-known/oauth-authorization-server" => Reply(request, Metadata()),
+            // Hosts may use any 2xx status.
+            "/oauth/device" => Reply(request, Code(""","verification_uri_complete":"https://login.example/device?code=1" """), HttpStatusCode.Created),
+            "/oauth/token" => Reply(request, Tokens()),
+            _ => Reply(request, """{"kind":"openengine.target-session/v1","organization_id":"org-1"}""")
+        }));
         using var client = ClientFor(handler);
 
         var metadata = await client.OAuth.MetadataAsync(Discovery());
@@ -69,58 +62,14 @@ public sealed class HttpOAuthTests
         Check(metadata.RevocationEndpoint == OAuth.RevocationEndpoint && code.VerificationUriComplete == "https://login.example/device?code=1");
         Check(exchange.Outcome == NativeAttemptOutcome.Acknowledged && exchange.Operation == "oauth.exchangeDeviceToken" && exchange.Response!.AccessToken == Access);
         Check(refresh.Outcome == NativeAttemptOutcome.Acknowledged && refresh.Operation == "oauth.refresh" && refresh.Response!.RefreshToken == Refresh);
-        Check(session.OrganizationId == "org-1");
-        const string Form = "application/x-www-form-urlencoded";
-        var expected = new (HttpMethod, string, string?, string?, string?, bool, string?)[]
-        {
-            (HttpMethod.Get, OAuth.MetadataUrl, null, "application/json", null, false, null),
-            (HttpMethod.Post, OAuth.DeviceAuthorizationEndpoint, null, "*/*", Form, false, "client_id=zeroshot+cli%7E1"),
-            (HttpMethod.Post, OAuth.TokenEndpoint, null, "*/*", Form, false,
-                "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=DEVICE-CODE-CANARY&client_id=zeroshot+cli%7E1" +
-                "&device_token=0f3c2a9e-58b1-4d7e-9a61-2b4c8d0e6f17&device_label=zeroshot-cli&audience=controller"),
-            (HttpMethod.Post, OAuth.TokenEndpoint, null, "*/*", Form, false,
-                "grant_type=refresh_token&client_id=zeroshot+cli%7E1&refresh_token=rotating+refresh%2F1&audience=controller"),
-            (HttpMethod.Get, "https://target.example/login/session", "Bearer " + Access, "application/json", null, true, null)
-        };
-        Check(seen.SequenceEqual(expected), string.Join("\n", seen));
+        Check(session.OrganizationId == "org-1" && handler.Calls == 5);
     }
 
     [Test]
-    public async Task InvalidDiscoveryAndCallerInputFailBeforeDispatch()
+    public async Task InvalidCallerInputFailsBeforeDispatch()
     {
-        var discoveries = new[]
-        {
-            Discovery() with { Authentication = TargetAuthentication.None },
-            Discovery() with { Authentication = TargetAuthentication.PrivateCapability },
-            Discovery() with { Audience = "operator" },
-            Discovery() with { Oauth = null },
-            Discovery() with { LoginSession = null },
-            Discovery(OAuth with { DeviceGrantType = "device_code" }),
-            Discovery(OAuth with { DeviceExchangeFields = ["device_token"] }),
-            Discovery(OAuth with { DeviceExchangeFields = ["device_token", "device_token"] }),
-            Discovery(OAuth with { DeviceExchangeFields = ["device_token", "device_label", "device_name"] }),
-            Discovery(OAuth with { ClientId = "" }),
-            Discovery(OAuth with { ClientId = new string('é', 128) + "x" }),
-            Discovery(OAuth with { ClientId = "client\u007f" }),
-            Discovery(OAuth with { MetadataUrl = "https://attacker.example/metadata" }),
-            Discovery(OAuth with { DeviceAuthorizationEndpoint = "https://attacker.example/oauth/device" }),
-            Discovery(OAuth with { TokenEndpoint = "https://attacker.example/oauth/token" }),
-            Discovery(OAuth with { RevocationEndpoint = "https://attacker.example/oauth/revoke" }),
-            Discovery(login: Login with { Method = "POST" }),
-            Discovery(login: Login with { CachePolicy = "no-cache" }),
-            Discovery(login: Login with { RouteTemplate = "//attacker.example/session" }),
-            Discovery(login: Login with { RouteTemplate = "/login/session?device_label=x" })
-        };
         using var handler = Replying("{}");
         using var client = ClientFor(handler);
-        foreach (var discovery in discoveries)
-        {
-            await Invalid(() => client.OAuth.MetadataAsync(discovery), Access, Refresh, DeviceCode);
-            await Invalid(() => client.OAuth.BeginDeviceAuthorizationAsync(discovery), Access, Refresh, DeviceCode);
-            await Invalid(() => client.OAuth.ExchangeDeviceTokenAsync(discovery, Authorization, DeviceToken), Access, Refresh, DeviceCode);
-            await Invalid(() => client.OAuth.RefreshAsync(discovery, Refresh), Access, Refresh, DeviceCode);
-            await Invalid(() => client.OAuth.VerifySessionAsync(discovery, Hosted), Access, Refresh, DeviceCode);
-        }
         foreach (var refresh in new[] { "", "line\nbreak", new string('r', 16 * 1024 + 1) })
             await Invalid(() => client.OAuth.RefreshAsync(Discovery(), refresh), Access, Refresh, DeviceCode);
         foreach (var authorization in new[] { Authorization with { DeviceCode = "" }, Authorization with { ExpiresIn = 0 } })
@@ -266,28 +215,6 @@ public sealed class HttpOAuthTests
         })
             Check(attempt.Outcome == outcome);
         Check(lost.Calls == 2);
-    }
-
-    [Test]
-    public async Task RefreshRejectsOnlyNativePreEffectProblemPairs()
-    {
-        foreach (var (status, body, rejected) in new[]
-        {
-            (400, """{"code":"invalid_request","message":"refused"}""", true),
-            (401, """{"code":"unauthorized","message":"refused"}""", true),
-            (403, """{"code":"forbidden","message":"refused"}""", true),
-            (404, """{"code":"not_found","message":"refused"}""", true),
-            (409, """{"code":"request_conflict","message":"refused"}""", false),
-            (503, """{"code":"target.unavailable","message":"refused"}""", false),
-            (400, """{"error":"invalid_grant"}""", false)
-        })
-        {
-            using var handler = Replying(body, (HttpStatusCode)status);
-            using var client = ClientFor(handler);
-            var attempt = await client.OAuth.RefreshAsync(Discovery(), Refresh);
-            Check(attempt.Outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown) &&
-                attempt.Failure is NativeHttpException { DeviceTokenError: null } failure && failure.StatusCode == (HttpStatusCode)status, body);
-        }
     }
 
     [Test]

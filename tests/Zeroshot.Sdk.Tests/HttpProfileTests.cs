@@ -25,9 +25,8 @@ public sealed class HttpProfileTests
             Delete = "/profiles/delete", Default = "/profiles/default", Run = "/profiles/run"
         }
     };
-    private static TargetDiscoveryDocument Discovery(TargetRunProfilesDiscovery? profiles = null,
-        TargetAuthentication authentication = TargetAuthentication.HostedOauth)
-        => TestDiscovery.Controller(authentication) with { Extensions = new() { RunProfiles = profiles } };
+    private static TargetDiscoveryDocument Discovery(TargetRunProfilesDiscovery profiles)
+        => TestDiscovery.Controller(TargetAuthentication.HostedOauth) with { Extensions = new() { RunProfiles = profiles } };
     private static JsonArray Fixture(string name) =>
         JsonNode.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", name)))!.AsArray();
     private static T Parse<T>(JsonNode node) => NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(node.ToJsonString()));
@@ -50,29 +49,22 @@ public sealed class HttpProfileTests
     private static string Profile(string scope = "user", string graph = "", string runtime = "") =>
         $$"""{"id":"p-1","name":"review","scope":"{{scope}}","graph":{{(graph == "" ? Canonical(Graph).ToJsonString() : graph)}},"runtime":{{(runtime == "" ? Canonical(Runtime).ToJsonString() : runtime)}},"isDefault":true}""";
 
+    // Wire, gate, refusal and formatting rules: CapabilityConformanceTests.
     [Test]
-    public async Task EachOperationPostsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
+    public async Task EachOperationDecodesItsHostOwnedResult()
     {
         foreach (var (scope, wire) in new[] { (RunProfileScope.User, "user"), (RunProfileScope.Org, "org") })
         {
-            var seen = new List<(string Path, JsonNode Body)>();
-            using var handler = new Handler(async (request, token) =>
+            using var handler = new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
             {
-                var body = await request.Content!.ReadAsStringAsync(token);
-                seen.Add((request.RequestUri!.AbsolutePath, JsonNode.Parse(body)!));
-                Check(request.Method == HttpMethod.Post && request.Headers.Authorization!.ToString() == "Bearer " + Bearer);
-                Check(request.Headers.CacheControl!.NoStore && request.Content.Headers.ContentType!.MediaType == "application/json");
-                return request.RequestUri!.AbsolutePath switch
-                {
-                    // Host-owned responses: any 2xx carrying a valid body.
-                    "/api/profiles/list" => Reply(request, $$"""{"profiles":[{"id":"p-1","name":"review","scope":"{{wire}}","isDefault":true}]}"""),
-                    "/api/profiles/show" => Reply(request, Profile(wire)),
-                    "/api/profiles/set" => Reply(request, $$"""{"profile":{{Profile(wire)}}}""", HttpStatusCode.Created),
-                    "/api/profiles/delete" => Reply(request, """{"deleted":true}""", HttpStatusCode.Accepted),
-                    "/api/profiles/default" => Reply(request, $$"""{"scope":"{{wire}}","name":"review"}"""),
-                    _ => Reply(request, """{"runId":"018f5e78-7f95-7c22-8d98-3f15af20c992"}""", HttpStatusCode.Accepted)
-                };
-            });
+                // Host-owned responses: any 2xx carrying a valid body.
+                "/api/profiles/list" => Reply(request, $$"""{"profiles":[{"id":"p-1","name":"review","scope":"{{wire}}","isDefault":true}]}"""),
+                "/api/profiles/show" => Reply(request, Profile(wire)),
+                "/api/profiles/set" => Reply(request, $$"""{"profile":{{Profile(wire)}}}""", HttpStatusCode.Created),
+                "/api/profiles/delete" => Reply(request, """{"deleted":true}""", HttpStatusCode.Accepted),
+                "/api/profiles/default" => Reply(request, $$"""{"scope":"{{wire}}","name":"review"}"""),
+                _ => Reply(request, """{"runId":"018f5e78-7f95-7c22-8d98-3f15af20c992"}""", HttpStatusCode.Accepted)
+            }));
             using var client = ClientFor(handler);
             var list = await client.Profiles.ListAsync(Discovery(Capability), new() { Scope = scope }, Hosted);
             var show = await client.Profiles.ShowAsync(Discovery(Capability), Selector(scope), Hosted);
@@ -89,21 +81,6 @@ public sealed class HttpProfileTests
             // Native deduplication can acknowledge a different run; the caller compares it with its proposal.
             Check(run.Outcome == NativeAttemptOutcome.Acknowledged && run.Operation == "run_profiles.run" &&
                 run.Response!.RunId.Value == "018f5e78-7f95-7c22-8d98-3f15af20c992" && run.Origin == client.Origin);
-            Check(seen.Select(s => s.Path).SequenceEqual(new[]
-            {
-                "/api/profiles/list", "/api/profiles/show", "/api/profiles/set", "/api/profiles/delete", "/api/profiles/default", "/api/profiles/run"
-            }));
-            var expected = new[]
-            {
-                $$"""{"scope":"{{wire}}"}""",
-                $$"""{"scope":"{{wire}}","name":"review"}""",
-                $$"""{"name":"review","scope":"{{wire}}","graph":{{Canonical(Graph).ToJsonString()}},"runtime":{{Canonical(Runtime).ToJsonString()}},"setDefault":true}""",
-                $$"""{"scope":"{{wire}}","name":"review"}""",
-                $$"""{"scope":"{{wire}}","name":"review"}""",
-                $$$"""{"runId":"{{{RunId}}}","profile":{"scope":"org","name":"review"},"title":"Profile run","initialInput":{"items":[null,1]},"source":{"repository":"acme/project","branch":"main","revision":"{{{new string('a', 40)}}}"},"submissionKey":"profile-key","connections":{"github":{"GH_TOKEN":"{{{Secret}}}"}},"githubToken":"{{{GithubToken}}}"}"""
-            };
-            foreach (var (actual, wireBody) in seen.Select(s => s.Body).Zip(expected))
-                Check(JsonNode.DeepEquals(actual, JsonNode.Parse(wireBody)), actual.ToJsonString());
         }
     }
 
@@ -166,33 +143,10 @@ public sealed class HttpProfileTests
     }
 
     [Test]
-    public async Task WrongTargetAbsentCapabilityInvalidDescriptorsAndInvalidRequestsFailBeforeDispatch()
+    public async Task InvalidNamesAndRunConnectionsFailBeforeDispatch()
     {
-        var routes = Capability.RouteTemplates;
-        var cases = new (TargetDiscoveryDocument Discovery, TargetControlCredentials Credentials)[]
-        {
-            (Discovery(Capability, TargetAuthentication.None), Hosted),
-            (Discovery(Capability, TargetAuthentication.PrivateCapability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(Capability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(Capability) with { Audience = "operator" }, Hosted),
-            (Discovery(), Hosted),
-            (Discovery(Capability with { Kind = "zeroshot.run-profiles/v2" }), Hosted),
-            (Discovery(Capability with { BaseUrl = "https://attacker.example/api/" }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Run = "/profiles/{run_id}" } }), Hosted),
-        };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
         using var client = ClientFor(handler);
-        foreach (var (discovery, credentials) in cases)
-        {
-            // Every operation refuses, because native compiles all six routes before any of them.
-            await Invalid(() => client.Profiles.ListAsync(discovery, new() { Scope = RunProfileScope.User }, credentials), Secret, Bearer);
-            await Invalid(() => client.Profiles.ShowAsync(discovery, Selector(), credentials), Secret, Bearer);
-            await Invalid(() => client.Profiles.SetAsync(discovery, SetRequest(), credentials), Secret, Bearer);
-            await Invalid(() => client.Profiles.DeleteAsync(discovery, Selector(), credentials), Secret, Bearer);
-            await Invalid(() => client.Profiles.DefaultAsync(discovery, new() { Scope = RunProfileScope.User }, credentials), Secret, Bearer);
-            await Invalid(() => client.Profiles.RunAsync(discovery, RunRequest(), credentials), Secret, Bearer);
-        }
-
         foreach (var name in new[] { "", "-lead", ".lead", "a b", "é", new string('a', 65) })
             await Invalid(() => Task.FromResult(new RunProfileName(name)), Secret, Bearer);
         _ = new RunProfileName("A0" + new string('_', 31) + new string('.', 30) + "-");
@@ -259,62 +213,4 @@ public sealed class HttpProfileTests
         Check(set.Outcome == NativeAttemptOutcome.Unknown && set.Response is null &&
             set.Failure is NativeHttpException { Kind: NativeHttpFailureKind.SizeLimit });
     }
-
-    [Test]
-    public async Task OnlyNativePreEffectProblemPairsRejectMutations()
-    {
-        foreach (var (status, code, rejected) in new[]
-        {
-            (400, "invalid_request", true), (401, "unauthorized", true), (403, "forbidden", true), (404, "not_found", true),
-            (409, "request_conflict", false), (429, "rate_limited", false), (503, "target.unavailable", false), (404, "invalid_request", false)
-        })
-        {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
-                JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = ClientFor(handler);
-            var attempts = new (NativeAttemptOutcome Outcome, Exception? Failure)[]
-            {
-                await Evidence(client.Profiles.SetAsync(Discovery(Capability), SetRequest(), Hosted)),
-                await Evidence(client.Profiles.DeleteAsync(Discovery(Capability), Selector(), Hosted)),
-                await Evidence(client.Profiles.DefaultAsync(Discovery(Capability), new() { Scope = RunProfileScope.User }, Hosted)),
-                await Evidence(client.Profiles.RunAsync(Discovery(Capability), RunRequest(), Hosted))
-            };
-            foreach (var (outcome, failure) in attempts)
-            {
-                Check(outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown), $"{status} {code}");
-                Check(failure is NativeHttpException { Problem: { } problem } http && http.StatusCode == (HttpStatusCode)status && problem.Code == code);
-            }
-            var show = await Failure(client.Profiles.ShowAsync(Discovery(Capability), Selector(), Hosted), NativeHttpFailureKind.HttpStatus);
-            Check(show.Problem!.Code == code);
-        }
-        using var lost = new Handler((_, _) => throw new HttpRequestException("connection reset"));
-        using var peer = ClientFor(lost);
-        var run = await peer.Profiles.RunAsync(Discovery(Capability), RunRequest(), Hosted);
-        Check(run.Outcome == NativeAttemptOutcome.Unknown && run.Failure is NativeHttpException, "A lost exchange leaves the run unresolved.");
-    }
-
-    [Test]
-    public async Task DefaultFormattingOmitsSecretsBearerAndRemoteTextWhileExplicitDataRemains()
-    {
-        const string Remote = "REMOTE-MESSAGE-CANARY";
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
-            JsonSerializer.Serialize(new { code = "invalid_request", message = Remote, details = new { echoed = Secret } }), HttpStatusCode.BadRequest)));
-        using var client = ClientFor(handler);
-        var request = RunRequest();
-        var attempt = await client.Profiles.RunAsync(Discovery(Capability), request, Hosted);
-        Exception? refused = null;
-        try { await client.Profiles.RunAsync(Discovery(Capability, TargetAuthentication.None), request, Hosted); }
-        catch (ArgumentException error) { refused = error; }
-        foreach (var text in new[] { request.ToString(), attempt.ToString(), attempt.Failure!.ToString(), refused!.ToString() })
-            Check(!text.Contains(Secret) && !text.Contains(GithubToken) && !text.Contains(Bearer) && !text.Contains(Remote), text);
-        var wire = Encoding.UTF8.GetString(NativeJson.SerializeUtf8(request));
-        Check(wire.Contains(Secret) && wire.Contains(GithubToken) && ((NativeHttpException)attempt.Failure).Problem!.Message == Remote);
-    }
-
-    private static async Task<(NativeAttemptOutcome, Exception?)> Evidence<T>(Task<NativeAttempt<T>> task) where T : class
-    {
-        var attempt = await task;
-        return (attempt.Outcome, attempt.Failure);
-    }
-
 }
