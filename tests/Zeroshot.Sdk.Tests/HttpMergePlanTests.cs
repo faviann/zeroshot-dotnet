@@ -38,12 +38,6 @@ public sealed class HttpMergePlanTests
     private const string RunStatus = """{"name":"build","runId":"r-1","state":"blocked","needs":[],"sourceRevision":null,"readyAt":null,"queueExpiresAt":null,"terminalAt":null,"waitingReason":null,"errorCode":null}""";
     private static string Plan(string run = RunStatus, string state = "queued", string id = PlanId) =>
         $$"""{"planId":"{{id}}","title":"Release","state":"{{state}}","repository":"acme/project","branch":"main","submittedAt":"2026-09-27T00:00:00Z","expiresAt":"2026-09-28T00:00:00Z","runs":[{{run}}]}""";
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    private static void Check(bool value, string message = "Merge-plan assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task EachOperationSendsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
@@ -63,7 +57,7 @@ public sealed class HttpMergePlanTests
                 : request.RequestUri.OriginalString.EndsWith("/force") ? Reply(request, Plan(state: "running", id: OpaqueId), HttpStatusCode.Accepted)
                 : Reply(request, Plan(), HttpStatusCode.Created);
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var requests = new[]
         {
             Submit() with { Connections = ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty
@@ -104,7 +98,7 @@ public sealed class HttpMergePlanTests
     {
         var reply = "";
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, reply)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var state in new[] { "queued", "running", "succeeded", "failed", "cancelled", "expired" })
         {
             reply = Plan(state: state, run: "");
@@ -161,19 +155,19 @@ public sealed class HttpMergePlanTests
             (Discovery(Capability with { RouteTemplates = routes with { Force = "/plans/{run_id}/force" } }), Hosted),
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Plan())));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var (discovery, credentials) in cases)
         {
             // Every operation refuses, because native compiles all three routes before any of them.
-            await Invalid(() => client.MergePlans.CreateAsync(discovery, Submit(), credentials));
-            await Invalid(() => client.MergePlans.StatusAsync(discovery, new(PlanId), credentials));
-            await Invalid(() => client.MergePlans.ForceAsync(discovery, new(PlanId), credentials));
+            await Invalid(() => client.MergePlans.CreateAsync(discovery, Submit(), credentials), Secret, Bearer);
+            await Invalid(() => client.MergePlans.StatusAsync(discovery, new(PlanId), credentials), Secret, Bearer);
+            await Invalid(() => client.MergePlans.ForceAsync(discovery, new(PlanId), credentials), Secret, Bearer);
         }
         // Native would drop or rewrite these segments and address a different route.
         foreach (var id in new[] { ".", "..", "plan\t1", "plan\r1", "plan\n1" })
         {
-            await Invalid(() => client.MergePlans.StatusAsync(Discovery(Capability), new(id), Hosted));
-            await Invalid(() => client.MergePlans.ForceAsync(Discovery(Capability), new(id), Hosted));
+            await Invalid(() => client.MergePlans.StatusAsync(Discovery(Capability), new(id), Hosted), Secret, Bearer);
+            await Invalid(() => client.MergePlans.ForceAsync(Discovery(Capability), new(id), Hosted), Secret, Bearer);
         }
         var runs = Enumerable.Range(0, 65).Select(i => Run($"run-{i}")).ToImmutableArray();
         foreach (var request in new[]
@@ -183,7 +177,7 @@ public sealed class HttpMergePlanTests
             Submit() with { Connections = ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty
                 .Add("github", ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", "")) }
         })
-            await Invalid(() => client.MergePlans.CreateAsync(Discovery(Capability), request, Hosted));
+            await Invalid(() => client.MergePlans.CreateAsync(Discovery(Capability), request, Hosted), Secret, Bearer);
         Check(handler.Calls == 0);
         Check((await client.MergePlans.CreateAsync(Discovery(Capability), Submit() with { Runs = runs[..64] }, Hosted)).Outcome
             == NativeAttemptOutcome.Acknowledged, "64 runs is native's maximum, not beyond it.");
@@ -194,7 +188,7 @@ public sealed class HttpMergePlanTests
             Check(request.RequestUri!.OriginalString == "https://target.example/api/plans/", request.RequestUri.OriginalString);
             return Task.FromResult(Reply(request, Plan(id: "")));
         });
-        using var emptyClient = Client(empty);
+        using var emptyClient = ClientFor(empty);
         Check((await emptyClient.MergePlans.StatusAsync(Discovery(Capability), new(""), Hosted)).PlanId.Value == "" && empty.Calls == 1);
     }
 
@@ -209,7 +203,7 @@ public sealed class HttpMergePlanTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
                 JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var create = await client.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
             var force = await client.MergePlans.ForceAsync(Discovery(Capability), new(PlanId), Hosted);
             foreach (var attempt in new[] { create, force })
@@ -223,7 +217,7 @@ public sealed class HttpMergePlanTests
         }
 
         using (var lost = new Handler((_, _) => throw new HttpRequestException("connection reset")))
-        using (var peer = Client(lost))
+        using (var peer = ClientFor(lost))
         {
             var create = await peer.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
             var force = await peer.MergePlans.ForceAsync(Discovery(Capability), new(PlanId), Hosted);
@@ -237,7 +231,7 @@ public sealed class HttpMergePlanTests
         foreach (var (body, fits) in new[] { (large, true), (oversized, false) })
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var create = await client.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
             Check(fits ? create.Outcome == NativeAttemptOutcome.Acknowledged
                 : create.Outcome == NativeAttemptOutcome.Unknown && create.Failure is NativeHttpException { Kind: NativeHttpFailureKind.SizeLimit },
@@ -245,18 +239,4 @@ public sealed class HttpMergePlanTests
         }
     }
 
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Secret) && !error.ToString().Contains(Bearer)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected native failure.");
-    }
 }

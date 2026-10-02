@@ -15,15 +15,11 @@ public sealed class PrivateBootstrapTests
     private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.PrivateCapability,
         string? path = "/native-v2/private-bootstrap")
         => TestDiscovery.Controller(authentication) with { PrivateBootstrapPath = path };
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
     private static HttpResponseMessage Reply(HttpRequestMessage request, HttpStatusCode status, string? body = null) => new(status)
     {
         RequestMessage = request,
         Content = body is null ? new ByteArrayContent([]) : new StringContent(body, Encoding.UTF8, "application/json")
     };
-    private static void Check(bool value, string message = "Private bootstrap assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task PostsTheExactEnvelopeOnceWithoutCredentialsAndAcknowledgesEmpty204()
@@ -35,7 +31,7 @@ public sealed class PrivateBootstrapTests
             (sent, body) = (request, await request.Content!.ReadAsStringAsync(token));
             return Reply(request, HttpStatusCode.NoContent);
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var attempt = await client.Private.BootstrapAsync(Discovery(), Envelope);
         Check(sent!.Method == HttpMethod.Post && sent.RequestUri!.AbsoluteUri == "https://target.example/native-v2/private-bootstrap");
         Check(sent.Headers.Authorization is null && sent.Content!.Headers.ContentType!.MediaType == "application/json");
@@ -56,7 +52,7 @@ public sealed class PrivateBootstrapTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request, (HttpStatusCode)status,
                 JsonSerializer.Serialize(new { code, message = "refused" }))));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = await client.Private.BootstrapAsync(Discovery(), Envelope);
             Check(attempt.Outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown), $"{status} {code}");
             Check(attempt.Failure is NativeHttpException { Problem: { } problem } http && http.StatusCode == (HttpStatusCode)status && problem.Code == code);
@@ -76,7 +72,7 @@ public sealed class PrivateBootstrapTests
         })
         {
             using var handler = new Handler((request, _) => Task.FromResult(reply(request)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = await client.Private.BootstrapAsync(Discovery(), Envelope);
             Check(attempt.Outcome == NativeAttemptOutcome.Unknown && attempt.Failure is NativeHttpException && handler.Calls == 1);
         }
@@ -86,7 +82,7 @@ public sealed class PrivateBootstrapTests
     public async Task WrongModeDiscoveryAndInvalidEnvelopesAreNeverSent()
     {
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, HttpStatusCode.NoContent)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var discovery in new[]
         {
             Discovery(TargetAuthentication.None, path: null), Discovery(TargetAuthentication.HostedOauth, path: null),

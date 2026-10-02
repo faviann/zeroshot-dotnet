@@ -14,7 +14,6 @@ public sealed class OecpContractTests
         """;
 
     private static T Read<T>(string json) => NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(json));
-    private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static void Reject<T>(string json)
     {
         try { _ = Read<T>(json); }

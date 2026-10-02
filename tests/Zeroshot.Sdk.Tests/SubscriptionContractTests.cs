@@ -13,7 +13,6 @@ public sealed class SubscriptionContractTests
     internal static string RunWatchRecord => Watch.Replace("SOURCE", Source);
     internal const string LogEvent = """{"subscriptionId":"logs","runId":"run-1","cursor":"log boundary /?","timestamp":1234567,"execution":"worker:1","record":{"level":"warn","target":"environment.setup","message":"retained text"}}""";
     private static T Read<T>(string value) => NativeJson.DeserializeUtf8<T>(Encoding.UTF8.GetBytes(value));
-    internal static void Check(bool condition, string message = "Subscription assertion failed.") { if (!condition) throw new InvalidOperationException(message); }
     private static void Reject<T>(string value)
     {
         try { _ = Read<T>(value); }

@@ -14,7 +14,6 @@ public sealed class RunHandleTests
     private const string RunA = "0195af77-1000-7000-8000-000000000001";
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
     private static readonly NativeBinding Supported = NativeBinding.CallerSupplied("10.9.0", Revision);
-    private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static T Catch<T>(Action action) where T : Exception
     {
         try { action(); }

@@ -9,8 +9,6 @@ namespace Zeroshot.Client.Tests;
 public sealed class ObservationLifecycleTests
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
-    private static void Check(bool condition, string message = "Lifecycle assertion failed.")
-    { if (!condition) throw new InvalidOperationException(message); }
     private static (ObservationLifecycle<string> Lifecycle, ObservationQueue<string, Cursor> Queue) Open(CancellationToken token = default)
     {
         var queue = new ObservationDelivery(new TransportOptions { MaxQueuedObservationRecords = 1 }).Open<string, Cursor>(token);

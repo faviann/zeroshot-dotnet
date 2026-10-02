@@ -37,13 +37,7 @@ public sealed class HttpOAuthTests
         $$"""{"device_code":"{{DeviceCode}}","user_code":"ABCD-EFGH","verification_uri":"https://login.example/device","expires_in":600,"interval":5{{fields}}}""";
     private static string Tokens(string type = "Bearer", string scope = "controller", ulong expires = 3600, ulong refreshExpires = 2592000, string access = Access) =>
         $$"""{"access_token":"{{access}}","refresh_token":"{{Refresh}}","token_type":"{{type}}","expires_in":{{expires}},"refresh_expires_in":{{refreshExpires}},"scope":"{{scope}}"}""";
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
     private static Handler Replying(string body, HttpStatusCode status = HttpStatusCode.OK) => new((request, _) => Task.FromResult(Reply(request, body, status)));
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    private static void Check(bool value, string message = "OAuth assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task EachOperationSendsTheExactNativeRequestToItsDiscoveredUrl()
@@ -64,7 +58,7 @@ public sealed class HttpOAuthTests
                 _ => Reply(request, """{"kind":"openengine.target-session/v1","organization_id":"org-1"}""")
             };
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
 
         var metadata = await client.OAuth.MetadataAsync(Discovery());
         var code = await client.OAuth.BeginDeviceAuthorizationAsync(Discovery());
@@ -118,20 +112,20 @@ public sealed class HttpOAuthTests
             Discovery(login: Login with { RouteTemplate = "/login/session?device_label=x" })
         };
         using var handler = Replying("{}");
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var discovery in discoveries)
         {
-            await Invalid(() => client.OAuth.MetadataAsync(discovery));
-            await Invalid(() => client.OAuth.BeginDeviceAuthorizationAsync(discovery));
-            await Invalid(() => client.OAuth.ExchangeDeviceTokenAsync(discovery, Authorization, DeviceToken));
-            await Invalid(() => client.OAuth.RefreshAsync(discovery, Refresh));
-            await Invalid(() => client.OAuth.VerifySessionAsync(discovery, Hosted));
+            await Invalid(() => client.OAuth.MetadataAsync(discovery), Access, Refresh, DeviceCode);
+            await Invalid(() => client.OAuth.BeginDeviceAuthorizationAsync(discovery), Access, Refresh, DeviceCode);
+            await Invalid(() => client.OAuth.ExchangeDeviceTokenAsync(discovery, Authorization, DeviceToken), Access, Refresh, DeviceCode);
+            await Invalid(() => client.OAuth.RefreshAsync(discovery, Refresh), Access, Refresh, DeviceCode);
+            await Invalid(() => client.OAuth.VerifySessionAsync(discovery, Hosted), Access, Refresh, DeviceCode);
         }
         foreach (var refresh in new[] { "", "line\nbreak", new string('r', 16 * 1024 + 1) })
-            await Invalid(() => client.OAuth.RefreshAsync(Discovery(), refresh));
+            await Invalid(() => client.OAuth.RefreshAsync(Discovery(), refresh), Access, Refresh, DeviceCode);
         foreach (var authorization in new[] { Authorization with { DeviceCode = "" }, Authorization with { ExpiresIn = 0 } })
-            await Invalid(() => client.OAuth.ExchangeDeviceTokenAsync(Discovery(), authorization, DeviceToken));
-        await Invalid(() => client.OAuth.VerifySessionAsync(Discovery(), new(TargetAuthentication.PrivateCapability, Access)));
+            await Invalid(() => client.OAuth.ExchangeDeviceTokenAsync(Discovery(), authorization, DeviceToken), Access, Refresh, DeviceCode);
+        await Invalid(() => client.OAuth.VerifySessionAsync(Discovery(), new(TargetAuthentication.PrivateCapability, Access)), Access, Refresh, DeviceCode);
         Check(handler.Calls == 0);
     }
 
@@ -145,13 +139,13 @@ public sealed class HttpOAuthTests
         })
         {
             using var handler = Replying(Metadata(token));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.OAuth.MetadataAsync(Discovery()), NativeHttpFailureKind.Protocol);
         }
         foreach (var body in new[] { """{"token_endpoint":"x"}""", Metadata().Replace("\"issuer\"", "\"token_endpoint\"", StringComparison.Ordinal) })
         {
             using var handler = Replying(body);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.OAuth.MetadataAsync(Discovery()), NativeHttpFailureKind.Protocol);
         }
     }
@@ -170,7 +164,7 @@ public sealed class HttpOAuthTests
         foreach (var body in valid)
         {
             using var handler = Replying(body);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             _ = await client.OAuth.BeginDeviceAuthorizationAsync(Discovery());
         }
         var invalid = new[]
@@ -197,7 +191,7 @@ public sealed class HttpOAuthTests
         foreach (var body in invalid)
         {
             using var handler = Replying(body);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.OAuth.BeginDeviceAuthorizationAsync(Discovery()), NativeHttpFailureKind.Protocol);
         }
     }
@@ -215,7 +209,7 @@ public sealed class HttpOAuthTests
         foreach (var body in invalid)
         {
             using var handler = Replying(body);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             // The grant may have taken effect before the malformed reply, so the attempt stays uncertain.
             foreach (var attempt in new[]
             {
@@ -226,7 +220,7 @@ public sealed class HttpOAuthTests
                     attempt.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Protocol }, body);
         }
         using var boundary = Replying(Tokens(expires: 86400, refreshExpires: 31536000, scope: new string('s', 512)));
-        using var peer = Client(boundary);
+        using var peer = ClientFor(boundary);
         Check((await peer.OAuth.RefreshAsync(Discovery(), Refresh)).Outcome == NativeAttemptOutcome.Acknowledged);
     }
 
@@ -240,7 +234,7 @@ public sealed class HttpOAuthTests
         })
         {
             using var handler = Replying($$"""{"error":"{{error}}"}""", HttpStatusCode.BadRequest);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = await client.OAuth.ExchangeDeviceTokenAsync(Discovery(), Authorization, DeviceToken);
             Check(attempt.Outcome == NativeAttemptOutcome.Rejected && attempt.Failure is NativeHttpException
                 { Kind: NativeHttpFailureKind.HttpStatus, StatusCode: HttpStatusCode.BadRequest, Problem: null } failure &&
@@ -253,14 +247,14 @@ public sealed class HttpOAuthTests
         })
         {
             using var handler = Replying(body, HttpStatusCode.BadRequest);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = await client.OAuth.ExchangeDeviceTokenAsync(Discovery(), Authorization, DeviceToken);
             Check(attempt.Outcome == NativeAttemptOutcome.Unknown &&
                 attempt.Failure is NativeHttpException { DeviceTokenError: null, Problem: null }, body);
         }
 
         using var lost = new Handler((_, _) => throw new HttpRequestException("lost"));
-        using var peer = Client(lost);
+        using var peer = ClientFor(lost);
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         foreach (var (attempt, outcome) in new[]
@@ -289,7 +283,7 @@ public sealed class HttpOAuthTests
         })
         {
             using var handler = Replying(body, (HttpStatusCode)status);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = await client.OAuth.RefreshAsync(Discovery(), Refresh);
             Check(attempt.Outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown) &&
                 attempt.Failure is NativeHttpException { DeviceTokenError: null } failure && failure.StatusCode == (HttpStatusCode)status, body);
@@ -308,11 +302,11 @@ public sealed class HttpOAuthTests
         })
         {
             using var handler = Replying(body);
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.OAuth.VerifySessionAsync(Discovery(), Hosted), NativeHttpFailureKind.Protocol);
         }
         using var refused = Replying("""{"code":"unauthorized","message":"expired"}""", HttpStatusCode.Unauthorized);
-        using var peer = Client(refused);
+        using var peer = ClientFor(refused);
         var failure = await Failure(peer.OAuth.VerifySessionAsync(Discovery(), Hosted), NativeHttpFailureKind.HttpStatus);
         Check(failure.Problem!.Code == "unauthorized");
     }
@@ -322,29 +316,15 @@ public sealed class HttpOAuthTests
     {
         using var handler = new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath == "/oauth/device"
             ? Reply(request, Code()) : Reply(request, Tokens())));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var code = await client.OAuth.BeginDeviceAuthorizationAsync(Discovery());
         var tokens = await client.OAuth.ExchangeDeviceTokenAsync(Discovery(), code, DeviceToken);
         using var refusing = Replying("""{"error":"slow_down"}""", HttpStatusCode.BadRequest);
-        using var peer = Client(refusing);
+        using var peer = ClientFor(refusing);
         var refused = await peer.OAuth.RefreshAsync(Discovery(), Refresh);
         foreach (var text in new[] { code.ToString(), tokens.ToString(), tokens.Response!.ToString(), refused.ToString(), refused.Failure!.ToString() })
             Check(!text.Contains(Access) && !text.Contains(Refresh) && !text.Contains(DeviceCode) && !text.Contains(DeviceToken.ToString()), text);
         Check(code.DeviceCode == DeviceCode && tokens.Response.AccessToken == Access && tokens.Response.RefreshToken == Refresh);
     }
 
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Access) && !error.ToString().Contains(Refresh) && !error.ToString().Contains(DeviceCode)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected native failure.");
-    }
 }

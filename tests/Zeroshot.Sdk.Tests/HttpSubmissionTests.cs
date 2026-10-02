@@ -19,9 +19,6 @@ public sealed class HttpSubmissionTests
     private static PreparedSubmission Prepared() => PreparedSubmission.ImportUtf8(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/prepared.json")));
     private static TargetRunRequest Typed() => new() { RunId = Prepared().RunId, Submission = Prepared().Submission, Connections = Empty.Connections };
     private static string Receipt(string id = Proposed) => JsonSerializer.Serialize(new { runId = id });
-    private static void Check(bool value) { if (!value) throw new InvalidOperationException("Submission assertion failed."); }
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
     [Test]
     public async Task TypedAndRetainedRequestsShareFixedRouteAndPreserveDifferentAcknowledgedIdentity()

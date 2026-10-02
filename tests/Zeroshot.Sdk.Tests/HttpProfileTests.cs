@@ -49,12 +49,6 @@ public sealed class HttpProfileTests
     };
     private static string Profile(string scope = "user", string graph = "", string runtime = "") =>
         $$"""{"id":"p-1","name":"review","scope":"{{scope}}","graph":{{(graph == "" ? Canonical(Graph).ToJsonString() : graph)}},"runtime":{{(runtime == "" ? Canonical(Runtime).ToJsonString() : runtime)}},"isDefault":true}""";
-    private static NativeClient Client(Handler handler) => NativeClient.ForHttp(
-        new NativeClientOptions { Origin = new Uri("https://target.example/") }, new HttpClient(handler), ownsHttpClient: true);
-    private static HttpResponseMessage Reply(HttpRequestMessage request, string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { RequestMessage = request, Content = new StringContent(body, Encoding.UTF8, "application/json") };
-    private static void Check(bool value, string message = "Profile assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     [Test]
     public async Task EachOperationPostsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
@@ -79,7 +73,7 @@ public sealed class HttpProfileTests
                     _ => Reply(request, """{"runId":"018f5e78-7f95-7c22-8d98-3f15af20c992"}""", HttpStatusCode.Accepted)
                 };
             });
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var list = await client.Profiles.ListAsync(Discovery(Capability), new() { Scope = scope }, Hosted);
             var show = await client.Profiles.ShowAsync(Discovery(Capability), Selector(scope), Hosted);
             var set = await client.Profiles.SetAsync(Discovery(Capability), SetRequest(scope) with { SetDefault = true }, Hosted);
@@ -125,7 +119,7 @@ public sealed class HttpProfileTests
             var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
             return Reply(request, $$"""{"profile":{{Profile("user", body["graph"]!.ToJsonString(), body["runtime"]!.ToJsonString())}}}""");
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         for (var i = 0; i < Math.Max(graphs.Length, runtimes.Length); i++)
         {
             var request = SetRequest() with { Graph = graphs[i % graphs.Length], Runtime = runtimes[i % runtimes.Length] };
@@ -149,7 +143,7 @@ public sealed class HttpProfileTests
             return request.RequestUri!.AbsolutePath.EndsWith("/default")
                 ? Reply(request, defaultReply) : Reply(request, $$"""{"runId":"{{RunId}}"}""");
         });
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var runs = new[]
         {
             RunRequest() with { GithubToken = null, Connections = ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty },
@@ -187,20 +181,20 @@ public sealed class HttpProfileTests
             (Discovery(Capability with { RouteTemplates = routes with { Run = "/profiles/{run_id}" } }), Hosted),
         };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         foreach (var (discovery, credentials) in cases)
         {
             // Every operation refuses, because native compiles all six routes before any of them.
-            await Invalid(() => client.Profiles.ListAsync(discovery, new() { Scope = RunProfileScope.User }, credentials));
-            await Invalid(() => client.Profiles.ShowAsync(discovery, Selector(), credentials));
-            await Invalid(() => client.Profiles.SetAsync(discovery, SetRequest(), credentials));
-            await Invalid(() => client.Profiles.DeleteAsync(discovery, Selector(), credentials));
-            await Invalid(() => client.Profiles.DefaultAsync(discovery, new() { Scope = RunProfileScope.User }, credentials));
-            await Invalid(() => client.Profiles.RunAsync(discovery, RunRequest(), credentials));
+            await Invalid(() => client.Profiles.ListAsync(discovery, new() { Scope = RunProfileScope.User }, credentials), Secret, Bearer);
+            await Invalid(() => client.Profiles.ShowAsync(discovery, Selector(), credentials), Secret, Bearer);
+            await Invalid(() => client.Profiles.SetAsync(discovery, SetRequest(), credentials), Secret, Bearer);
+            await Invalid(() => client.Profiles.DeleteAsync(discovery, Selector(), credentials), Secret, Bearer);
+            await Invalid(() => client.Profiles.DefaultAsync(discovery, new() { Scope = RunProfileScope.User }, credentials), Secret, Bearer);
+            await Invalid(() => client.Profiles.RunAsync(discovery, RunRequest(), credentials), Secret, Bearer);
         }
 
         foreach (var name in new[] { "", "-lead", ".lead", "a b", "é", new string('a', 65) })
-            await Invalid(() => Task.FromResult(new RunProfileName(name)));
+            await Invalid(() => Task.FromResult(new RunProfileName(name)), Secret, Bearer);
         _ = new RunProfileName("A0" + new string('_', 31) + new string('.', 30) + "-");
         foreach (var connections in new[]
         {
@@ -208,7 +202,7 @@ public sealed class HttpProfileTests
             ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty.Add("github", ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", "")),
             ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty.Add("", ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", Secret))
         })
-            await Invalid(() => client.Profiles.RunAsync(Discovery(Capability), RunRequest() with { Connections = connections }, Hosted));
+            await Invalid(() => client.Profiles.RunAsync(Discovery(Capability), RunRequest() with { Connections = connections }, Hosted), Secret, Bearer);
         Check(handler.Calls == 0);
     }
 
@@ -225,7 +219,7 @@ public sealed class HttpProfileTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
                 request.RequestUri!.AbsolutePath.EndsWith("/show") ? profile : $$"""{"profile":{{profile}}}""")));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.Profiles.ShowAsync(Discovery(Capability), Selector(), Hosted), NativeHttpFailureKind.Protocol);
             var set = await client.Profiles.SetAsync(Discovery(Capability), SetRequest(), Hosted);
             Check(set.Outcome == NativeAttemptOutcome.Unknown && set.Response is null && set.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Protocol });
@@ -233,7 +227,7 @@ public sealed class HttpProfileTests
         foreach (var body in new[] { """{"profiles":[{"id":"p","name":"review","scope":"user"}]}""", """{"profiles":null}""" })
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             await Failure(client.Profiles.ListAsync(Discovery(Capability), new() { Scope = RunProfileScope.User }, Hosted), NativeHttpFailureKind.Protocol);
         }
         foreach (var (path, body) in new[]
@@ -243,7 +237,7 @@ public sealed class HttpProfileTests
         })
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request, body)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempt = path switch
             {
                 "delete" => (await client.Profiles.DeleteAsync(Discovery(Capability), Selector(), Hosted)).Outcome,
@@ -260,7 +254,7 @@ public sealed class HttpProfileTests
         // Otherwise valid, but over native's 64 KiB hosted response bound: native treats the exchange as failed.
         var oversized = $$"""{"profile":{{Profile().Replace("\"p-1\"", "\"" + new string('p', 64 * 1024) + "\"")}}}""";
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, oversized)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var set = await client.Profiles.SetAsync(Discovery(Capability), SetRequest(), Hosted);
         Check(set.Outcome == NativeAttemptOutcome.Unknown && set.Response is null &&
             set.Failure is NativeHttpException { Kind: NativeHttpFailureKind.SizeLimit });
@@ -277,7 +271,7 @@ public sealed class HttpProfileTests
         {
             using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
                 JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = Client(handler);
+            using var client = ClientFor(handler);
             var attempts = new (NativeAttemptOutcome Outcome, Exception? Failure)[]
             {
                 await Evidence(client.Profiles.SetAsync(Discovery(Capability), SetRequest(), Hosted)),
@@ -294,7 +288,7 @@ public sealed class HttpProfileTests
             Check(show.Problem!.Code == code);
         }
         using var lost = new Handler((_, _) => throw new HttpRequestException("connection reset"));
-        using var peer = Client(lost);
+        using var peer = ClientFor(lost);
         var run = await peer.Profiles.RunAsync(Discovery(Capability), RunRequest(), Hosted);
         Check(run.Outcome == NativeAttemptOutcome.Unknown && run.Failure is NativeHttpException, "A lost exchange leaves the run unresolved.");
     }
@@ -305,7 +299,7 @@ public sealed class HttpProfileTests
         const string Remote = "REMOTE-MESSAGE-CANARY";
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
             JsonSerializer.Serialize(new { code = "invalid_request", message = Remote, details = new { echoed = Secret } }), HttpStatusCode.BadRequest)));
-        using var client = Client(handler);
+        using var client = ClientFor(handler);
         var request = RunRequest();
         var attempt = await client.Profiles.RunAsync(Discovery(Capability), request, Hosted);
         Exception? refused = null;
@@ -323,18 +317,4 @@ public sealed class HttpProfileTests
         return (attempt.Outcome, attempt.Failure);
     }
 
-    private static async Task Invalid(Func<Task> action)
-    {
-        try { await action(); }
-        catch (Exception error) when (error is ArgumentException or JsonException)
-        { Check(!error.ToString().Contains(Secret) && !error.ToString().Contains(Bearer)); return; }
-        throw new InvalidOperationException("Expected invalid caller input.");
-    }
-
-    private static async Task<NativeHttpException> Failure(Task task, NativeHttpFailureKind kind)
-    {
-        try { await task; }
-        catch (NativeHttpException error) { Check(error.Kind == kind, error.ToString()); return error; }
-        throw new InvalidOperationException("Expected native failure.");
-    }
 }

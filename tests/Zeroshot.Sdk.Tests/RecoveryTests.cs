@@ -15,8 +15,6 @@ public sealed class RecoveryTests
     private const string Resumed = """{"runId":"run-2","resumedFrom":"run-1"}""";
     private static string Checkpoint(string id, int sequence) =>
         $$"""{"checkpointId":"{{id}}","sequence":{{sequence}},"node":"worker","mapIndices":[0],"loopIterations":[],"createdAt":1700000000000}""";
-    private static void Check(bool value, string message = "Recovery assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     private static async Task<JsonElement> Expect(WebSocket socket, string method, string parameters)
     {

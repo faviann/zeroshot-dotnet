@@ -5,7 +5,6 @@ using TUnit.Core;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
 using static Zeroshot.Client.Tests.OecpTests;
-using static Zeroshot.Client.Tests.SubscriptionContractTests;
 
 namespace Zeroshot.Client.Tests;
 
@@ -16,12 +15,6 @@ public sealed class AttachmentTests
     private static RunAttachParams Parameters => new() { RunId = new("run-1"), Execution = new("worker:1") };
     private static string Record(string progress) => Established[..^1] + ",\"event\":" + progress + "}";
     private static string Frame(string progress) => "{\"jsonrpc\":\"2.0\",\"method\":\"event\",\"params\":" + Record(progress) + "}";
-    private static async Task<NativeSubscriptionException> Failure(Func<Task> action, NativeSubscriptionFailureKind kind)
-    {
-        try { await action(); }
-        catch (NativeSubscriptionException failure) { Check(failure.Kind == kind); return failure; }
-        throw new InvalidOperationException("Expected attachment failure.");
-    }
 
     [Test]
     public void CompleteAttachmentContractIsClosedCursorlessAndUtf8Bounded()

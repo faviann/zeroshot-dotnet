@@ -12,7 +12,6 @@ namespace Zeroshot.Client.Tests;
 public sealed class ContractTests
 {
     private static byte[] Fixture(string name) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
-    private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static void Reject(Action action)
     {
         try { action(); }

@@ -15,8 +15,6 @@ public sealed class HistoryTests
     private static readonly JsonNode Golden = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures/history.json")))!;
     private static JsonNode Fixture(string name) => Golden[name]!.DeepClone();
     private static byte[] Bytes(JsonNode node) => Encoding.UTF8.GetBytes(node.ToJsonString());
-    private static void Check(bool value, string message = "History assertion failed.")
-    { if (!value) throw new InvalidOperationException(message); }
 
     private static TargetDiscoveryDocument Discovery(TargetAuthentication authentication = TargetAuthentication.None,
         string baseUrl = "https://target.example/history", string list = "/runs{?after}",
@@ -25,9 +23,6 @@ public sealed class HistoryTests
         {
             Extensions = new() { RunHistory = new() { Kind = kind, BaseUrl = baseUrl, RouteTemplates = new() { List = list, Detail = detail, Page = page } } }
         };
-
-    private static NativeClient Client(Handler handler, TransportOptions? transport = null)
-        => NativeClient.ForHttp(new() { Origin = new Uri("https://target.example/"), Transport = transport ?? new() }, new HttpClient(handler), ownsHttpClient: true);
 
     [Test]
     public void GoldenRecordsKeepAllNineEventsMixedIdentitiesAndNativeOmissionRules()
@@ -132,7 +127,7 @@ public sealed class HistoryTests
     public async Task DiscoveredRoutesUseNativeHeadersEncodingAndCloseUiRoutedConnections()
     {
         var seen = new List<HttpRequestMessage>();
-        using var native = Client(new Handler((request, _) =>
+        using var native = ClientFor(new Handler((request, _) =>
         {
             seen.Add(request);
             var path = request.RequestUri!.AbsolutePath;
@@ -196,7 +191,7 @@ public sealed class HistoryTests
     public async Task InvalidCapabilityOrArgumentsFailBeforeDispatch(string name, Func<NativeClient, Task> call)
     {
         var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var native = Client(handler);
+        using var native = ClientFor(handler);
         try { await call(native); }
         catch (ArgumentException error) { Check(handler.Calls == 0 && !error.ToString().Contains(Bearer), name); return; }
         throw new InvalidOperationException("Expected invalid use: " + name);
@@ -269,7 +264,7 @@ public sealed class HistoryTests
     {
         var node = Fixture(section);
         change(node);
-        using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, node.ToJsonString()))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, node.ToJsonString()))));
         Task call = section switch
         {
             "list" => native.History.ListAsync(Discovery(), after is null ? null : new RunId(after)),
@@ -307,7 +302,7 @@ public sealed class HistoryTests
     [MethodDataSource(nameof(Problems))]
     public async Task RefusalsKeepStatusAndClosedHistoryCategory(bool hosted, string body, HttpStatusCode status, RunHistoryProblemCode? expected)
     {
-        using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, body, status))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, body, status))));
         try
         {
             await (hosted
@@ -330,10 +325,10 @@ public sealed class HistoryTests
         var transport = new TransportOptions { MaxErrorBodyBytes = 1024 * 1024 };
         var list = Fixture("list");
         list["runs"]![1]!["title"] = new string('x', 4 * 1024 * 1024);
-        using var large = Client(new Handler((request, _) => Task.FromResult(Reply(request, list.ToJsonString()))), transport);
+        using var large = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, list.ToJsonString()))), transport);
         await Expect(large.History.ListAsync(Discovery()), NativeHttpFailureKind.SizeLimit);
         var problem = $$$"""{"code":"history_gap","message":"x","details":{"pad":"{{{new string('x', 64 * 1024)}}}"}}""";
-        using var refused = Client(new Handler((request, _) => Task.FromResult(Reply(request, problem, HttpStatusCode.Conflict))), transport);
+        using var refused = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, problem, HttpStatusCode.Conflict))), transport);
         var error = await Expect(refused.History.DetailAsync(Discovery(), new RunId(Run)), NativeHttpFailureKind.SizeLimit);
         Check(error.StatusCode == HttpStatusCode.Conflict && error.HistoryProblem is null);
     }
@@ -341,7 +336,7 @@ public sealed class HistoryTests
     [Test]
     public async Task HeadRefusalKeepsStatusWithoutInventingAProblem()
     {
-        using var native = Client(new Handler((request, _) => Task.FromResult(Reply(request, "", HttpStatusCode.NotFound))));
+        using var native = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, "", HttpStatusCode.NotFound))));
         var error = await Expect(native.History.HeadDetailAsync(Discovery(), new RunId(Run)), NativeHttpFailureKind.HttpStatus);
         Check(error.StatusCode == HttpStatusCode.NotFound && error.Problem is null && error.HistoryProblem is null);
     }
