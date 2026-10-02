@@ -28,9 +28,8 @@ public sealed class HttpHostedRunTests
         Kind = "zeroshot.hosted-runs/v1", BaseUrl = "https://target.example/api/", RouteTemplates = Routes
     };
 
-    private static TargetDiscoveryDocument Discovery(TargetHostedRunsDiscovery? hostedRuns = null,
-        TargetAuthentication authentication = TargetAuthentication.HostedOauth)
-        => TestDiscovery.Controller(authentication) with { Extensions = new() { HostedRuns = hostedRuns } };
+    private static TargetDiscoveryDocument Discovery(TargetHostedRunsDiscovery hostedRuns)
+        => TestDiscovery.Controller(TargetAuthentication.HostedOauth) with { Extensions = new() { HostedRuns = hostedRuns } };
 
     private static string Status(string status, string runId = Run, string extra = "") =>
         $$"""{"runId":"{{Json(runId)}}","title":"test","source":{{Source}},"size":"small","atCursor":"cloud:2","status":{{status}}{{extra}}}""";
@@ -45,31 +44,27 @@ public sealed class HttpHostedRunTests
     private static HttpResponseMessage Stream(HttpRequestMessage request, FeedStream feed)
         => new(HttpStatusCode.OK) { RequestMessage = request, Content = new StreamContent(feed) };
 
+    // Wire, gate, refusal and formatting rules: CapabilityConformanceTests.
     [Test]
-    public async Task EachOperationUsesItsAdvertisedRouteWithEncodedValuesAndOnlyTheHostedBearer()
+    public async Task EachOperationDecodesItsHostOwnedResultAndStreamsCloseTheirBodies()
     {
-        var seen = new List<(HttpMethod Method, string Url, string? Accept, bool NoStore, string? Body)>();
         var feeds = new List<FeedStream>();
-        using var native = ClientFor(new Handler(async (request, token) =>
+        using var native = ClientFor(new Handler((request, _) =>
         {
-            Check(request.Headers.Authorization!.ToString() == "Bearer " + Bearer);
-            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
-            seen.Add((request.Method, request.RequestUri!.OriginalString, request.Headers.Accept.ToString(),
-                request.Headers.CacheControl?.NoStore == true, body));
-            var path = request.RequestUri.AbsolutePath;
+            var path = request.RequestUri!.AbsolutePath;
             if (path.EndsWith("/watch") || path.EndsWith("/logs"))
             {
                 var feed = new FeedStream();
                 feeds.Add(feed);
-                return Stream(request, feed);
+                return Task.FromResult(Stream(request, feed));
             }
             // Host-owned responses: any 2xx carrying a valid body.
-            return path switch
+            return Task.FromResult(path switch
             {
                 "/api/native-v2/runs" => Reply(request, $$"""{"runs":[{{Status(Queued)}},{{Status(Finished, extra: Recovery)}}]}"""),
                 "/api/native-v2/runs/" + EncodedRun => Reply(request, Status(Queued)),
                 _ => Reply(request, Status(Stopping), HttpStatusCode.Accepted)
-            };
+            });
         }));
         var discovery = Discovery(Capability);
         var run = new RunId(Run);
@@ -81,23 +76,8 @@ public sealed class HttpHostedRunTests
         var force = await native.HostedRuns.ForceAsync(discovery, run, Hosted);
         Check(force is { Outcome: NativeAttemptOutcome.Acknowledged, Response.Status: TargetHostedRunStatus { Status: StoppingRunStatus } });
         await using (await native.HostedRuns.WatchAsync(discovery, new() { RunId = run }, Hosted)) { }
-        await using (await native.HostedRuns.WatchAsync(discovery, new() { RunId = run, FromCursor = new("cloud:7 &") }, Hosted)) { }
         await using (await native.HostedRuns.LogsAsync(discovery, new() { RunId = run }, Hosted)) { }
-        await using (await native.HostedRuns.LogsAsync(discovery, new() { RunId = run, FromCursor = new("cloud:8"), Execution = new("worker/1") }, Hosted)) { }
-
-        const string Base = "https://target.example/api/native-v2/runs";
-        (HttpMethod, string, string?, bool, string?)[] expected =
-        [
-            (HttpMethod.Get, Base, "application/json", true, null),
-            (HttpMethod.Get, $"{Base}/{EncodedRun}", "application/json", true, null),
-            (HttpMethod.Post, $"{Base}/{EncodedRun}/force", "application/json", false, "{}"),
-            (HttpMethod.Get, $"{Base}/{EncodedRun}/watch", "application/x-ndjson", true, null),
-            (HttpMethod.Get, $"{Base}/{EncodedRun}/watch?from_cursor=cloud%3A7+%26", "application/x-ndjson", true, null),
-            (HttpMethod.Get, $"{Base}/{EncodedRun}/logs", "application/x-ndjson", true, null),
-            (HttpMethod.Get, $"{Base}/{EncodedRun}/logs?from_cursor=cloud%3A8&execution=worker%2F1", "application/x-ndjson", true, null)
-        ];
-        Check(seen.SequenceEqual(expected), string.Join("\n", seen));
-        Check(feeds.All(feed => feed.Disposed));
+        Check(feeds.Count == 2 && feeds.All(feed => feed.Disposed));
     }
 
     [Test]
@@ -133,38 +113,17 @@ public sealed class HttpHostedRunTests
     }
 
     [Test]
-    public async Task InvalidUseIsRefusedBeforeDispatch()
+    public async Task UnaddressableRunIdsAreRefusedBeforeDispatch()
     {
         var handler = new Handler((_, _) => throw new InvalidOperationException("dispatched"));
         using var native = ClientFor(handler);
-        var run = new RunId("run-1");
-        static TargetHostedRunsDiscovery With(TargetHostedRunRoutes routes) => Capability with { RouteTemplates = routes };
-        var refused = new (TargetDiscoveryDocument Discovery, TargetControlCredentials Credentials, RunId Run)[]
+        // Native's path-segment setter would skip or rewrite these run IDs.
+        foreach (var id in new RunId[] { new("."), new(".."), new("a\tb") })
         {
-            // Direct and private targets do not serve hosted lifecycle; credentials must match hosted OAuth.
-            (Discovery(Capability, TargetAuthentication.None), Hosted, run),
-            (Discovery(Capability, TargetAuthentication.PrivateCapability), new(TargetAuthentication.PrivateCapability, Bearer), run),
-            (Discovery(Capability), new(TargetAuthentication.PrivateCapability, Bearer), run),
-            (Discovery(), Hosted, run),
-            (Discovery(Capability with { Kind = "zeroshot.hosted-runs/v2" }), Hosted, run),
-            (Discovery(Capability with { BaseUrl = "https://attacker.example/api" }), Hosted, run),
-            (Discovery(With(Routes with { Status = "/native-v2/runs" })), Hosted, run),
-            (Discovery(With(Routes with { List = "/native-v2/runs/{run_id}" })), Hosted, run),
-            (Discovery(With(Routes with { Watch = "/native-v2/runs/{run_id}/watch" })), Hosted, run),
-            (Discovery(With(Routes with { Logs = "/native-v2/runs/{run_id}/logs{?execution}" })), Hosted, run),
-            (Discovery(With(Routes with { Force = "/native-v2/../runs/{run_id}/force" })), Hosted, run),
-            (Discovery(With(Routes with { Force = "/runs/{run_id}/{run_id}" })), Hosted, run),
-            // Native's path-segment setter would skip or rewrite these run IDs.
-            (Discovery(Capability), Hosted, new(".")), (Discovery(Capability), Hosted, new("..")), (Discovery(Capability), Hosted, new("a\tb"))
-        };
-        foreach (var (discovery, credentials, id) in refused)
-        {
-            // List names no run, so only the discovery and credential rows apply to it.
-            if (id == run) await Refused(() => native.HostedRuns.ListAsync(discovery, credentials));
-            await Refused(() => native.HostedRuns.StatusAsync(discovery, id, credentials));
-            await Refused(() => native.HostedRuns.WatchAsync(discovery, new() { RunId = id }, credentials));
-            await Refused(() => native.HostedRuns.LogsAsync(discovery, new() { RunId = id }, credentials));
-            await Refused(() => native.HostedRuns.ForceAsync(discovery, id, credentials));
+            await Refused(() => native.HostedRuns.StatusAsync(Discovery(Capability), id, Hosted));
+            await Refused(() => native.HostedRuns.WatchAsync(Discovery(Capability), new() { RunId = id }, Hosted));
+            await Refused(() => native.HostedRuns.LogsAsync(Discovery(Capability), new() { RunId = id }, Hosted));
+            await Refused(() => native.HostedRuns.ForceAsync(Discovery(Capability), id, Hosted));
         }
         Check(handler.Calls == 0);
 
@@ -267,15 +226,11 @@ public sealed class HttpHostedRunTests
     public async Task ForceAttemptsKeepUncertaintyAndReadsKeepIdentity()
     {
         var run = new RunId(Run);
-        var problem = (string code) => $$"""{"code":"{{code}}","message":"refused"}""";
         foreach (var (reply, outcome) in new (Func<HttpRequestMessage, HttpResponseMessage>, NativeAttemptOutcome)[]
         {
-            (r => Reply(r, problem("not_found"), HttpStatusCode.NotFound), NativeAttemptOutcome.Rejected),
-            (r => Reply(r, problem("target.unavailable"), HttpStatusCode.ServiceUnavailable), NativeAttemptOutcome.Unknown),
-            (r => Reply(r, problem("request.conflict"), HttpStatusCode.Conflict), NativeAttemptOutcome.Unknown),
+            // Problem pairs and lost exchanges: CapabilityConformanceTests. An unreadable or foreign reply proves nothing either.
             (r => Reply(r, "{\"runId\":"), NativeAttemptOutcome.Unknown),
-            (r => Reply(r, Status(Finished, runId: "run-2")), NativeAttemptOutcome.Unknown),
-            (_ => throw new HttpRequestException("reset"), NativeAttemptOutcome.Unknown)
+            (r => Reply(r, Status(Finished, runId: "run-2")), NativeAttemptOutcome.Unknown)
         })
         {
             using var native = ClientFor(new Handler((request, _) => Task.FromResult(reply(request))));
@@ -293,12 +248,9 @@ public sealed class HttpHostedRunTests
                 handler.Calls == 0);
         }
 
-        // A status for another run is foreign data; a refused stream is an HTTP failure before any record.
-        using var reads = ClientFor(new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/watch")
-            ? Reply(request, problem("unauthorized"), HttpStatusCode.Unauthorized) : Reply(request, Status(Queued, runId: "run-2")))));
+        // A status for another run is foreign data.
+        using var reads = ClientFor(new Handler((request, _) => Task.FromResult(Reply(request, Status(Queued, runId: "run-2")))));
         Check((await Expect(reads.HostedRuns.StatusAsync(Discovery(Capability), run, Hosted))).Kind == NativeHttpFailureKind.Protocol);
-        Check((await Expect(reads.HostedRuns.WatchAsync(Discovery(Capability), new() { RunId = run }, Hosted)))
-            is { Kind: NativeHttpFailureKind.HttpStatus, StatusCode: HttpStatusCode.Unauthorized });
     }
 
     private static async Task<(List<HostedRunWatchEventNotification> Events, NativeSubscriptionCompletion Completion, string? Delivered)>

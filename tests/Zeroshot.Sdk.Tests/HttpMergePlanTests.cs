@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using TUnit.Core;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
@@ -20,9 +19,8 @@ public sealed class HttpMergePlanTests
         Kind = "zeroshot.merge-plans/v1", BaseUrl = "https://target.example/api/",
         RouteTemplates = new() { Create = "/plans", Status = "/plans/{plan_id}", Force = "/plans/{plan_id}/force" }
     };
-    private static TargetDiscoveryDocument Discovery(TargetMergePlansDiscovery? plans = null,
-        TargetAuthentication authentication = TargetAuthentication.HostedOauth)
-        => TestDiscovery.Controller(authentication) with { Extensions = new() { MergePlans = plans } };
+    private static TargetDiscoveryDocument Discovery(TargetMergePlansDiscovery plans)
+        => TestDiscovery.Controller(TargetAuthentication.HostedOauth) with { Extensions = new() { MergePlans = plans } };
     private static MergePlanRunRequest Run(string name, params string[] needs) => new()
     {
         Name = new(name), Needs = needs.Length == 0 ? null : [.. needs.Select(need => new RunProfileName(need))],
@@ -39,58 +37,24 @@ public sealed class HttpMergePlanTests
     private static string Plan(string run = RunStatus, string state = "queued", string id = PlanId) =>
         $$"""{"planId":"{{id}}","title":"Release","state":"{{state}}","repository":"acme/project","branch":"main","submittedAt":"2026-09-27T00:00:00Z","expiresAt":"2026-09-28T00:00:00Z","runs":[{{run}}]}""";
 
+    // Wire, gate, refusal and formatting rules: CapabilityConformanceTests.
     [Test]
-    public async Task EachOperationSendsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
+    public async Task EachOperationDecodesItsHostOwnedPlan()
     {
-        // An opaque host-assigned ID is one percent-encoded path segment, as native's url crate pushes it.
         const string OpaqueId = "p/α b%?:@";
-        const string Encoded = "p%2F%CE%B1%20b%25%3F:@";
-        var seen = new List<(HttpMethod Method, string Url, string? Body)>();
-        using var handler = new Handler(async (request, token) =>
-        {
-            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
-            seen.Add((request.Method, request.RequestUri!.OriginalString, body));
-            Check(request.Headers.Authorization!.ToString() == "Bearer " + Bearer && request.Headers.CacheControl!.NoStore);
-            Check(request.Headers.Accept.Single().MediaType == "application/json");
+        using var handler = new Handler((request, _) => Task.FromResult(
             // Host-owned responses: any 2xx carrying a valid plan.
-            return request.Method == HttpMethod.Get ? Reply(request, Plan(id: OpaqueId))
-                : request.RequestUri.OriginalString.EndsWith("/force") ? Reply(request, Plan(state: "running", id: OpaqueId), HttpStatusCode.Accepted)
-                : Reply(request, Plan(), HttpStatusCode.Created);
-        });
+            request.Method == HttpMethod.Get ? Reply(request, Plan(id: OpaqueId))
+                : request.RequestUri!.OriginalString.EndsWith("/force") ? Reply(request, Plan(state: "running", id: OpaqueId), HttpStatusCode.Accepted)
+                : Reply(request, Plan(), HttpStatusCode.Created)));
         using var client = ClientFor(handler);
-        var requests = new[]
-        {
-            Submit() with { Connections = ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty
-                .Add("github", ImmutableDictionary<string, string>.Empty.Add("GH_TOKEN", Secret)), GithubToken = "GITHUB-TOKEN" },
-            // {} selects the base environment; verbatim needs keep their order and an explicit empty list.
-            Submit() with { Environment = new RuntimeEnvironment(), Runs = [Run("b"), Run("a", "c", "b"), Run("c") with { Needs = [] }] }
-        };
-        foreach (var request in requests)
-        {
-            var created = await client.MergePlans.CreateAsync(Discovery(Capability), request, Hosted);
-            Check(created.Outcome == NativeAttemptOutcome.Acknowledged && created.Operation == "merge_plans.create" && created.Response!.PlanId.Value == PlanId);
-        }
+        var created = await client.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
+        Check(created.Outcome == NativeAttemptOutcome.Acknowledged && created.Operation == "merge_plans.create" && created.Response!.PlanId.Value == PlanId);
         var status = await client.MergePlans.StatusAsync(Discovery(Capability), new(OpaqueId), Hosted);
         var forced = await client.MergePlans.ForceAsync(Discovery(Capability), new(OpaqueId), Hosted);
         Check(status.State == MergePlanState.Queued && status.PlanId.Value == OpaqueId);
         // An acknowledged force is not terminal.
         Check(forced.Outcome == NativeAttemptOutcome.Acknowledged && forced.Operation == "merge_plans.force" && forced.Response!.State == MergePlanState.Running);
-
-        Check(seen.Select(s => (s.Method.Method, s.Url)).SequenceEqual(new[]
-        {
-            ("POST", "https://target.example/api/plans"), ("POST", "https://target.example/api/plans"),
-            ("GET", $"https://target.example/api/plans/{Encoded}"), ("POST", $"https://target.example/api/plans/{Encoded}/force")
-        }), string.Join(" ", seen.Select(s => s.Url)));
-        const string Common = """{"submissionKey":"plan-key","title":"Release","expiresAt":"2026-09-28T00:00:00Z","source":{"repository":"acme/project","branch":"main"},"profile":{"scope":"org","name":"software-change"},"runs":""";
-        var expected = new[]
-        {
-            Common + """[{"name":"build","initialInput":{"items":[null,1]}},{"name":"integrate","needs":["build"],"initialInput":{"items":[null,1]}}],"connections":{"github":{"GH_TOKEN":"SECRET-VALUE-CANARY"}},"githubToken":"GITHUB-TOKEN"}""",
-            Common + """[{"name":"b","initialInput":{"items":[null,1]}},{"name":"a","needs":["c","b"],"initialInput":{"items":[null,1]}},{"name":"c","needs":[],"initialInput":{"items":[null,1]}}],"environment":{}}""",
-            null,
-            "{}"
-        };
-        foreach (var ((_, _, actual), wire) in seen.Zip(expected))
-            Check(wire is null ? actual is null : JsonNode.DeepEquals(JsonNode.Parse(actual!), JsonNode.Parse(wire)), actual ?? "(no body)");
     }
 
     [Test]
@@ -137,32 +101,10 @@ public sealed class HttpMergePlanTests
     }
 
     [Test]
-    public async Task WrongTargetDescriptorsPlanIdsAndInvalidRequestsFailBeforeDispatch()
+    public async Task UnaddressablePlanIdsAndInvalidRequestsFailBeforeDispatch()
     {
-        var routes = Capability.RouteTemplates;
-        var cases = new (TargetDiscoveryDocument Discovery, TargetControlCredentials Credentials)[]
-        {
-            (Discovery(Capability, TargetAuthentication.None), Hosted),
-            (Discovery(Capability, TargetAuthentication.PrivateCapability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(Capability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(), Hosted),
-            (Discovery(Capability with { Kind = "zeroshot.merge-plans/v2" }), Hosted),
-            (Discovery(Capability with { BaseUrl = "https://attacker.example/api/" }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Create = "/plans/{plan_id}" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Status = "/plans/status" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Force = "/{plan_id}/{plan_id}" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Status = "/plans/{plan_id}?view=full" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Force = "/plans/{run_id}/force" } }), Hosted),
-        };
         using var handler = new Handler((request, _) => Task.FromResult(Reply(request, Plan())));
         using var client = ClientFor(handler);
-        foreach (var (discovery, credentials) in cases)
-        {
-            // Every operation refuses, because native compiles all three routes before any of them.
-            await Invalid(() => client.MergePlans.CreateAsync(discovery, Submit(), credentials), Secret, Bearer);
-            await Invalid(() => client.MergePlans.StatusAsync(discovery, new(PlanId), credentials), Secret, Bearer);
-            await Invalid(() => client.MergePlans.ForceAsync(discovery, new(PlanId), credentials), Secret, Bearer);
-        }
         // Native would drop or rewrite these segments and address a different route.
         foreach (var id in new[] { ".", "..", "plan\t1", "plan\r1", "plan\n1" })
         {
@@ -193,38 +135,8 @@ public sealed class HttpMergePlanTests
     }
 
     [Test]
-    public async Task OnlyNativePreEffectProblemPairsRejectAndEveryOtherFailureLeavesTheEffectUnknown()
+    public async Task PlansUpToTheNativeMebibyteBoundAreRead()
     {
-        foreach (var (status, code, rejected) in new[]
-        {
-            (400, "invalid_request", true), (401, "unauthorized", true), (403, "forbidden", true), (404, "not_found", true),
-            (409, "request_conflict", false), (429, "rate_limited", false), (503, "target.unavailable", false), (404, "invalid_request", false)
-        })
-        {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
-                JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = ClientFor(handler);
-            var create = await client.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
-            var force = await client.MergePlans.ForceAsync(Discovery(Capability), new(PlanId), Hosted);
-            foreach (var attempt in new[] { create, force })
-            {
-                Check(attempt.Outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown), $"{status} {code}");
-                Check(attempt.Failure is NativeHttpException { Problem: { } problem } http && http.StatusCode == (HttpStatusCode)status && problem.Code == code);
-            }
-            var read = await Failure(client.MergePlans.StatusAsync(Discovery(Capability), new(PlanId), Hosted), NativeHttpFailureKind.HttpStatus);
-            // Native resends once after an auth rejection; this binding never does.
-            Check(read.Problem!.Code == code && handler.Calls == 3, $"{status} sent {handler.Calls} requests");
-        }
-
-        using (var lost = new Handler((_, _) => throw new HttpRequestException("connection reset")))
-        using (var peer = ClientFor(lost))
-        {
-            var create = await peer.MergePlans.CreateAsync(Discovery(Capability), Submit(), Hosted);
-            var force = await peer.MergePlans.ForceAsync(Discovery(Capability), new(PlanId), Hosted);
-            Check(create.Outcome == NativeAttemptOutcome.Unknown && force.Outcome == NativeAttemptOutcome.Unknown && lost.Calls == 2,
-                "A lost exchange leaves the plan unresolved.");
-        }
-
         // Native reads merge-plan results under 1 MiB, larger than the 64 KiB bound of other hosted results.
         var large = Plan(string.Join(",", Enumerable.Repeat(RunStatus.Replace("\"waitingReason\":null", $"\"waitingReason\":\"{new string('w', 2000)}\""), 64)));
         var oversized = large + new string(' ', 1024 * 1024);

@@ -1,7 +1,5 @@
 using System.Collections.Immutable;
 using System.Net;
-using System.Text;
-using System.Text.Json;
 using TUnit.Core;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
@@ -19,9 +17,8 @@ public sealed class HttpConnectionTests
         RouteTemplates = new() { List = "/connections/list", Set = "/connections/set", Delete = "/connections/delete", Resolve = "/connections/resolve" },
         DynamicKinds = ["github-app-installation", new string('é', 64)]
     };
-    private static TargetDiscoveryDocument Discovery(TargetConnectionsDiscovery? connections = null,
-        TargetAuthentication authentication = TargetAuthentication.HostedOauth)
-        => TestDiscovery.Controller(authentication) with { Extensions = new() { Connections = connections } };
+    private static TargetDiscoveryDocument Discovery(TargetConnectionsDiscovery connections)
+        => TestDiscovery.Controller(TargetAuthentication.HostedOauth) with { Extensions = new() { Connections = connections } };
     private static ConnectionSetRequest SetRequest(ImmutableDictionary<string, string>? values = null) => new()
     {
         Key = new("github"), Scope = ConnectionScope.User,
@@ -32,26 +29,19 @@ public sealed class HttpConnectionTests
     private static string Summary(string scope = "user", string kind = "static") =>
         $$"""{"key":"github","scope":"{{scope}}","kind":"{{kind}}","fields":["GH_TOKEN"]}""";
 
+    // Wire, gate, refusal and formatting rules: CapabilityConformanceTests.
     [Test]
-    public async Task EachOperationPostsExactWireToItsAdvertisedRouteWithOnlyTheHostedBearer()
+    public async Task EachOperationDecodesItsHostOwnedResultWithOpenKinds()
     {
         foreach (var (scope, wire) in new[] { (ConnectionScope.User, "user"), (ConnectionScope.Org, "org") })
         {
-            var seen = new List<(Uri Uri, string Body)>();
-            using var handler = new Handler(async (request, token) =>
+            using var handler = new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
             {
-                var body = await request.Content!.ReadAsStringAsync(token);
-                seen.Add((request.RequestUri!, body));
-                Check(request.Method == HttpMethod.Post && request.Headers.Authorization!.ToString() == "Bearer " + Bearer);
-                Check(request.Headers.CacheControl!.NoStore && request.Content.Headers.ContentType!.MediaType == "application/json");
-                return request.RequestUri!.AbsolutePath switch
-                {
-                    // Host-owned responses: any 2xx carrying a valid body, with open kind strings.
-                    "/api/connections/list" => Reply(request, $$"""{"connections":[{{Summary(wire, "github-app-installation")}},{{Summary(wire, "future-kind")}}]}"""),
-                    "/api/connections/set" => Reply(request, $$"""{"connection":{{Summary(wire)}}}""", HttpStatusCode.Created),
-                    _ => Reply(request, """{"deleted":false}""", HttpStatusCode.Accepted)
-                };
-            });
+                // Host-owned responses: any 2xx carrying a valid body, with open kind strings.
+                "/api/connections/list" => Reply(request, $$"""{"connections":[{{Summary(wire, "github-app-installation")}},{{Summary(wire, "future-kind")}}]}"""),
+                "/api/connections/set" => Reply(request, $$"""{"connection":{{Summary(wire)}}}""", HttpStatusCode.Created),
+                _ => Reply(request, """{"deleted":false}""", HttpStatusCode.Accepted)
+            }));
             using var client = ClientFor(handler);
             var list = await client.Connections.ListAsync(Discovery(Capability), new() { Scope = scope }, Hosted);
             var set = await client.Connections.SetAsync(Discovery(Capability), SetRequest() with { Scope = scope }, Hosted);
@@ -62,52 +52,7 @@ public sealed class HttpConnectionTests
             Check(set.Outcome == NativeAttemptOutcome.Acknowledged && set.Operation == "connections.set" && set.Failure is null);
             Check(set.Response!.Connection.Kind == ConnectionKinds.Static && set.Origin == client.Origin && set.CorrelationId != Guid.Empty);
             Check(delete.Outcome == NativeAttemptOutcome.Acknowledged && delete.Operation == "connections.delete" && delete.Response!.Deleted == false);
-            Check(seen.Select(s => s.Uri.AbsoluteUri).SequenceEqual(new[]
-            {
-                "https://target.example/api/connections/list", "https://target.example/api/connections/set", "https://target.example/api/connections/delete"
-            }));
-            Check(seen.Select(s => s.Body).SequenceEqual(new[]
-            {
-                $$"""{"scope":"{{wire}}"}""",
-                $$$"""{"key":"github","scope":"{{{wire}}}","values":{"GH_TOKEN":"{{{Secret}}}"}}""",
-                $$"""{"key":"github","scope":"{{wire}}"}"""
-            }));
         }
-    }
-
-    [Test]
-    public async Task WrongTargetAbsentCapabilityAndInvalidDescriptorsFailBeforeDispatch()
-    {
-        var routes = Capability.RouteTemplates;
-        var cases = new (TargetDiscoveryDocument Discovery, TargetControlCredentials Credentials)[]
-        {
-            (Discovery(Capability, TargetAuthentication.None), Hosted),
-            (Discovery(Capability, TargetAuthentication.PrivateCapability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(Capability), new(TargetAuthentication.PrivateCapability, Bearer)),
-            (Discovery(Capability) with { Audience = "operator" }, Hosted),
-            (Discovery(), Hosted),
-            (Discovery(Capability with { Kind = "zeroshot.connections/v2" }), Hosted),
-            (Discovery(Capability with { DynamicKinds = ["static", "static"] }), Hosted),
-            (Discovery(Capability with { DynamicKinds = [""] }), Hosted),
-            (Discovery(Capability with { DynamicKinds = [new string('é', 64) + "x"] }), Hosted),
-            (Discovery(Capability with { DynamicKinds = ["line\u0085break"] }), Hosted),
-            (Discovery(Capability with { BaseUrl = "https://attacker.example/api/" }), Hosted),
-            (Discovery(Capability with { BaseUrl = "https://target.example/api?x=1" }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Resolve = "/connections/{run_id}" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Resolve = "/connections/resolve?x" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { List = "//attacker.example/list" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Set = "/connections/../set" } }), Hosted),
-            (Discovery(Capability with { RouteTemplates = routes with { Delete = "" } }), Hosted),
-        };
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request, "{}")));
-        using var client = ClientFor(handler);
-        foreach (var (discovery, credentials) in cases)
-        {
-            await Invalid(() => client.Connections.ListAsync(discovery, ListRequest, credentials), Secret, Bearer);
-            await Invalid(() => client.Connections.SetAsync(discovery, SetRequest(), credentials), Secret, Bearer);
-            await Invalid(() => client.Connections.DeleteAsync(discovery, DeleteRequest, credentials), Secret, Bearer);
-        }
-        Check(handler.Calls == 0);
     }
 
     [Test]
@@ -155,53 +100,4 @@ public sealed class HttpConnectionTests
             Check(delete.Outcome == NativeAttemptOutcome.Unknown && delete.Failure is NativeHttpException { Kind: NativeHttpFailureKind.Protocol });
         }
     }
-
-    [Test]
-    public async Task OnlyNativePreEffectProblemPairsRejectMutations()
-    {
-        foreach (var (status, code, rejected) in new[]
-        {
-            (400, "invalid_request", true), (401, "unauthorized", true), (403, "forbidden", true), (404, "not_found", true),
-            (409, "request_conflict", false), (429, "rate_limited", false), (503, "target.unavailable", false),
-            (500, "target.http_error", false), (400, "request.invalid", false), (404, "invalid_request", false)
-        })
-        {
-            using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
-                JsonSerializer.Serialize(new { code, message = "refused" }), (HttpStatusCode)status)));
-            using var client = ClientFor(handler);
-            var set = await client.Connections.SetAsync(Discovery(Capability), SetRequest(), Hosted);
-            var delete = await client.Connections.DeleteAsync(Discovery(Capability), DeleteRequest, Hosted);
-            foreach (var (outcome, failure) in new[] { (set.Outcome, set.Failure), (delete.Outcome, delete.Failure) })
-            {
-                Check(outcome == (rejected ? NativeAttemptOutcome.Rejected : NativeAttemptOutcome.Unknown), $"{status} {code}");
-                Check(failure is NativeHttpException { Problem: { } problem } http && http.StatusCode == (HttpStatusCode)status && problem.Code == code);
-            }
-            var list = await Failure(client.Connections.ListAsync(Discovery(Capability), ListRequest, Hosted), NativeHttpFailureKind.HttpStatus);
-            Check(list.Problem!.Code == code && handler.Calls == 3);
-        }
-        using var invalidProblem = new Handler((request, _) => Task.FromResult(Reply(request, "not json", HttpStatusCode.BadRequest)));
-        using var peer = ClientFor(invalidProblem);
-        var unproven = await peer.Connections.DeleteAsync(Discovery(Capability), DeleteRequest, Hosted);
-        Check(unproven.Outcome == NativeAttemptOutcome.Unknown && unproven.Failure is NativeHttpException { Problem: null, StatusCode: HttpStatusCode.BadRequest });
-    }
-
-    [Test]
-    public async Task DefaultFormattingOmitsSecretsBearerAndRemoteTextWhileExplicitDataRemains()
-    {
-        const string Remote = "REMOTE-MESSAGE-CANARY";
-        using var handler = new Handler((request, _) => Task.FromResult(Reply(request,
-            JsonSerializer.Serialize(new { code = "invalid_request", message = Remote, details = new { echoed = Secret } }), HttpStatusCode.BadRequest)));
-        using var client = ClientFor(handler);
-        var request = SetRequest();
-        var attempt = await client.Connections.SetAsync(Discovery(Capability), request, Hosted);
-        var list = await Failure(client.Connections.ListAsync(Discovery(Capability), ListRequest, Hosted), NativeHttpFailureKind.HttpStatus);
-        Exception? refused = null;
-        try { await client.Connections.SetAsync(Discovery(Capability, TargetAuthentication.None), request, Hosted); }
-        catch (ArgumentException error) { refused = error; }
-        foreach (var text in new[] { request.ToString(), attempt.ToString(), attempt.Failure!.ToString(), list.ToString(), refused!.ToString(), Hosted.ToString() })
-            Check(!text.Contains(Secret) && !text.Contains(Bearer) && !text.Contains(Remote), text);
-        Check(request.Values["GH_TOKEN"] == Secret && ((NativeHttpException)attempt.Failure).Problem!.Message == Remote);
-        Check(Encoding.UTF8.GetString(NativeJson.SerializeUtf8(request)).Contains(Secret));
-    }
-
 }

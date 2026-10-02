@@ -23,16 +23,15 @@ public sealed class PrivateExportsTests
            "stdout":"","stderr":"supervisor.drive: lost","stdoutTruncated":false,"stderrTruncated":false}]}
         """;
 
+    // Routes, bodies and the private bearer: CapabilityConformanceTests.
     [Test]
-    public async Task ReadsUseTheFixedRoutesExactBodiesAndPrivateCapability()
+    public async Task ReadsDecodeTheirExactResults()
     {
-        var seen = new List<(HttpRequestMessage Request, string? Body)>();
-        using var native = ClientFor(new Handler(async (request, token) =>
+        using var native = ClientFor(new Handler((request, _) =>
         {
-            seen.Add((request, request.Content is null ? null : await request.Content.ReadAsStringAsync(token)));
             var path = request.RequestUri!.AbsolutePath;
-            return Reply(request, path.EndsWith("/page") ? History["page"]!.ToJsonString()
-                : path.EndsWith("/definition") ? History["definition"]!.ToJsonString() : Diagnostics());
+            return Task.FromResult(Reply(request, path.EndsWith("/page") ? History["page"]!.ToJsonString()
+                : path.EndsWith("/definition") ? History["definition"]!.ToJsonString() : Diagnostics()));
         }));
         var run = new RunId(Run);
         var snapshot = await native.Private.GetOperatorDiagnosticsAsync(run, Private);
@@ -40,14 +39,6 @@ public sealed class PrivateExportsTests
         var first = await native.Private.GetHistoryPageAsync(run, Private);
         // The page is validated against the requested cursor: this fixture page starts at v2:1, not after v2:4.
         await Expect(native.Private.GetHistoryPageAsync(run, Private, new Cursor("v2:4")), NativeHttpFailureKind.Protocol);
-        Check(seen.Select(s => s.Request.Method.Method + " " + s.Request.RequestUri!.PathAndQuery + " " + s.Body).SequenceEqual(new[]
-        {
-            $"GET /native-v2/operator-diagnostics/{Run} ",
-            $$"""POST /native-v2/history/definition {"runId":"{{Run}}"}""",
-            $$"""POST /native-v2/history/page {"runId":"{{Run}}"}""",
-            $$"""POST /native-v2/history/page {"runId":"{{Run}}","after":"v2:4"}"""
-        }));
-        Check(seen.All(s => s.Request.Headers.Authorization is { Scheme: "Bearer", Parameter: Capability }));
         Check(definition.RunId == run && first.Events.Length == 9);
 
         // Truncation flags and an omitted exit status survive exactly; default formatting shows no payload.
