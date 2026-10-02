@@ -14,12 +14,16 @@ public static class NativeJson
     {
         var options = new JsonSerializerOptions
         {
+            AllowDuplicateProperties = false,
             AllowOutOfOrderMetadataProperties = true,
             MaxDepth = 128,
             RespectNullableAnnotations = true,
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
         };
         options.Converters.Add(new StrictStringConverter());
+        options.Converters.Add(new ArbitraryJsonConverter());
+        options.Converters.Add(new NonNullItemsConverterFactory());
+        options.Converters.Add(new LastKeyWinsConverterFactory());
         options.Converters.Add(new RunSizeConverter());
         options.Converters.Add(new NativeUnsignedConverter());
         options.Converters.Add(new NativeUnsigned32Converter());

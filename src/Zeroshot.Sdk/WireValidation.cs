@@ -27,11 +27,7 @@ internal static class WireValidation
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) as NativeContract ?? throw new JsonException();
             // History records are walked whole: each nested record runs its own rules.
             if (result is HistoryContract) CheckHistory(value, result);
-            else
-            {
-                result.Validate(value);
-                if (result is not DashboardContract) CheckDiscovery(value, type);
-            }
+            else result.Validate(value);
             return result;
         }
         var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
@@ -58,29 +54,6 @@ internal static class WireValidation
         : null;
     private static Action<JsonElement> BindPredecoder<T>() where T : IWirePredecoded => json => T.CheckRaw(json);
 
-    private static void CheckDiscovery(JsonElement value, Type type)
-    {
-        if (value.ValueKind == JsonValueKind.Object)
-        {
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var property in value.EnumerateObject())
-            {
-                var member = type.GetProperties().FirstOrDefault(p =>
-                    p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>()?.Name == property.Name);
-                // In the extension container, unknown names and all their content are ignored by native.
-                if (member is null) continue;
-                if (!names.Add(property.Name)) throw new JsonException();
-                CheckDiscovery(property.Value, member.PropertyType);
-            }
-        }
-        else if (value.ValueKind == JsonValueKind.Array)
-            foreach (var item in value.EnumerateArray())
-            {
-                if (item.ValueKind == JsonValueKind.Null) throw new JsonException();
-                CheckDiscovery(item, typeof(string));
-            }
-    }
-
     private static void CheckHistory(JsonElement value, object? instance)
     {
         switch (instance)
@@ -96,13 +69,8 @@ internal static class WireValidation
                     .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                     .Where(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>() is not null)
                     .ToDictionary(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>()!.Name, StringComparer.Ordinal));
-                var names = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var property in value.EnumerateObject())
-                {
-                    if (!members.TryGetValue(property.Name, out var member)) continue; // Open native records.
-                    if (!names.Add(property.Name)) throw new JsonException("Duplicate native object field.");
-                    CheckHistory(property.Value, member.GetValue(contract));
-                }
+                    if (members.TryGetValue(property.Name, out var member)) CheckHistory(property.Value, member.GetValue(contract));
                 return;
             case System.Collections.IEnumerable items:
                 using (var elements = value.EnumerateArray().GetEnumerator())
