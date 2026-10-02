@@ -56,7 +56,6 @@ public sealed record DashboardTemplate : DashboardContract
 
     internal override void Validate(JsonElement json)
     {
-        Nested(json, "graph", typeof(GraphSpec));
         foreach (var binding in json.GetProperty("runtimeBindings").EnumerateObject())
         {
             _ = new NodeName(binding.Name);
@@ -92,12 +91,6 @@ public sealed record DashboardGitDeliveryWorker : DashboardWorker
     public required GraphNode Node { get; init; }
     [JsonPropertyName("runtimeBinding")]
     public required NodeRuntimeBinding RuntimeBinding { get; init; }
-
-    internal override void Validate(JsonElement json)
-    {
-        Nested(json, "node", typeof(GraphNode));
-        Nested(json, "runtimeBinding", typeof(NodeRuntimeBinding));
-    }
 }
 
 public enum DashboardWorkspaceKind
@@ -129,12 +122,6 @@ public sealed record DashboardProfileDocument : DashboardContract
     public required GraphSpec Graph { get; init; }
     [JsonPropertyName("runtime")]
     public required RuntimePlan Runtime { get; init; }
-
-    internal override void Validate(JsonElement json)
-    {
-        Nested(json, "graph", typeof(GraphSpec));
-        Nested(json, "runtime", typeof(RuntimePlan));
-    }
 }
 
 /// <summary>The only native validate success, `{"valid":true}`. Rejection is a 422 dashboard problem.</summary>
@@ -165,12 +152,6 @@ public sealed record DashboardProfileSaveRequest : DashboardContract
     [JsonPropertyName("expectedRevision")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ExpectedRevision { get; init; }
-
-    internal override void Validate(JsonElement json)
-    {
-        Nested(json, "graph", typeof(GraphSpec));
-        Nested(json, "runtime", typeof(RuntimePlan));
-    }
 }
 
 /// <summary>A stored user-scope profile with native's opaque revision of it, from a read or a save.</summary>
@@ -194,7 +175,6 @@ public sealed record DashboardAuthoringRequest : DashboardContract
     [JsonPropertyName("action")]
     public required DashboardAuthoringAction Action { get; init; }
 
-    internal override void Validate(JsonElement json) => Nested(json, "graph", typeof(GraphSpec));
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -231,7 +211,6 @@ public sealed record DashboardAuthoringDraft : DashboardContract
     [JsonPropertyName("runtime")]
     public required JsonElement Runtime { get; init; }
 
-    internal override void Validate(JsonElement json) => Nested(json, "graph", typeof(GraphSpec));
 }
 
 /// <summary>`POST /ui/api/data`: an input/output edit. Native accepts arbitrary draft graph/runtime JSON.</summary>
@@ -298,7 +277,6 @@ public sealed record RunInputFieldDataAction : DashboardDataAction
     [JsonPropertyName("required")]
     public required bool Required { get; init; }
 
-    internal override void Validate(JsonElement json) => Nested(json, "type", typeof(PayloadType));
 }
 
 public sealed record RemoveRunInputDataAction : DashboardDataAction

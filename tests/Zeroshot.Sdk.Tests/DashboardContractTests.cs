@@ -19,6 +19,18 @@ public sealed class DashboardContractTests
     private static JsonElement Json(string text) => JsonDocument.Parse(text).RootElement.Clone();
 
     [Test]
+    public void BootstrapChecksNestedPinnedSchemasAndNativeRules()
+    {
+        static JsonNode Bootstrap() => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures/dashboard-bootstrap.json")))!;
+        var repeatedLabels = Bootstrap();
+        repeatedLabels["templates"]![0]!["graph"]!["root"]!["children"]![1]!["branches"]![0]!["when"]!["labels"] = new JsonArray("crash", "crash");
+        Rejected<DashboardBootstrap>(repeatedLabels);
+        var emptyConnection = Bootstrap();
+        emptyConnection["workers"]![1]!["runtimeBinding"]!["connections"]!["github"] = new JsonArray();
+        Rejected<DashboardBootstrap>(emptyConnection);
+    }
+
+    [Test]
     public async Task BootstrapPreservesNativeCatalogAndRejectsMalformedData()
     {
         // Trimmed from stock 10.9.0 `target serve` output: two templates, both worker kinds, target workspace.

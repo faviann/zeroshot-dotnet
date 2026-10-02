@@ -10,16 +10,10 @@ public abstract record NativeContract
     public sealed override string ToString() => GetType().Name;
 
     /// <summary>
-    /// The contract's own wire rules beyond strict typed decoding and the pinned schema. WireValidation
-    /// runs them on a decoded root with its raw JSON, which nested pinned-schema values validate against.
+    /// The contract's own wire rules beyond strict typed decoding and nested pinned schemas. WireValidation
+    /// runs them on a decoded root with its raw JSON.
     /// </summary>
     internal virtual void Validate(JsonElement json) { }
-}
-
-/// <summary>Raw-JSON rules a contract runs before typed decoding, which cannot classify every malformed nested value.</summary>
-internal interface IWirePredecoded
-{
-    static abstract void CheckRaw(JsonElement json);
 }
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum)]
