@@ -214,6 +214,7 @@ public sealed class HistoryTests
         yield return ("summary cursor malformed", "list", n => Run(n, 0)["cursor"] = "v3:2", null, false);
         yield return ("unavailable summary with terminal", "list", n => { Run(n, 1)["phase"] = "unavailable"; Run(n, 1)["terminal"] = JsonNode.Parse("""{"status":"succeeded"}"""); }, null, false);
         yield return ("unavailable summary", "list", n => Run(n, 1)["phase"] = "unavailable", null, true);
+        yield return ("unavailable summary with history", "list", n => { Run(n, 1)["phase"] = "unavailable"; Run(n, 1)["cursor"] = "v2:0"; Run(n, 1)["historyAvailable"] = true; }, null, false);
         yield return ("terminal before finished", "list", n => Run(n, 0)["phase"] = "running", null, false);
         yield return ("runtime failure reason differs", "list", n => Run(n, 0)["runtimeFailure"]!["reason"] = "runtime_lost", null, false);
         yield return ("definition version", "definition", n => n["version"] = 2, null, false);
@@ -229,9 +230,11 @@ public sealed class HistoryTests
         yield return ("runtime failure unknown reason", "definition", n => { RuntimeFailed(n); n["runtimeFailure"]!["reason"] = "runtime_gone"; n["terminal"]!["reason"] = "runtime_gone"; }, null, false);
         yield return ("runtime failure after head", "definition", n => { RuntimeFailed(n); n["runtimeFailure"]!["atCursor"] = "v2:10"; }, null, false);
         yield return ("runtime failure without matching terminal", "definition", n => { RuntimeFailed(n); n["terminal"]!["reason"] = "worker_failed"; }, null, false);
+        yield return ("runtime failure before finished", "definition", n => { RuntimeFailed(n); n["phase"] = "running"; }, null, false);
         yield return ("page gap", "page", n => n["events"]![4]!["cursor"] = "v2:6", null, false);
         yield return ("page non-canonical event cursor", "page", n => n["events"]![1]!["cursor"] = "v2:02", null, false);
         yield return ("page next beyond head", "page", n => { n["nextCursor"] = "v2:10"; n["complete"] = false; }, null, false);
+        yield return ("page non-canonical head", "page", n => n["headCursor"] = "v2:09", null, false);
         yield return ("page next not last event", "page", n => { n["nextCursor"] = "v2:8"; n["complete"] = false; }, null, false);
         yield return ("page complete mismatch", "page", n => n["complete"] = false, null, false);
         yield return ("page before request", "page", _ => { }, "v2:9", false);
@@ -246,9 +249,12 @@ public sealed class HistoryTests
         }, null, false);
         yield return ("control outside page", "page", n => n["control"]![0]!["cursor"] = "v2:10", null, false);
         yield return ("control out of order", "page", n => { n["control"]![0]!["cursor"] = "v2:6"; n["control"]![1]!["cursor"] = "v2:3"; }, null, false);
+        yield return ("control non-canonical cursor", "page", n => n["control"]![0]!["cursor"] = "v2:03", null, false);
         yield return ("expired observation of finished run", "page", n => n["observation"] = JsonNode.Parse("""{"state":"expired","code":"history_expired"}"""), null, true);
         yield return ("status-only runtime failure page", "page", n => { n["events"]!.AsArray().RemoveAt(8); n["control"] = new JsonArray(); n["nextCursor"] = "v2:8"; n["headCursor"] = "v2:8"; n["runtimeFailure"] = JsonNode.Parse("""{"atCursor":"v2:7","reason":"runtime_failed"}"""); n["observation"] = JsonNode.Parse("""{"state":"incomplete","code":"runtime_unavailable"}"""); }, null, true);
         yield return ("runtime failure before finished", "page", n => { n["runtimeFailure"] = JsonNode.Parse("""{"atCursor":"v2:7","reason":"runtime_lost"}"""); n["finished"] = false; }, null, false);
+        yield return ("page runtime failure after head", "page", n => n["runtimeFailure"] = JsonNode.Parse("""{"atCursor":"v2:10","reason":"runtime_lost"}"""), null, false);
+        yield return ("page runtime failure unknown reason", "page", n => n["runtimeFailure"] = JsonNode.Parse("""{"atCursor":"v2:7","reason":"runtime_gone"}"""), null, false);
     }
 
     private static void RuntimeFailed(JsonNode definition)
