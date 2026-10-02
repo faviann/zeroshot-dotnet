@@ -125,13 +125,13 @@ public sealed record LogRecord : NativeContract
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record BoundedLogTarget : NativeString
 {
-    public BoundedLogTarget(string value) : base(ValueRules.Check(nameof(BoundedLogTarget), value)) { }
+    public BoundedLogTarget(string value) : base(value, ValueRules.Key) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record BoundedLogMessage : NativeString
 {
-    public BoundedLogMessage(string value) : base(ValueRules.Check(nameof(BoundedLogMessage), value)) { }
+    public BoundedLogMessage(string value) : base(value, ValueRules.LogMessage) { }
 }
 
 [WireContract("UnixTimestampMillis")]

@@ -541,12 +541,12 @@ internal sealed class DurableExecutionStateConverter : JsonConverter<DurableExec
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record HistoryIdentity : NativeString
 {
-    public HistoryIdentity(string value) : base(ValueRules.Check(nameof(HistoryIdentity), value)) { }
+    public HistoryIdentity(string value) : base(value, ValueRules.PositiveDecimal) { }
 }
 
 /// <summary>A retained safe log line: at most 16 KiB of UTF-8 without NUL.</summary>
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record SafeLogLine : NativeString
 {
-    public SafeLogLine(string value) : base(ValueRules.Check(nameof(SafeLogLine), value)) { }
+    public SafeLogLine(string value) : base(value, ValueRules.LogLine) { }
 }
