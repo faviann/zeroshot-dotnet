@@ -95,6 +95,23 @@ internal static class WireValidation
             foreach (var item in value.EnumerateObject()) { _ = new UTF8Encoding(false, true).GetByteCount(item.Name); CheckUnicode(item.Value); }
     }
 
+    // Native rules its published schemas do not express, by schema definition.
+    private static readonly Dictionary<string, Action<JsonElement>> NativeRules = new(StringComparer.Ordinal)
+    {
+        ["NodeInstructions"] = value => _ = new NodeInstructions(value.GetString()!),
+        ["DeclaredConnections"] = CheckConnections,
+        ["RuntimePlan"] = value =>
+        {
+            foreach (var node in value.GetProperty("nodes").EnumerateObject()) _ = new NodeName(node.Name);
+        },
+        ["RuntimeEnvironment"] = value =>
+        {
+            if (!value.TryGetProperty("variables", out var variables)) return;
+            foreach (var variable in variables.EnumerateObject()) _ = new EnvironmentVariableName(variable.Name);
+        },
+        ["WorkerDescriptor"] = CheckDescriptor,
+    };
+
     private static void CheckNative(JsonElement value, JsonNode schema, string? name = null)
     {
         if (schema is JsonValue) return; // Arbitrary caller-authored JSON stays open.
@@ -104,13 +121,7 @@ internal static class WireValidation
             CheckNative(value, Definitions[name]!, name); return;
         }
         if (value.ValueKind == JsonValueKind.Null) return;
-        if (name == "NodeInstructions") _ = new NodeInstructions(value.GetString()!);
-        if (name == "DeclaredConnections") CheckConnections(value);
-        if (name == "RuntimePlan")
-            foreach (var node in value.GetProperty("nodes").EnumerateObject()) _ = new NodeName(node.Name);
-        if (name == "RuntimeEnvironment" && value.TryGetProperty("variables", out var variables))
-            foreach (var variable in variables.EnumerateObject()) _ = new EnvironmentVariableName(variable.Name);
-        if (name == "WorkerDescriptor") CheckDescriptor(value);
+        if (name is not null && NativeRules.TryGetValue(name, out var rule)) rule(value);
         if (schema["allOf"] is JsonArray all) foreach (var child in all) if (child is not null && child["if"] is null) CheckNative(value, child);
         if ((schema["oneOf"] ?? schema["anyOf"]) is JsonArray variants)
         {
