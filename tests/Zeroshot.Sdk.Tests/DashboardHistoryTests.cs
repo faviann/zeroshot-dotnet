@@ -153,6 +153,7 @@ public sealed class DashboardHistoryTests
             (History(4, 6), NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),         // gap after v2:3
             (History(2, 6), NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),         // rewind
             (History(3, 6, id: "v2:5"), NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure), // foreign id
+            (History(3, 6).Replace("\"complete\":false", "\"complete\":true"), NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),
             (History(3, 6).Replace("id: v2:6\n", ""), NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),
             ("event: progress\ndata: {}\n\n", NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),
             ("data: {}\n\n", NativeSubscriptionFailureKind.Protocol, NativeSubscriptionOrigin.LocalFailure),

@@ -99,6 +99,7 @@ public sealed class PrivateExportsTests
         yield return ("foreign definition", "definition", () => { var d = History["definition"]!.DeepClone(); d["runId"] = "0195af77-1000-7000-8000-000000000010"; return d.ToJsonString(); }, NativeHttpFailureKind.Protocol);
         yield return ("definition over 8 MiB", "definition", () => History["definition"]!.ToJsonString() + new string(' ', 8 * 1024 * 1024), NativeHttpFailureKind.SizeLimit);
         yield return ("page gap", "page", () => { var p = History["page"]!.DeepClone(); p["events"]![4]!["cursor"] = "v2:6"; return p.ToJsonString(); }, NativeHttpFailureKind.Protocol);
+        yield return ("page before request", "page after v2:2", () => History["page"]!.ToJsonString(), NativeHttpFailureKind.Protocol);
         yield return ("page over 8 MiB", "page", () => History["page"]!.ToJsonString() + new string(' ', 8 * 1024 * 1024), NativeHttpFailureKind.SizeLimit);
     }
 
@@ -126,6 +127,7 @@ public sealed class PrivateExportsTests
     {
         "diagnostics" => native.Private.GetOperatorDiagnosticsAsync(new RunId(Run), Private),
         "definition" => native.Private.GetHistoryDefinitionAsync(new RunId(Run), Private),
+        "page after v2:2" => native.Private.GetHistoryPageAsync(new RunId(Run), Private, new Cursor("v2:2")),
         _ => native.Private.GetHistoryPageAsync(new RunId(Run), Private)
     };
 
