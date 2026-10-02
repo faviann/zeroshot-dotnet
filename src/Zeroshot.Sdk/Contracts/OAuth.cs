@@ -37,7 +37,7 @@ public sealed record DeviceAuthorization : TargetHttpContract
     public required ulong Interval { get; init; }
 
     // Native validate_device_code. A zero interval is valid.
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (!OAuthValues.Bounded(DeviceCode, 16 * 1024) || !OAuthValues.Bounded(UserCode, 256) ||
             ExpiresIn is < 1 or > 86_400 || Interval > 300 ||
@@ -73,7 +73,7 @@ public sealed record OAuthTokens : TargetHttpContract
     public required string Scope { get; init; }
 
     // Native validate_token.
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (!OAuthValues.Bounded(AccessToken, 16 * 1024) || !OAuthValues.Bounded(RefreshToken, 16 * 1024) ||
             TokenType != "Bearer" || ExpiresIn is < 1 or > 86_400 || RefreshExpiresIn is < 1 or > 31_536_000 ||
@@ -89,7 +89,7 @@ public sealed record TargetLoginSession : TargetHttpContract
     [JsonPropertyName("organization_id")]
     public required string OrganizationId { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (Kind != "openengine.target-session/v1" || OrganizationId.Length == 0 || Encoding.UTF8.GetByteCount(OrganizationId) > 256)
             throw new JsonException();

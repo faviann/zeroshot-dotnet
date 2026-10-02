@@ -41,7 +41,7 @@ public sealed record HostedRunStatusResult : TargetHttpContract
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public Optional<WorkspaceRecovery> WorkspaceRecovery { get; init; }
 
-    internal override void Validate(JsonElement json) => CheckTarget(json, typeof(RunStatusResult));
+    internal override void CheckWire(JsonElement json) => CheckTarget(json, typeof(RunStatusResult));
 
     // A hosted record is its pinned OECP shape, except that the status may be the host-only queued phase.
     // Queued is validated as another phase; its own exact shape is the typed converter's.
@@ -65,7 +65,7 @@ public sealed record HostedRunListResult : TargetHttpContract
     [JsonPropertyName("runs")]
     public required ImmutableArray<HostedRunStatusResult> Runs { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void CheckWire(JsonElement json)
     {
         foreach (var entry in json.GetProperty("runs").EnumerateArray()) HostedRunStatusResult.CheckTarget(entry, typeof(RunStatusResult));
     }
@@ -89,7 +89,7 @@ public sealed record HostedRunWatchEventNotification : TargetHttpContract
     [JsonPropertyName("status")]
     public required HostedRunStatus Status { get; init; }
 
-    internal override void Validate(JsonElement json) => HostedRunStatusResult.CheckTarget(json, typeof(RunWatchEventNotification));
+    internal override void CheckWire(JsonElement json) => HostedRunStatusResult.CheckTarget(json, typeof(RunWatchEventNotification));
 }
 
 internal sealed class HostedRunStatusConverter : JsonConverter<HostedRunStatus>
