@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using TUnit.Core;
 using Zeroshot.Native;
 using Zeroshot.Native.Contracts;
@@ -24,5 +25,23 @@ public sealed class ContractRuleTests
         try { NativeJson.DeserializeUtf8<MergePlanSubmitRequest>(Encoding.UTF8.GetBytes(plan.ToJsonString())); }
         catch (JsonException) { return; }
         throw new InvalidOperationException("A merge plan without runs was accepted.");
+    }
+
+    private sealed record Probe : NativeContract
+    {
+        [JsonPropertyName("note")]
+        public required string? Note { get; init; }
+        [JsonPropertyName("ok")]
+        public required bool Ok { get; init; }
+        internal override void Validate() { if (!Ok) throw new JsonException(); }
+    }
+
+    // A required nullable member is present when it is null, so the record's rules still run.
+    [Test]
+    public void RulesRunWhenARequiredNullableMemberIsNull()
+    {
+        try { JsonSerializer.Deserialize<Probe>("""{"note":null,"ok":false}""", NativeJson.Options); }
+        catch (JsonException) { return; }
+        throw new InvalidOperationException("A rule was skipped for a null required nullable member.");
     }
 }

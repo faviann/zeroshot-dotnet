@@ -26,8 +26,8 @@ internal static class ContractRules
     internal static void Attach(JsonTypeInfo info)
     {
         if (info.Kind != JsonTypeInfoKind.Object || !typeof(NativeContract).IsAssignableFrom(info.Type)) return;
-        // Explicit nulls fail before this hook, but a missing required member is only reported after it.
-        var required = info.Properties.Where(p => p.IsRequired && Absentable(p.PropertyType))
+        // A null non-nullable member fails before this hook, but a missing required one is only reported after it.
+        var required = info.Properties.Where(p => p.IsRequired && !p.IsSetNullable && Absentable(p.PropertyType))
             .Select(p => (Get: p.Get!, Absent: p.PropertyType.IsValueType ? Activator.CreateInstance(p.PropertyType) : null)).ToArray();
         var declared = info.OnDeserialized;
         info.OnDeserialized = value =>
