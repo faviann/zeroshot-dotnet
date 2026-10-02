@@ -100,7 +100,7 @@ public sealed record FailedHistorySynopsis : RunHistoryTerminalSynopsis
     public required string Reason { get; init; }
 }
 
-public sealed record RunHistorySummary : HistoryContract, IJsonOnDeserialized
+public sealed record RunHistorySummary : HistoryContract
 {
     [JsonPropertyName("runId")]
     public required RunId RunId { get; init; }
@@ -122,7 +122,7 @@ public sealed record RunHistorySummary : HistoryContract, IJsonOnDeserialized
     public RuntimeFailure? RuntimeFailure { get; init; }
 
     // A summary's runtime failure only has to agree with its terminal; native does not bound its cursor here.
-    void IJsonOnDeserialized.OnDeserialized()
+    internal override void Validate()
     {
         if (!TargetRunRequest.IsCanonicalRunId(RunId.Value) ||
             (Cursor is not null && !RunHistoryRules.TryLenient(Cursor, out _)) ||
@@ -135,7 +135,7 @@ public sealed record RunHistorySummary : HistoryContract, IJsonOnDeserialized
 }
 
 /// <summary>One UUIDv7-descending page of at most 50 runs.</summary>
-public sealed record RunHistoryList : HistoryContract, IJsonOnDeserialized
+public sealed record RunHistoryList : HistoryContract
 {
     private const int MaxEntries = 50;
     [JsonPropertyName("runs")]
@@ -143,7 +143,7 @@ public sealed record RunHistoryList : HistoryContract, IJsonOnDeserialized
     [JsonPropertyName("nextCursor")]
     public required RunId? NextCursor { get; init; }
 
-    void IJsonOnDeserialized.OnDeserialized()
+    internal override void Validate()
     {
         if (Runs.Length > MaxEntries || (NextCursor is not null && (Runs.IsEmpty || Runs[^1].RunId != NextCursor)))
             throw new JsonException();
@@ -153,7 +153,7 @@ public sealed record RunHistoryList : HistoryContract, IJsonOnDeserialized
 }
 
 /// <summary>The admitted definition. Observation availability is separate from phase and terminal.</summary>
-public sealed record RunDefinition : HistoryContract, IJsonOnDeserialized
+public sealed record RunDefinition : HistoryContract
 {
     [JsonPropertyName("version")]
     public required byte Version { get; init; }
@@ -193,7 +193,7 @@ public sealed record RunDefinition : HistoryContract, IJsonOnDeserialized
     [JsonInclude, JsonPropertyName("snapshot"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     private JsonElement? LegacySnapshot { get => null; init { } }
 
-    void IJsonOnDeserialized.OnDeserialized()
+    internal override void Validate()
     {
         if (Version != 1 || ProjectionVersion != 1 || !HistoryAvailable ||
             !RunHistoryRules.TryCanonical(Cursor, out var cursor) || !RunHistoryRules.TryCanonical(History.Cursor, out var history) ||
@@ -262,7 +262,7 @@ public sealed record ControlRecord : HistoryContract
     public Optional<JsonElement> Output { get; init; }
 }
 
-public sealed record HistoryPage : HistoryContract, IJsonOnDeserialized
+public sealed record HistoryPage : HistoryContract
 {
     private const int MaxEvents = 256;
     [JsonPropertyName("events")]
@@ -294,7 +294,7 @@ public sealed record HistoryPage : HistoryContract, IJsonOnDeserialized
     }
 
     // Events continue each other up to nextCursor; where they start depends on the request's after cursor.
-    void IJsonOnDeserialized.OnDeserialized()
+    internal override void Validate()
     {
         if (!RunHistoryRules.TryCanonical(NextCursor, out var next) || !RunHistoryRules.TryCanonical(HeadCursor, out var head) ||
             Events.Length > MaxEvents || (ulong)Events.Length > next || next > head || Complete != (next == head) ||
@@ -451,7 +451,7 @@ public sealed record TokenUsageDelta : HistoryContract
 
 /// <summary>The unmodified native durable record: snake_case fields and numeric identities.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record DurableExecution : HistoryContract, IJsonOnDeserialized
+public sealed record DurableExecution : HistoryContract
 {
     [JsonPropertyName("dispatch_position")]
     public required ulong DispatchPosition { get; init; }
@@ -468,7 +468,7 @@ public sealed record DurableExecution : HistoryContract, IJsonOnDeserialized
     [JsonPropertyName("state")]
     public required DurableExecutionState State { get; init; }
 
-    void IJsonOnDeserialized.OnDeserialized()
+    internal override void Validate()
     {
         if (DispatchPosition > long.MaxValue || NodeInstance == 0 || Execution == 0) throw new JsonException();
     }
@@ -481,23 +481,23 @@ public abstract record DurableExecutionState : HistoryContract;
 public sealed record ActiveExecutionState : DurableExecutionState;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record SettledExecutionState : DurableExecutionState, IJsonOnDeserialized
+public sealed record SettledExecutionState : DurableExecutionState
 {
     [JsonPropertyName("position")]
     public required ulong Position { get; init; }
     [JsonPropertyName("outcome")]
     public required WorkerOutcome Outcome { get; init; }
-    void IJsonOnDeserialized.OnDeserialized() { if (Position > long.MaxValue) throw new JsonException(); }
+    internal override void Validate() { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record VoidedExecutionState : DurableExecutionState, IJsonOnDeserialized
+public sealed record VoidedExecutionState : DurableExecutionState
 {
     [JsonPropertyName("position")]
     public required ulong Position { get; init; }
     [JsonPropertyName("reason")]
     public required ExecutionVoidReason Reason { get; init; }
-    void IJsonOnDeserialized.OnDeserialized() { if (Position > long.MaxValue) throw new JsonException(); }
+    internal override void Validate() { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 internal sealed class DurableExecutionStateConverter : JsonConverter<DurableExecutionState>
