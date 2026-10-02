@@ -241,7 +241,9 @@ public sealed class RunTests
         peer.Oecp["run/watch"] = TargetPeer.Watch(call => TargetPeer.WatchEvent(call.RunId, "c2", TargetPeer.Running));
         using var workspace = Workspace(peer);
 
-        var result = await workspace.RunAsync(Known("wait", "--timeout", "10s"));
+        // A real-time budget: it covers discovery, session, two OECP connections and the status read before the
+        // watch, which take most of 10s on a slow CI runner. The CLI process allows 60s.
+        var result = await workspace.RunAsync(Known("wait", "--timeout", "30s"));
 
         await Failure(result, 4, "timeout");
         await Assert.That(result.Stdout).IsEmpty();
