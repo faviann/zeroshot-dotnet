@@ -93,6 +93,9 @@ public sealed class HistoryTests
         yield return ("page", "usage cache count required", n => Event(n, 4)["usage"]!.AsObject().Remove("cacheReadInputTokens"), false);
         yield return ("page", "explicit null control", n => n["control"] = null, false);
         yield return ("page", "omitted control", n => n.AsObject().Remove("control"), true);
+        yield return ("list", "runs omitted", n => n.AsObject().Remove("runs"), false);
+        yield return ("definition", "history omitted", n => n.AsObject().Remove("history"), false);
+        yield return ("page", "events omitted", n => n.AsObject().Remove("events"), false);
         yield return ("page", "unknown observation state", n => n["observation"]!["state"] = "stale", false);
     }
 
