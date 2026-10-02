@@ -235,23 +235,45 @@ public sealed class RunTests
     [Test]
     public async Task AWaitTimeoutIsExitFourWithTheRunAndItsLatestEvidence()
     {
-        await using var peer = new TargetPeer();
-        peer.Oecp["run/status"] = TargetPeer.Reply(call => TargetPeer.Status(call.RunId, "s1", TargetPeer.Running));
-        // One nonterminal event, then quiet.
-        peer.Oecp["run/watch"] = TargetPeer.Watch(call => TargetPeer.WatchEvent(call.RunId, "c2", TargetPeer.Running));
-        using var workspace = Workspace(peer);
+        // The budget runs on the CLI's own clock, so the test orders it through the protocol instead: the wait
+        // reads status again only after the watch's event and normal close, and that read is never answered.
+        // A budget that ended before the held read did not reach the scenario and is retried with a longer one;
+        // runner speed changes only how long this takes, never what it asserts.
+        for (var budget = 2; ; budget *= 2)
+        {
+            await using var peer = new TargetPeer();
+            var statusReads = 0;
+            var held = new TaskCompletionSource();
+            peer.Oecp["run/status"] = call =>
+            {
+                if (Interlocked.Increment(ref statusReads) == 1) return call.ReplyAsync(TargetPeer.Status(call.RunId, "s1", TargetPeer.Running));
+                held.TrySetResult();
+                return peer.Hold();
+            };
+            peer.Oecp["run/watch"] = async call =>
+            {
+                await TargetPeer.Watch(watched => TargetPeer.WatchEvent(watched.RunId, "c2", TargetPeer.Running))(call);
+                await call.NotifyAsync("subscription/closed", """{"subscriptionId":"w1","reason":"done"}""");
+            };
+            using var workspace = Workspace(peer);
 
-        // A real-time budget: it covers discovery, session, two OECP connections and the status read before the
-        // watch, which take most of 10s on a slow CI runner. The CLI process allows 60s.
-        var result = await workspace.RunAsync(Known("wait", "--timeout", "30s"));
+            var result = await workspace.RunAsync(Known("wait", "--timeout", $"{budget}s"));
 
-        await Failure(result, 4, "timeout");
-        await Assert.That(result.Stdout).IsEmpty();
-        await Assert.That(Text(result.Error, "runId")).IsEqualTo(Acknowledged);
-        await Assert.That(Text(result.Error, "evidence", "statusCursor")).IsEqualTo("s1");
-        await Assert.That(Text(result.Error, "evidence", "lastEventCursor")).IsEqualTo("c2");
-        await Assert.That(Text(result.Error, "evidence", "resumeAfter")).IsEqualTo("c2");
-        await Assert.That(peer.Count("run/force")).IsEqualTo(0);
+            await Failure(result, 4, "timeout"); // Any other outcome is a real failure, never a reason to retry.
+            if (!held.Task.IsCompleted)
+            {
+                // The CLI process is allowed 60s, so 32s is the longest budget.
+                if (budget >= 32) throw new InvalidOperationException($"The wait never reached its held status read within {budget}s.");
+                continue;
+            }
+            await Assert.That(result.Stdout).IsEmpty();
+            await Assert.That(Text(result.Error, "runId")).IsEqualTo(Acknowledged);
+            await Assert.That(Text(result.Error, "evidence", "statusCursor")).IsEqualTo("s1");
+            await Assert.That(Text(result.Error, "evidence", "lastEventCursor")).IsEqualTo("c2");
+            await Assert.That(Text(result.Error, "evidence", "resumeAfter")).IsEqualTo("c2");
+            await Assert.That(peer.Count("run/force")).IsEqualTo(0);
+            return;
+        }
     }
 
     [Test]
