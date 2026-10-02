@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -90,4 +91,67 @@ internal sealed class StrictStringConverter : JsonConverter<string>
     public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(Check(value));
     public override string ReadAsPropertyName(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => Check(reader.GetString()!);
     public override void WriteAsPropertyName(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WritePropertyName(Check(value));
+}
+
+// Arbitrary JSON follows serde_json::Value, which keeps the last of repeated keys; typed fields reject them.
+internal sealed class ArbitraryJsonConverter : JsonConverter<JsonElement>
+{
+    public override JsonElement Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => JsonElement.ParseValue(ref reader);
+    public override void Write(Utf8JsonWriter writer, JsonElement value, JsonSerializerOptions options) => value.WriteTo(writer);
+}
+
+// No contract declares nullable items, and native Vec<T> rejects null for non-Option T.
+internal sealed class NonNullItemsConverterFactory : JsonConverterFactory
+{
+    public override bool CanConvert(Type type) => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ImmutableArray<>) &&
+        !type.GetGenericArguments()[0].IsValueType;
+    public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
+        (JsonConverter)Activator.CreateInstance(typeof(NonNullItemsConverter<>).MakeGenericType(type.GetGenericArguments()))!;
+
+    private sealed class NonNullItemsConverter<T> : JsonConverter<ImmutableArray<T>> where T : class
+    {
+        public override ImmutableArray<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        {
+            var items = JsonSerializer.Deserialize<T[]>(ref reader, options) ?? throw new JsonException("A native array cannot be null.");
+            return Array.IndexOf(items, null) < 0 ? [.. items] : throw new JsonException("A native array item cannot be null.");
+        }
+        public override void Write(Utf8JsonWriter writer, ImmutableArray<T> value, JsonSerializerOptions options) =>
+            JsonSerializer.Serialize<IEnumerable<T>>(writer, value, options);
+    }
+}
+
+// Native maps (serde HashMap and BTreeMap) keep the last of repeated keys.
+internal sealed class LastKeyWinsConverterFactory : JsonConverterFactory
+{
+    public override bool CanConvert(Type type) => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ImmutableDictionary<,>);
+    public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
+        (JsonConverter)Activator.CreateInstance(typeof(LastKeyWinsConverter<,>).MakeGenericType(type.GetGenericArguments()))!;
+
+    private sealed class LastKeyWinsConverter<TKey, TValue> : JsonConverter<ImmutableDictionary<TKey, TValue>> where TKey : notnull
+    {
+        public override ImmutableDictionary<TKey, TValue> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException("Expected a native map.");
+            var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
+            var map = ImmutableDictionary.CreateBuilder<TKey, TValue>();
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                var key = keys.ReadAsPropertyName(ref reader, typeof(TKey), options);
+                reader.Read();
+                map[key] = JsonSerializer.Deserialize<TValue>(ref reader, options)!;
+            }
+            return map.ToImmutable();
+        }
+        public override void Write(Utf8JsonWriter writer, ImmutableDictionary<TKey, TValue> value, JsonSerializerOptions options)
+        {
+            var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
+            writer.WriteStartObject();
+            foreach (var (key, item) in value)
+            {
+                keys.WriteAsPropertyName(writer, key, options);
+                JsonSerializer.Serialize(writer, item, options);
+            }
+            writer.WriteEndObject();
+        }
+    }
 }

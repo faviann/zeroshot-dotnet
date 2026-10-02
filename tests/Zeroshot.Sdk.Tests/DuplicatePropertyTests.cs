@@ -68,9 +68,10 @@ public sealed class DuplicatePropertyTests
     }
 
     [Test]
-    public void DashboardKeepsArbitraryJson()
+    public void DashboardRejectsRepeatedKnownFieldsAndKeepsArbitraryJson()
     {
         Check(Accepts<DashboardBootstrap>(Dashboard));
+        Check(!Accepts<DashboardBootstrap>(Edit(Dashboard, "{", "{\"version\":1,")));
         Check(Accepts<DashboardBootstrap>(Edit(Dashboard, "\"title\":\"RuntimePlan\"", "\"title\":\"RuntimePlan\",\"title\":\"again\"")));
     }
 
@@ -82,7 +83,14 @@ public sealed class DuplicatePropertyTests
         Check(!Accepts<TargetDiscoveryDocument>(Edit(Discovery, "\"device_token\",", "\"device_token\",null,")));
         Check(Accepts<TargetOperatorDiagnostics>("{\"diagnostics\":[" + Diagnostic + "]}"));
         Check(!Accepts<TargetOperatorDiagnostics>("{\"diagnostics\":[" + Diagnostic + ",null]}"));
+        Check(!Accepts<HistoryPage>(Edit(HistorySection("page"), "{\"events\":[", "{\"events\":[null,")));
         Check(Accepts<TargetDiscoveryDocument>(Edit(Discovery, "\"extensions\": {", "\"extensions\": {\"future\":[null],")));
+    }
+
+    [Test]
+    public void ArrayItemsRejectRepeatedKnownFields()
+    {
+        Check(!Accepts<TargetOperatorDiagnostics>("{\"diagnostics\":[" + Edit(Diagnostic, "{", "{\"id\":\"d1\",") + "]}"));
     }
 
     [Test]
