@@ -89,7 +89,9 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
                 await context.ConnectAsync(async ct =>
                 {
                     using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, token);
-                    await socket.ConnectAsync(connection.DnsEndPoint, linked.Token).ConfigureAwait(false);
+                    try { await socket.ConnectAsync(connection.DnsEndPoint, linked.Token).ConfigureAwait(false); }
+                    // SocketsHttpHandler reports its connect timeout only for a cancellation that carries its own token.
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
                 }).ConfigureAwait(false);
             else await socket.ConnectAsync(connection.DnsEndPoint, token).ConfigureAwait(false);
             return new LeasedNetworkStream(socket, lease);

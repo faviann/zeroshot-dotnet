@@ -313,6 +313,38 @@ public sealed class HttpDiscoveryTests
     }
 
     [Test]
+    public async Task TcpConnectUsesTheConnectDeadlineWhenTheHandlerTimerFiresFirst()
+    {
+        // A full backlog drops further SYNs on Linux and macOS, so the next connect hangs; Windows refuses it instead.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start(1);
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var fillers = new List<Socket>();
+        try
+        {
+            var hung = false;
+            for (var i = 0; i < 64 && !hung; i++)
+            {
+                var filler = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                fillers.Add(filler);
+                try { hung = !filler.ConnectAsync(IPAddress.Loopback, port).Wait(300); }
+                catch (AggregateException) { return; }
+            }
+            if (!hung) return;
+            // The SDK clock never advances, so only SocketsHttpHandler's own connect timer can end the TCP connect.
+            using var native = NativeClient.ForHttp(new()
+            {
+                Origin = new Uri($"https://127.0.0.1:{port}/"),
+                Transport = new() { ConnectTimeout = TimeSpan.FromMilliseconds(150), RequestTimeout = TimeSpan.FromSeconds(5) },
+                Time = new ManualTime()
+            });
+            var failure = await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.Deadline);
+            Check(failure.Stage == "Connect");
+        }
+        finally { foreach (var filler in fillers) filler.Dispose(); }
+    }
+
+    [Test]
     public async Task SharedCoreReportsHeadHeadersBoundsProblemsAndClosesUiRoutedConnections()
     {
         var operation = new Zeroshot.Native.Execution.OperationDescriptor("test.ui", Zeroshot.Native.Execution.OperationTransport.Http);
