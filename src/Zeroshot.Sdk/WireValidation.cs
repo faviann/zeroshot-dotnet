@@ -25,17 +25,22 @@ internal static class WireValidation
             Predecoders.GetOrAdd(type, Predecoder)?.Invoke(value);
             // Required fields, nullability, exact field names and per-type extension strictness.
             var result = JsonSerializer.Deserialize(value, type, NativeJson.Options) as NativeContract ?? throw new JsonException();
-            // History records are walked whole: each nested record runs its own rules.
-            if (result is HistoryContract) CheckHistory(value, result);
-            else result.Validate(value);
+            result.Validate(value);
             return result;
         }
-        var name = type.GetCustomAttribute<WireContractAttribute>()?.Name;
-        if (name is null)
+        if (type.GetCustomAttribute<WireContractAttribute>() is null)
         {
             if (typeof(NativeString).IsAssignableFrom(type)) return null;
             throw new ArgumentException("Unsupported native contract type.");
         }
+        CheckSchema(value, type);
+        return null;
+    }
+
+    /// <summary>The pinned schema and native rules of a schema-named contract and everything nested in it.</summary>
+    internal static void CheckSchema(JsonElement value, Type type)
+    {
+        var name = type.GetCustomAttribute<WireContractAttribute>()!.Name;
         var schema = Schemas.GetOrAdd(name, key => new Lazy<JsonSchema>(() => JsonSchema.FromText(new JsonObject
         {
             ["$schema"] = "https://json-schema.org/draft/2020-12/schema",
@@ -44,7 +49,6 @@ internal static class WireValidation
         }.ToJsonString()))).Value;
         if (!schema.Evaluate(value).IsValid) throw new JsonException("Native wire shape is invalid.");
         CheckNative(value, Definitions[name]!, name);
-        return null;
     }
 
     private static readonly ConcurrentDictionary<Type, Action<JsonElement>?> Predecoders = new();
@@ -53,36 +57,6 @@ internal static class WireValidation
             .MakeGenericMethod(type).Invoke(null, null)!
         : null;
     private static Action<JsonElement> BindPredecoder<T>() where T : IWirePredecoded => json => T.CheckRaw(json);
-
-    private static void CheckHistory(JsonElement value, object? instance)
-    {
-        switch (instance)
-        {
-            case null or JsonElement or NativeString or string: return; // Arbitrary JSON or already validated text.
-            case HistoryContract contract:
-                contract.Validate(value);
-                // Externally tagged durable state wraps its fields in one variant-named member.
-                if (contract is DurableExecutionState && value.ValueKind == JsonValueKind.Object)
-                    value = value.EnumerateObject().Single().Value;
-                if (value.ValueKind != JsonValueKind.Object) return;
-                var members = HistoryMembers.GetOrAdd(contract.GetType(), type => type
-                    .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>() is not null)
-                    .ToDictionary(p => p.GetCustomAttribute<System.Text.Json.Serialization.JsonPropertyNameAttribute>()!.Name, StringComparer.Ordinal));
-                foreach (var property in value.EnumerateObject())
-                    if (members.TryGetValue(property.Name, out var member)) CheckHistory(property.Value, member.GetValue(contract));
-                return;
-            case System.Collections.IEnumerable items:
-                using (var elements = value.EnumerateArray().GetEnumerator())
-                    foreach (var item in items) { elements.MoveNext(); CheckHistory(elements.Current, item); }
-                return;
-        }
-        var type = instance.GetType();
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>)) return; // Only Optional<JsonElement>.
-        if (type.GetCustomAttribute<WireContractAttribute>() is not null) Validate(value, type);
-    }
-
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> HistoryMembers = new();
 
     private static JsonObject LoadDefinitions()
     {

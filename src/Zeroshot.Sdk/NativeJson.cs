@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Native;
@@ -18,7 +19,8 @@ public static class NativeJson
             AllowOutOfOrderMetadataProperties = true,
             MaxDepth = 128,
             RespectNullableAnnotations = true,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { PinnedSchemaMembers.Attach } }
         };
         options.Converters.Add(new StrictStringConverter());
         options.Converters.Add(new ArbitraryJsonConverter());

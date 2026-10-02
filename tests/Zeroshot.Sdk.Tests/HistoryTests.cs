@@ -78,6 +78,7 @@ public sealed class HistoryTests
         yield return ("page", "durable identity stays numeric", n => Event(n, 0)["execution"]!["node_instance"] = "2", false);
         yield return ("page", "durable identity is positive", n => Event(n, 0)["execution"]!["execution"] = 0, false);
         yield return ("page", "durable position fits i64", n => Event(n, 0)["execution"]!["dispatch_position"] = 9223372036854775808UL, false);
+        yield return ("page", "settled position fits i64", n => Event(n, 0)["execution"]!["state"]!["Settled"]!["position"] = 9223372036854775808UL, false);
         yield return ("page", "durable record is open", n => Event(n, 0)["execution"]!["future"] = true, true);
         yield return ("page", "durable state is one variant", n => Event(n, 0)["execution"]!["state"]!["Voided"] = JsonNode.Parse("""{"position":1,"reason":"map_terminal"}"""), false);
         yield return ("page", "active durable state", n => Event(n, 0)["execution"]!["state"] = "Active", true);

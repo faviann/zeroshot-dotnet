@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Zeroshot.Native.Contracts;
 
@@ -153,5 +154,33 @@ internal sealed class LastKeyWinsConverterFactory : JsonConverterFactory
             }
             writer.WriteEndObject();
         }
+    }
+}
+
+// A pinned-schema contract inside a handwritten record checks its schema where it is decoded. The converter
+// sits on the property: on the type it would conflict with the generated polymorphism and unmapped-member attributes.
+internal static class PinnedSchemaMembers
+{
+    internal static void Attach(JsonTypeInfo info)
+    {
+        if (info.Kind != JsonTypeInfoKind.Object || Pinned(info.Type)) return;
+        foreach (var property in info.Properties)
+            if (Pinned(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType))
+                property.CustomConverter = (JsonConverter)Activator.CreateInstance(typeof(PinnedSchemaConverter<>).MakeGenericType(property.PropertyType))!;
+    }
+
+    private static bool Pinned(Type type) => type.GetCustomAttribute<WireContractAttribute>() is not null;
+
+    private sealed class PinnedSchemaConverter<T> : JsonConverter<T>
+    {
+        private static readonly Type Contract = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        public override T Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        {
+            var json = JsonElement.ParseValue(ref reader);
+            if (json.ValueKind == JsonValueKind.Null && Contract != typeof(T)) return default!;
+            WireValidation.CheckSchema(json, Contract);
+            return json.Deserialize<T>(options)!;
+        }
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => JsonSerializer.Serialize(writer, value, options);
     }
 }

@@ -8,7 +8,6 @@ using System.Text.Json.Serialization;
 namespace Zeroshot.Native.Contracts;
 
 /// <summary>Source-backed run-history records. Required nullable fields are always present on the wire.</summary>
-// Validate checks native numeric domains that System.Text.Json does not express by type alone.
 public abstract record HistoryContract : NativeContract;
 
 public enum RunHistoryProblemCode
@@ -392,7 +391,7 @@ public sealed record TokenUsageDelta : HistoryContract
 
 /// <summary>The unmodified native durable record: snake_case fields and numeric identities.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record DurableExecution : HistoryContract
+public sealed record DurableExecution : HistoryContract, IJsonOnDeserialized
 {
     [JsonPropertyName("dispatch_position")]
     public required ulong DispatchPosition { get; init; }
@@ -409,7 +408,7 @@ public sealed record DurableExecution : HistoryContract
     [JsonPropertyName("state")]
     public required DurableExecutionState State { get; init; }
 
-    internal override void Validate(JsonElement json)
+    void IJsonOnDeserialized.OnDeserialized()
     {
         if (DispatchPosition > long.MaxValue || NodeInstance == 0 || Execution == 0) throw new JsonException();
     }
@@ -422,23 +421,23 @@ public abstract record DurableExecutionState : HistoryContract;
 public sealed record ActiveExecutionState : DurableExecutionState;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record SettledExecutionState : DurableExecutionState
+public sealed record SettledExecutionState : DurableExecutionState, IJsonOnDeserialized
 {
     [JsonPropertyName("position")]
     public required ulong Position { get; init; }
     [JsonPropertyName("outcome")]
     public required WorkerOutcome Outcome { get; init; }
-    internal override void Validate(JsonElement json) { if (Position > long.MaxValue) throw new JsonException(); }
+    void IJsonOnDeserialized.OnDeserialized() { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Skip)]
-public sealed record VoidedExecutionState : DurableExecutionState
+public sealed record VoidedExecutionState : DurableExecutionState, IJsonOnDeserialized
 {
     [JsonPropertyName("position")]
     public required ulong Position { get; init; }
     [JsonPropertyName("reason")]
     public required ExecutionVoidReason Reason { get; init; }
-    internal override void Validate(JsonElement json) { if (Position > long.MaxValue) throw new JsonException(); }
+    void IJsonOnDeserialized.OnDeserialized() { if (Position > long.MaxValue) throw new JsonException(); }
 }
 
 internal sealed class DurableExecutionStateConverter : JsonConverter<DurableExecutionState>
