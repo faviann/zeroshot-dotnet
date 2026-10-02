@@ -20,7 +20,7 @@ public static class NativeJson
             MaxDepth = 128,
             RespectNullableAnnotations = true,
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { PinnedSchemaMembers.Attach } }
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { PinnedSchemaMembers.Attach, ContractRules.Attach } }
         };
         options.Converters.Add(new StrictStringConverter());
         options.Converters.Add(new ArbitraryJsonConverter());

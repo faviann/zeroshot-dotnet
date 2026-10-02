@@ -126,34 +126,34 @@ internal sealed class LastKeyWinsConverterFactory : JsonConverterFactory
 {
     public override bool CanConvert(Type type) => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ImmutableDictionary<,>);
     public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
-        (JsonConverter)Activator.CreateInstance(typeof(LastKeyWinsConverter<,>).MakeGenericType(type.GetGenericArguments()))!;
+        (JsonConverter)Activator.CreateInstance(typeof(LastKeyWinsConverter<,>).MakeGenericType(type.GetGenericArguments()), [false])!;
+}
 
-    private sealed class LastKeyWinsConverter<TKey, TValue> : JsonConverter<ImmutableDictionary<TKey, TValue>> where TKey : notnull
+internal sealed class LastKeyWinsConverter<TKey, TValue>(bool pinnedValues) : JsonConverter<ImmutableDictionary<TKey, TValue>> where TKey : notnull
+{
+    public override ImmutableDictionary<TKey, TValue> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
     {
-        public override ImmutableDictionary<TKey, TValue> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException("Expected a native map.");
+        var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
+        var map = ImmutableDictionary.CreateBuilder<TKey, TValue>();
+        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
-            if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException("Expected a native map.");
-            var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
-            var map = ImmutableDictionary.CreateBuilder<TKey, TValue>();
-            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
-            {
-                var key = keys.ReadAsPropertyName(ref reader, typeof(TKey), options);
-                reader.Read();
-                map[key] = JsonSerializer.Deserialize<TValue>(ref reader, options)!;
-            }
-            return map.ToImmutable();
+            var key = keys.ReadAsPropertyName(ref reader, typeof(TKey), options);
+            reader.Read();
+            map[key] = pinnedValues ? PinnedSchemaMembers.Read<TValue>(ref reader, options) : JsonSerializer.Deserialize<TValue>(ref reader, options)!;
         }
-        public override void Write(Utf8JsonWriter writer, ImmutableDictionary<TKey, TValue> value, JsonSerializerOptions options)
+        return map.ToImmutable();
+    }
+    public override void Write(Utf8JsonWriter writer, ImmutableDictionary<TKey, TValue> value, JsonSerializerOptions options)
+    {
+        var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
+        writer.WriteStartObject();
+        foreach (var (key, item) in value)
         {
-            var keys = (JsonConverter<TKey>)options.GetConverter(typeof(TKey));
-            writer.WriteStartObject();
-            foreach (var (key, item) in value)
-            {
-                keys.WriteAsPropertyName(writer, key, options);
-                JsonSerializer.Serialize(writer, item, options);
-            }
-            writer.WriteEndObject();
+            keys.WriteAsPropertyName(writer, key, options);
+            JsonSerializer.Serialize(writer, item, options);
         }
+        writer.WriteEndObject();
     }
 }
 
@@ -165,22 +165,29 @@ internal static class PinnedSchemaMembers
     {
         if (info.Kind != JsonTypeInfoKind.Object || Pinned(info.Type)) return;
         foreach (var property in info.Properties)
-            if (Pinned(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType))
-                property.CustomConverter = (JsonConverter)Activator.CreateInstance(typeof(PinnedSchemaConverter<>).MakeGenericType(property.PropertyType))!;
+        {
+            var type = property.PropertyType;
+            if (Pinned(Nullable.GetUnderlyingType(type) ?? type))
+                property.CustomConverter = (JsonConverter)Activator.CreateInstance(typeof(PinnedSchemaConverter<>).MakeGenericType(type))!;
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ImmutableDictionary<,>) && Pinned(type.GetGenericArguments()[1]))
+                property.CustomConverter = (JsonConverter)Activator.CreateInstance(typeof(LastKeyWinsConverter<,>).MakeGenericType(type.GetGenericArguments()), [true])!;
+        }
+    }
+
+    internal static T Read<T>(ref Utf8JsonReader reader, JsonSerializerOptions options)
+    {
+        var contract = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        var json = JsonElement.ParseValue(ref reader);
+        if (json.ValueKind == JsonValueKind.Null && contract != typeof(T)) return default!;
+        WireValidation.CheckSchema(json, contract);
+        return json.Deserialize<T>(options)!;
     }
 
     private static bool Pinned(Type type) => type.GetCustomAttribute<WireContractAttribute>() is not null;
 
     private sealed class PinnedSchemaConverter<T> : JsonConverter<T>
     {
-        private static readonly Type Contract = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
-        public override T Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
-        {
-            var json = JsonElement.ParseValue(ref reader);
-            if (json.ValueKind == JsonValueKind.Null && Contract != typeof(T)) return default!;
-            WireValidation.CheckSchema(json, Contract);
-            return json.Deserialize<T>(options)!;
-        }
+        public override T Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => Read<T>(ref reader, options);
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => JsonSerializer.Serialize(writer, value, options);
     }
 }

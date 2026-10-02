@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Zeroshot.Native.Contracts;
 
@@ -10,10 +12,34 @@ public abstract record NativeContract
     public sealed override string ToString() => GetType().Name;
 
     /// <summary>
-    /// The contract's own wire rules beyond strict typed decoding and nested pinned schemas. WireValidation
-    /// runs them on a decoded root with its raw JSON.
+    /// The contract's own rules beyond strict typed decoding and nested pinned schemas. The serializer runs
+    /// them on every decoded record, at any depth.
     /// </summary>
-    internal virtual void Validate(JsonElement json) { }
+    internal virtual void Validate() { }
+
+    /// <summary>Rules that need the received JSON itself. WireValidation runs them on a decoded root.</summary>
+    internal virtual void CheckWire(JsonElement json) { }
+}
+
+internal static class ContractRules
+{
+    internal static void Attach(JsonTypeInfo info)
+    {
+        if (info.Kind != JsonTypeInfoKind.Object || !typeof(NativeContract).IsAssignableFrom(info.Type)) return;
+        // A null non-nullable member fails before this hook, but a missing required one is only reported after it.
+        var required = info.Properties.Where(p => p.IsRequired && !p.IsSetNullable && Absentable(p.PropertyType))
+            .Select(p => (Get: p.Get!, Absent: p.PropertyType.IsValueType ? Activator.CreateInstance(p.PropertyType) : null)).ToArray();
+        var declared = info.OnDeserialized;
+        info.OnDeserialized = value =>
+        {
+            if (required.Any(member => Equals(member.Get(value), member.Absent))) return;
+            declared?.Invoke(value);
+            ((NativeContract)value).Validate();
+        };
+    }
+
+    private static bool Absentable(Type type) =>
+        !type.IsValueType || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ImmutableArray<>);
 }
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum)]

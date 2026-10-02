@@ -8,11 +8,7 @@ using System.Text.Json.Serialization;
 namespace Zeroshot.Native.Contracts;
 
 /// <summary>Native browser-dashboard data. Drafts are editor state, not admitted or stored profiles.</summary>
-public abstract record DashboardContract : NativeContract
-{
-    private protected static void Nested(JsonElement json, string property, Type type)
-        => WireValidation.Validate(json.GetProperty(property), type);
-}
+public abstract record DashboardContract : NativeContract;
 
 /// <summary>`GET /ui/api/bootstrap`: native catalog plus the host's workspace identity.</summary>
 public sealed record DashboardBootstrap : DashboardContract
@@ -29,12 +25,9 @@ public sealed record DashboardBootstrap : DashboardContract
     [JsonPropertyName("workspace")]
     public required DashboardWorkspace Workspace { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (Version != 1 || RuntimeSchema.ValueKind != JsonValueKind.Object) throw new JsonException();
-        Workspace.Validate(json.GetProperty("workspace"));
-        foreach (var (template, element) in Templates.Zip(json.GetProperty("templates").EnumerateArray())) template.Validate(element);
-        foreach (var (worker, element) in Workers.Zip(json.GetProperty("workers").EnumerateArray())) worker.Validate(element);
     }
 }
 
@@ -54,13 +47,9 @@ public sealed record DashboardTemplate : DashboardContract
     [JsonPropertyName("runtimeBindings")]
     public required ImmutableDictionary<string, NodeRuntimeBinding> RuntimeBindings { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
-        foreach (var binding in json.GetProperty("runtimeBindings").EnumerateObject())
-        {
-            _ = new NodeName(binding.Name);
-            WireValidation.Validate(binding.Value, typeof(NodeRuntimeBinding));
-        }
+        foreach (var name in RuntimeBindings.Keys) _ = new NodeName(name);
     }
 }
 
@@ -109,7 +98,7 @@ public sealed record DashboardWorkspace : DashboardContract
     [JsonPropertyName("id")]
     public required string Id { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (!Guid.TryParseExact(Id, "D", out var id) || id.ToString("D") != Id) throw new JsonException();
     }
@@ -130,7 +119,7 @@ public sealed record DashboardValidation : DashboardContract
     [JsonPropertyName("valid")]
     public required bool Valid { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         if (!Valid) throw new JsonException();
     }
@@ -161,8 +150,6 @@ public sealed record DashboardProfile : DashboardContract
     public required RunProfile Profile { get; init; }
     [JsonPropertyName("revision")]
     public required string Revision { get; init; }
-
-    internal override void Validate(JsonElement json) => Nested(json, "profile", typeof(RunProfile));
 }
 
 /// <summary>`POST /ui/api/authoring`: an outcome edit of a draft. The runtime draft is not interpreted.</summary>
@@ -222,8 +209,6 @@ public sealed record DashboardDataRequest : DashboardContract
     public required JsonElement Runtime { get; init; }
     [JsonPropertyName("action")]
     public required DashboardDataAction Action { get; init; }
-
-    internal override void Validate(JsonElement json) => Action.Validate(json.GetProperty("action"));
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]

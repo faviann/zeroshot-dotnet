@@ -134,10 +134,8 @@ public sealed record RunProfileRunRequest : TargetHttpContract
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GithubToken { get; init; }
 
-    internal override void Validate(JsonElement json)
+    internal override void Validate()
     {
         StaticConnectionValues.ValidateRun(Connections);
-        WireValidation.Validate(json.GetProperty("source"), typeof(ResolvedSource));
-        if (Environment is not null) WireValidation.Validate(json.GetProperty("environment"), typeof(RuntimeEnvironment));
     }
 }
