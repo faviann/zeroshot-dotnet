@@ -100,7 +100,7 @@ public sealed record FailedHistorySynopsis : RunHistoryTerminalSynopsis
     public required string Reason { get; init; }
 }
 
-public sealed record RunHistorySummary : HistoryContract
+public sealed record RunHistorySummary : HistoryContract, IJsonOnDeserialized
 {
     [JsonPropertyName("runId")]
     public required RunId RunId { get; init; }
@@ -120,19 +120,40 @@ public sealed record RunHistorySummary : HistoryContract
     public required bool HistoryAvailable { get; init; }
     [JsonPropertyName("runtimeFailure"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeFailure? RuntimeFailure { get; init; }
+
+    // A summary's runtime failure only has to agree with its terminal; native does not bound its cursor here.
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (!TargetRunRequest.IsCanonicalRunId(RunId.Value) ||
+            (Cursor is not null && !RunHistoryRules.TryLenient(Cursor, out _)) ||
+            HistoryAvailable != (Cursor is not null) ||
+            (Phase == RunHistoryPhase.Unavailable && (HistoryAvailable || Terminal is not null)) ||
+            (Terminal is not null && Phase != RunHistoryPhase.Finished) ||
+            (RuntimeFailure is not null && !(Terminal is FailedHistorySynopsis failed && failed.Reason == RuntimeFailure.Reason)))
+            throw new JsonException();
+    }
 }
 
 /// <summary>One UUIDv7-descending page of at most 50 runs.</summary>
-public sealed record RunHistoryList : HistoryContract
+public sealed record RunHistoryList : HistoryContract, IJsonOnDeserialized
 {
+    private const int MaxEntries = 50;
     [JsonPropertyName("runs")]
     public required ImmutableArray<RunHistorySummary> Runs { get; init; }
     [JsonPropertyName("nextCursor")]
     public required RunId? NextCursor { get; init; }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (Runs.Length > MaxEntries || (NextCursor is not null && (Runs.IsEmpty || Runs[^1].RunId != NextCursor)))
+            throw new JsonException();
+        for (var i = 1; i < Runs.Length; i++)
+            if (string.CompareOrdinal(Runs[i - 1].RunId.Value, Runs[i].RunId.Value) <= 0) throw new JsonException();
+    }
 }
 
 /// <summary>The admitted definition. Observation availability is separate from phase and terminal.</summary>
-public sealed record RunDefinition : HistoryContract
+public sealed record RunDefinition : HistoryContract, IJsonOnDeserialized
 {
     [JsonPropertyName("version")]
     public required byte Version { get; init; }
@@ -171,6 +192,17 @@ public sealed record RunDefinition : HistoryContract
     // Pre-v1 archives embedded an unbounded snapshot. Native accepts and strips it.
     [JsonInclude, JsonPropertyName("snapshot"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     private JsonElement? LegacySnapshot { get => null; init { } }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (Version != 1 || ProjectionVersion != 1 || !HistoryAvailable ||
+            !RunHistoryRules.TryCanonical(Cursor, out var cursor) || !RunHistoryRules.TryCanonical(History.Cursor, out var history) ||
+            !RunHistoryRules.TryCanonical(History.InitialCursor, out var initial) || initial != 0 || cursor != history)
+            throw new JsonException();
+        if (RuntimeFailure is { } failure && !(failure.IsValidAt(cursor) && Phase == RunPhase.Finished && !History.Complete &&
+            Terminal is FailedTerminalResult { Reason.Value: var reason } && reason == failure.Reason))
+            throw new JsonException();
+    }
 }
 
 public sealed record HistoryMetadata : HistoryContract
@@ -201,6 +233,9 @@ public sealed record RuntimeFailure : HistoryContract
     public required Cursor AtCursor { get; init; }
     [JsonPropertyName("reason")]
     public required string Reason { get; init; }
+
+    internal bool IsValidAt(ulong head)
+        => Reason is "runtime_failed" or "runtime_lost" && RunHistoryRules.TryCanonical(AtCursor, out var at) && at <= head;
 }
 
 /// <summary>Derived control activity for one retained page event. It is never a ledger event.</summary>
@@ -227,8 +262,9 @@ public sealed record ControlRecord : HistoryContract
     public Optional<JsonElement> Output { get; init; }
 }
 
-public sealed record HistoryPage : HistoryContract
+public sealed record HistoryPage : HistoryContract, IJsonOnDeserialized
 {
+    private const int MaxEvents = 256;
     [JsonPropertyName("events")]
     public required ImmutableArray<HistoryEventRecord> Events { get; init; }
     [JsonPropertyName("nextCursor")]
@@ -255,6 +291,30 @@ public sealed record HistoryPage : HistoryContract
     {
         get => Control.IsDefaultOrEmpty ? null : Control;
         init => Control = value ?? throw new JsonException();
+    }
+
+    // Events continue each other up to nextCursor; where they start depends on the request's after cursor.
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (!RunHistoryRules.TryCanonical(NextCursor, out var next) || !RunHistoryRules.TryCanonical(HeadCursor, out var head) ||
+            Events.Length > MaxEvents || (ulong)Events.Length > next || next > head || Complete != (next == head) ||
+            (Events.IsEmpty && next != head))
+            throw new JsonException();
+        var positions = new Dictionary<ulong, int>();
+        var sequence = next - (ulong)Events.Length;
+        foreach (var record in Events)
+        {
+            if (!RunHistoryRules.TryCanonical(record.Cursor, out var at) || at != ++sequence) throw new JsonException();
+            positions[at] = positions.Count;
+        }
+        var previous = -1;
+        foreach (var control in Control)
+        {
+            if (!RunHistoryRules.TryCanonical(control.Cursor, out var at) || !positions.TryGetValue(at, out var position) || position < previous)
+                throw new JsonException();
+            previous = position;
+        }
+        if (RuntimeFailure is { } failure && !(failure.IsValidAt(head) && Finished)) throw new JsonException();
     }
 }
 
