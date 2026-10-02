@@ -65,5 +65,5 @@ public sealed record SettledAgentAttachEvent : AgentAttachEvent;
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record BoundedAssistantOutput : NativeString
 {
-    public BoundedAssistantOutput(string value) : base(ValueRules.Check(nameof(BoundedAssistantOutput), value)) { }
+    public BoundedAssistantOutput(string value) : base(value, ValueRules.LogMessage) { }
 }

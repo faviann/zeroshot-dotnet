@@ -6,174 +6,174 @@ namespace Zeroshot.Native.Contracts;
 public abstract record NativeString
 {
     public string Value { get; }
-    private protected NativeString(string value) { Value = value; }
+    private protected NativeString(string value, Func<string, bool> rule) { Value = ValueRules.Check(value, rule, GetType().Name); }
     public sealed override string ToString() => GetType().Name;
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record RunId : NativeString
 {
-    public RunId(string value) : base(ValueRules.Check(nameof(RunId), value)) { }
+    public RunId(string value) : base(value, ValueRules.Any) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record Cursor : NativeString
 {
-    public Cursor(string value) : base(ValueRules.Check(nameof(Cursor), value)) { }
+    public Cursor(string value) : base(value, ValueRules.Any) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record SubscriptionId : NativeString
 {
-    public SubscriptionId(string value) : base(ValueRules.Check(nameof(SubscriptionId), value)) { }
+    public SubscriptionId(string value) : base(value, ValueRules.Any) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record ExecutionRef : NativeString
 {
-    public ExecutionRef(string value) : base(ValueRules.Check(nameof(ExecutionRef), value)) { }
+    public ExecutionRef(string value) : base(value, ValueRules.Key) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record CheckpointId : NativeString
 {
-    public CheckpointId(string value) : base(ValueRules.Check(nameof(CheckpointId), value)) { }
+    public CheckpointId(string value) : base(value, ValueRules.Text) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record IdempotencyKey : NativeString
 {
-    public IdempotencyKey(string value) : base(ValueRules.Check(nameof(IdempotencyKey), value)) { }
+    public IdempotencyKey(string value) : base(value, ValueRules.Text) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record NodeName : NativeString
 {
-    public NodeName(string value) : base(ValueRules.Check(nameof(NodeName), value)) { }
+    public NodeName(string value) : base(value, ValueRules.Identifier) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record FieldName : NativeString
 {
-    public FieldName(string value) : base(ValueRules.Check(nameof(FieldName), value)) { }
+    public FieldName(string value) : base(value, ValueRules.Identifier) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record EnumLabel : NativeString
 {
-    public EnumLabel(string value) : base(ValueRules.Check(nameof(EnumLabel), value)) { }
+    public EnumLabel(string value) : base(value, ValueRules.Identifier) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record WorkerRef : NativeString
 {
-    public WorkerRef(string value) : base(ValueRules.Check(nameof(WorkerRef), value)) { }
+    public WorkerRef(string value) : base(value, ValueRules.VersionedRef) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record PolicyRef : NativeString
 {
-    public PolicyRef(string value) : base(ValueRules.Check(nameof(PolicyRef), value)) { }
+    public PolicyRef(string value) : base(value, ValueRules.VersionedRef) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record CredentialHandle : NativeString
 {
-    public CredentialHandle(string value) : base(ValueRules.Check(nameof(CredentialHandle), value)) { }
+    public CredentialHandle(string value) : base(value, ValueRules.VersionedRef) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record TypeId : NativeString
 {
-    public TypeId(string value) : base(ValueRules.Check(nameof(TypeId), value)) { }
+    public TypeId(string value) : base(value, ValueRules.VersionedRef) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record ArtifactId : NativeString
 {
-    public ArtifactId(string value) : base(ValueRules.Check(nameof(ArtifactId), value)) { }
+    public ArtifactId(string value) : base(value, ValueRules.Text) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record MediaType : NativeString
 {
-    public MediaType(string value) : base(ValueRules.Check(nameof(MediaType), value)) { }
+    public MediaType(string value) : base(value, ValueRules.Text) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record Sha256Digest : NativeString
 {
-    public Sha256Digest(string value) : base(ValueRules.Check(nameof(Sha256Digest), value)) { }
+    public Sha256Digest(string value) : base(value, ValueRules.Sha256) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record NodeInstructions : NativeString
 {
-    public NodeInstructions(string value) : base(ValueRules.Check(nameof(NodeInstructions), value)) { }
+    public NodeInstructions(string value) : base(value, ValueRules.Instructions) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record RunTitle : NativeString
 {
-    public RunTitle(string value) : base(ValueRules.Check(nameof(RunTitle), value)) { }
+    public RunTitle(string value) : base(value, ValueRules.Text) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record ModelId : NativeString
 {
-    public ModelId(string value) : base(ValueRules.Check(nameof(ModelId), value)) { }
+    public ModelId(string value) : base(value, ValueRules.Model) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record SourceRepositoryId : NativeString
 {
-    public SourceRepositoryId(string value) : base(ValueRules.Check(nameof(SourceRepositoryId), value)) { }
+    public SourceRepositoryId(string value) : base(value, ValueRules.Repository) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record SourceBranchId : NativeString
 {
-    public SourceBranchId(string value) : base(ValueRules.Check(nameof(SourceBranchId), value)) { }
+    public SourceBranchId(string value) : base(value, ValueRules.Branch) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record SourceRevisionId : NativeString
 {
-    public SourceRevisionId(string value) : base(ValueRules.Check(nameof(SourceRevisionId), value)) { }
+    public SourceRevisionId(string value) : base(value, ValueRules.GitRevision) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record ConnectionKey : NativeString
 {
-    public ConnectionKey(string value) : base(ValueRules.Check(nameof(ConnectionKey), value)) { }
+    public ConnectionKey(string value) : base(value, ValueRules.Key) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record RunProfileName : NativeString
 {
-    public RunProfileName(string value) : base(ValueRules.Check(nameof(RunProfileName), value)) { }
+    public RunProfileName(string value) : base(value, ValueRules.ProfileName) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record EnvironmentVariableName : NativeString
 {
-    public EnvironmentVariableName(string value) : base(ValueRules.Check(nameof(EnvironmentVariableName), value)) { }
+    public EnvironmentVariableName(string value) : base(value, ValueRules.EnvironmentName) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record FailReason : NativeString
 {
-    public FailReason(string value) : base(ValueRules.Check(nameof(FailReason), value)) { }
+    public FailReason(string value) : base(value, ValueRules.AuthoredFailReason) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record GraphIdentity : NativeString
 {
-    public GraphIdentity(string value) : base(ValueRules.Check(nameof(GraphIdentity), value)) { }
+    public GraphIdentity(string value) : base(value, ValueRules.Sha256) { }
 }
 
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record RequestFingerprint : NativeString
 {
-    public RequestFingerprint(string value) : base(ValueRules.Check(nameof(RequestFingerprint), value)) { }
+    public RequestFingerprint(string value) : base(value, ValueRules.Sha256) { }
 }

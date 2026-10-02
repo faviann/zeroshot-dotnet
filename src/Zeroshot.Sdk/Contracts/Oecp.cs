@@ -105,7 +105,7 @@ public sealed record OperationalStatus : NativeContract
 [JsonConverter(typeof(NativeStringConverterFactory))]
 public sealed record Label : NativeString
 {
-    public Label(string value) : base(ValueRules.Check(nameof(Label), value)) { }
+    public Label(string value) : base(value, ValueRules.Text) { }
 }
 
 [WireContract("LogLevel")]

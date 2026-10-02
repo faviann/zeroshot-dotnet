@@ -36,8 +36,8 @@ internal sealed class NativeStringConverterFactory : JsonConverterFactory
         private static T Create(string? value)
         {
             if (value is null) throw new JsonException("A native string cannot be null.");
-            try { return (T)Constructor.Invoke([value]); }
-            catch (TargetInvocationException) { throw new JsonException("Invalid native string."); }
+            try { return (T)Constructor.Invoke(BindingFlags.DoNotWrapExceptions, null, [value], null); }
+            catch (ArgumentException) { throw new JsonException("Invalid native string."); }
         }
         public override T Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => Create(reader.GetString());
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => writer.WriteStringValue(value.Value);

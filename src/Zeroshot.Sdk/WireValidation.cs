@@ -104,7 +104,7 @@ internal static class WireValidation
             CheckNative(value, Definitions[name]!, name); return;
         }
         if (value.ValueKind == JsonValueKind.Null) return;
-        if (name == "NodeInstructions") _ = ValueRules.Check(nameof(NodeInstructions), value.GetString()!);
+        if (name == "NodeInstructions") _ = new NodeInstructions(value.GetString()!);
         if (name == "DeclaredConnections") CheckConnections(value);
         if (name == "RuntimePlan")
             foreach (var node in value.GetProperty("nodes").EnumerateObject()) _ = new NodeName(node.Name);
