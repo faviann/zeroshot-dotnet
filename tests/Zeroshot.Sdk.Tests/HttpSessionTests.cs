@@ -1,9 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Security;
-using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using TUnit.Core;
@@ -348,49 +344,17 @@ public sealed class HttpSessionTests
     [Test]
     public async Task HttpsSessionAcquisitionUsesTrustedTlsAndReturnsMatchingWssAuthority()
     {
-        using var rsa = RSA.Create(2048);
-        var certificateRequest = new CertificateRequest("CN=session-tests", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        certificateRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
-        var san = new SubjectAlternativeNameBuilder();
-        san.AddIpAddress(IPAddress.Loopback);
-        certificateRequest.CertificateExtensions.Add(san.Build());
-        using var ephemeral = certificateRequest.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
-        // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
-        using var certificate = X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pkcs12), null);
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        var endpoint = $"wss://127.0.0.1:{port}/native-v2/oecp";
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var server = Task.Run(async () =>
-        {
-            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
-            using var tls = new SslStream(socket.GetStream());
-            await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, timeout.Token);
-            using var reader = new StreamReader(tls, Encoding.ASCII, leaveOpen: true);
-            Check(await reader.ReadLineAsync(timeout.Token) == "POST /native-v2/oecp-session HTTP/1.1");
-            var headers = new List<string>();
-            while (await reader.ReadLineAsync(timeout.Token) is { Length: > 0 } line) headers.Add(line);
-            Check(headers.Count(h => h.StartsWith("Authorization:")) == 1 && headers.Contains("Authorization: Bearer " + Control));
-            Check(!headers.Any(h => h.Contains(Session)));
-            var body = new char[2];
-            await reader.ReadBlockAsync(body, timeout.Token);
-            Check(new string(body) == "{}");
-            var result = Result(endpoint, Session);
-            await tls.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Length: {result.Length}\r\nConnection: close\r\n\r\n{result}"), timeout.Token);
-        });
-        using var handler = NativeClient.CreateHttpHandler();
-        handler.SslOptions.CertificateChainPolicy = new X509ChainPolicy
-        {
-            TrustMode = X509ChainTrustMode.CustomRootTrust,
-            RevocationMode = X509RevocationMode.NoCheck
-        };
-        handler.SslOptions.CertificateChainPolicy.CustomTrustStore.Add(certificate);
-        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-        using var client = NativeClient.ForHttp(new() { Origin = new Uri($"https://127.0.0.1:{port}/") }, http);
+        await using var target = new TlsTarget();
+        var endpoint = $"wss://127.0.0.1:{target.Port}/native-v2/oecp";
+        var result = Result(endpoint, Session);
+        target.Respond = _ => $"HTTP/1.1 200 OK\r\nContent-Length: {result.Length}\r\nConnection: close\r\n\r\n{result}";
+        using var client = NativeClient.ForHttp(new() { Origin = target.Origin, Transport = new() { TrustedRootCertificatePath = target.RootPath } });
         var session = await client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.HostedOauth),
-            credentials: new(TargetAuthentication.HostedOauth, Control), cancellationToken: timeout.Token);
+            credentials: new(TargetAuthentication.HostedOauth, Control));
         Check(session.Endpoint == endpoint && session.BearerToken == Session);
-        await server;
+        var (line, headers, body) = target.Requests.Single();
+        Check(line == "POST /native-v2/oecp-session HTTP/1.1" && body == "{}");
+        Check(headers.Count(h => h.StartsWith("Authorization:")) == 1 && headers.Contains("Authorization: Bearer " + Control));
+        Check(!headers.Any(h => h.Contains(Session)));
     }
 }

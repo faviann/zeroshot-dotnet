@@ -8,3 +8,5 @@ Zeroshot.Native.OecpConnection.InitializeAsync(Zeroshot.Native.OecpRequest? requ
 *REMOVED*const Zeroshot.Native.NativeSchemas.SourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa" -> string!
 static readonly Zeroshot.Native.NativeSchemas.NativeVersion -> string!
 static readonly Zeroshot.Native.NativeSchemas.SourceRevision -> string!
+Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.get -> string?
+Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.init -> void

@@ -39,6 +39,12 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
         transportOptions = options.Transport;
         if (supplied is not null && supplied.Timeout != Timeout.InfiniteTimeSpan && supplied.Timeout < limits.UnaryTimeout)
             throw new ArgumentException("A supplied HttpClient timeout must be infinite or at least RequestTimeout.", nameof(supplied));
+        if (options.Transport.TrustedRootCertificatePath is { } root && Origin.Scheme == Uri.UriSchemeHttps)
+        {
+            if (supplied is not null)
+                throw new ArgumentException("A supplied HttpClient conceals its handler, so TrustedRootCertificatePath cannot apply to it.", nameof(TransportOptions.TrustedRootCertificatePath));
+            TrustedRoot.RequireReadable(root);
+        }
         executor = new OperationExecutor(limits, options.Time);
         Observations = new ObservationDelivery(options.Transport);
         SdkConnections = new SdkConnectionBudget(limits.OecpConnections);
@@ -64,8 +70,9 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
     /// <summary>Supported handler configuration for supplied clients. Do not loosen its TLS, redirect or pool settings.</summary>
     public static SocketsHttpHandler CreateHttpHandler(TransportOptions? options = null)
     {
-        var limits = (options ?? new TransportOptions()).Limits();
-        return new SocketsHttpHandler
+        options ??= new TransportOptions();
+        var limits = options.Limits();
+        var handler = new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
             ConnectTimeout = limits.ConnectTimeout,
@@ -73,6 +80,8 @@ public sealed partial class NativeClient : IDisposable, IAsyncDisposable
             UseCookies = false,
             AutomaticDecompression = DecompressionMethods.None
         };
+        if (options.TrustedRootCertificatePath is { } root) TrustedRoot.Apply(handler.SslOptions, root);
+        return handler;
     }
 
     private async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext connection, CancellationToken token)
