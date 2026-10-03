@@ -13,7 +13,7 @@ public sealed record NativeClientOptions
     internal TimeProvider Time { get; init; } = TimeProvider.System;
 }
 
-/// <summary>Positive, finite limits shared by one native client.</summary>
+/// <summary>Positive, finite limits and the TLS trust shared by one native client.</summary>
 public sealed record TransportOptions
 {
     public TimeSpan ConnectTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -36,6 +36,11 @@ public sealed record TransportOptions
     public TimeSpan WebSocketPingInterval { get; init; } = TimeSpan.FromSeconds(30);
     public TimeSpan WebSocketPongTimeout { get; init; } = TimeSpan.FromSeconds(15);
     public bool CaptureRawDiagnostics { get; init; }
+    /// <summary>
+    /// PEM root that HTTPS target certificates must chain to, reread for every new connection.
+    /// Ignored for loopback HTTP origins and local pipe or socket connections, which have no certificate.
+    /// </summary>
+    public string? TrustedRootCertificatePath { get; init; }
 
     internal OperationLimits Limits()
     {

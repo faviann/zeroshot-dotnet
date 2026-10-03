@@ -54,6 +54,29 @@ correlation, stage and classification metadata. Raw refusal bytes require
 `CaptureRawDiagnostics = true` and explicit `ExportRawDiagnostic()`; returned bytes
 are copies and never appear in default exception formatting.
 
+## Trusted root
+
+Set `TransportOptions.TrustedRootCertificatePath` to a file that holds one PEM
+certificate, and every HTTPS connection the SDK creates trusts only that root: owned
+HTTP requests, every OECP WebSocket connection and handlers from `CreateHttpHandler`.
+The target certificate, with any intermediates it presents, must chain to exactly
+that root for server authentication. The system store plays no part, the host name
+must still match, and revocation is not checked. `ZeroshotClient` and
+`ConnectionResolverClient` take the setting through their `TransportOptions`.
+
+```csharp
+var transport = new TransportOptions { TrustedRootCertificatePath = "/etc/zeroshot/root.crt" };
+await using var client = new ZeroshotClient(new ZeroshotClientOptions { Target = origin, NativeBinding = binding, Transport = transport });
+```
+
+Creating a client for an HTTPS origin reads the file once and throws
+`ArgumentException` naming `TrustedRootCertificatePath` when it is missing,
+unreadable or not a certificate, before anything is sent. Each new TLS connection
+reads the file again, so replacing it takes effect on the next connection; a file
+that cannot be read then fails that connection as a `Transport` failure. A numeric
+loopback HTTP origin and named pipe or Unix socket connections ignore the setting.
+The setting requires the owned HTTP client; see below.
+
 ## Supplied HTTP clients
 
 `NativeClient.ForHttp(options, httpClient, ownsHttpClient: false)` borrows by default.
@@ -75,10 +98,16 @@ var discovery = await native.Target.DiscoverAsync();
 
 Keep the same limits when creating the handler and native client. The factory
 returns a normal `SocketsHttpHandler` with redirects disabled, standard TLS
-validation, a finite connect timeout and a bounded physical pool. It cannot be
-shared after it has been disposed. Caller-created handlers must preserve these
+validation (or only the trusted root when it is set), a finite connect timeout and
+a bounded physical pool. It cannot be shared after it has been disposed. Caller-created handlers must preserve these
 settings. A supplied HttpClient must have an infinite timeout or a timeout at least
 as long as `RequestTimeout`; a shorter setting is rejected before contact.
+
+The SDK cannot apply `TrustedRootCertificatePath` to a handler it cannot see, so
+`ForHttp` throws `ArgumentException` when an HTTPS origin has both a supplied
+HttpClient and the setting. Removing the setting from the options is not a
+workaround: OECP connections build their handler from those options and would fall
+back to system trust.
 
 An arbitrary HttpClient conceals its handler. Supplying one explicitly asserts
 that its entire handler chain preserves certificate/hostname validation, never

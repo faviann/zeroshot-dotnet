@@ -42,8 +42,9 @@ idle. A missing pong interrupts the connection; silence alone is not run failure
 
 Every dial revalidates the session endpoint's scheme, host and effective port
 against the HTTP target origin, plus the optional session bearer. Only that bearer
-is sent on the handshake. The owned WebSocket handler uses normal TLS validation
-and disables redirects, cookies and decompression. A supplied discovery/session
+is sent on the handshake. The owned WebSocket handler uses normal TLS validation,
+or only `TransportOptions.TrustedRootCertificatePath` when it is set (see the HTTP
+docs), and disables redirects, cookies and decompression. A supplied discovery/session
 HttpClient is not reused as a WebSocket transport. There is no credential refresh.
 
 `ClusterStatus` and native `RunStatus` remain distinct. Native run status includes
