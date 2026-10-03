@@ -157,11 +157,11 @@ A new GitHub package is private. If `verify-publication` reports a private packa
 package owner opens the package settings on GitHub, changes the visibility to public, and
 re-runs the failed job. Nothing is pushed again.
 
-SDK versions are independent of native Zeroshot versions. `0.1.0-preview.1` supports
-native Zeroshot 10.9.0 at source `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only. The next
-release, built from `main`, supports native 10.10.0 at source
-`3ee1192cec359a0b997f464e703a936e8b67d63c` only. Move your native pin and target image
-together with the SDK.
+SDK versions are independent of native Zeroshot versions. `0.2.0-preview.1` supports
+native Zeroshot 10.10.0 at source `3ee1192cec359a0b997f464e703a936e8b67d63c` only.
+`0.1.0-preview.1` supports native 10.9.0 at source
+`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only. Move your native pin and target image
+together with the SDK; [the 0.2 migration notes](docs/migration/0.2.md) list every change.
 
 ## Using the published package
 
@@ -203,7 +203,7 @@ dotnet nuget add source https://nuget.pkg.github.com/faviann/index.json --name g
 Pin the exact preview:
 
 ```xml
-<PackageReference Include="Zeroshot.Client" Version="[0.1.0-preview.1]" />
+<PackageReference Include="Zeroshot.Client" Version="[0.2.0-preview.1]" />
 ```
 
 The CLI is not published. Build it from the tag that matches the SDK version, as the
