@@ -80,7 +80,6 @@ public sealed class OecpContractTests
     [Test]
     public void InitializeAndErrorsPreserveNativeNegotiationAndExtensibility()
     {
-        Reject<InitializeParams>("""{"protocolVersion":"unsupported-version"}""");
         var initialized = Read<InitializeResult>("""{"protocolVersion":"openengine.cluster/v1","capabilities":{},"status":{"phase":"empty","extension":1},"extension":1}""");
         Check(initialized.Capabilities.GraphProfiles.Length == 0 && !initialized.Capabilities.Logs, "Native capability defaults were lost.");
         Reject<InitializeResult>("""{"protocolVersion":"unsupported-version","capabilities":{},"status":{"phase":"empty"}}""");

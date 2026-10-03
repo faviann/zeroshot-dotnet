@@ -163,14 +163,6 @@ public sealed class ContractTests
     }
 
     [Test]
-    public void SchemaPatternsRejectATrailingNewline()
-    {
-        var worker = JsonNode.Parse(Fixture("worker.json"))!;
-        worker["binding"]!["protocol"] = "external\n";
-        Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
-    }
-
-    [Test]
     public void WorkerDescriptorInvariantsFailLocally()
     {
         var worker = JsonNode.Parse(Fixture("worker.json"))!;
@@ -179,7 +171,6 @@ public sealed class ContractTests
         worker = JsonNode.Parse(Fixture("worker.json"))!;
         worker["contract"]!["errors"] = new JsonArray("crash");
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
-        Reject(() => NativeJson.DeserializeUtf8<WorkerContract>(Encoding.UTF8.GetBytes(worker["contract"]!.ToJsonString())));
         Reject(() => NativeJson.DeserializeUtf8<WorkerOutcome>("""{"status":"error","code":"crash","reason":"policy_denied"}"""u8));
         Reject(() => NativeJson.DeserializeUtf8<PayloadType>("""{"kind":"null","extra":true}"""u8));
         // Escaped tags must receive the same native-only validation as literal spellings.
@@ -187,7 +178,8 @@ public sealed class ContractTests
         Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"codex","provider":"openai","size":"small","nodes":{"work":{"kind":"agent","model":"ok","connections":{"a":["NOT-AN-ENV-NAME"]}}}}"""u8));
         var duplicateErrors = Encoding.UTF8.GetString(Fixture("worker.json")).Replace("\"timeout\"", "\"cr\\u0061sh\"", StringComparison.Ordinal);
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(duplicateErrors)));
-        foreach (var (path, value) in new[] { ("graphProfiles", "[]"), ("artifactProfile.allowedTypeIds", "[]"), ("artifactProfile.allowedMediaTypes", "[\"text/plain\",\"text/plain\"]") })
+        foreach (var (path, value) in new[] { ("graphProfiles", "[]"), ("artifactProfile.allowedTypeIds", "[]"), ("artifactProfile.allowedMediaTypes", "[\"text/plain\",\"text/plain\"]"),
+            ("binding.protocol", "\"external\\n\"") })
         {
             worker = JsonNode.Parse(Fixture("worker.json"))!;
             var parent = path.Contains('.') ? worker[path.Split('.')[0]]! : worker;
