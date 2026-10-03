@@ -1,9 +1,5 @@
 using System.Collections.Immutable;
 using System.Net;
-using System.Net.Security;
-using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using TUnit.Core;
@@ -178,14 +174,11 @@ public sealed class ConnectionResolverTests
     [Test]
     public async Task OffTargetHttpsResolverReceivesOnlyItsOwnBearer()
     {
-        using var certificate = Certificate();
-        using var resolver = new TlsPeer(certificate);
+        await using var resolver = new TlsTarget { Respond = _ => $"HTTP/1.1 200 OK\r\nContent-Length: {ResultJson.Length}\r\nConnection: close\r\n\r\n{ResultJson}" };
         var endpoint = $"https://127.0.0.1:{resolver.Port}/host/resolve";
-        var served = resolver.ServeOnceAsync($"HTTP/1.1 200 OK\r\nContent-Length: {ResultJson.Length}\r\nConnection: close\r\n\r\n{ResultJson}");
-        using var http = TrustingClient(certificate);
-        await using var client = ConnectionResolverClient.ForHttp(Resolver(endpoint), httpClient: http);
+        await using var client = ConnectionResolverClient.ForHttp(Resolver(endpoint), Trusting(resolver));
         var result = await client.ResolveAsync(Request);
-        var (line, headers, body) = await served;
+        var (line, headers, body) = await resolver.Requests.ReadAsync();
         Check(line == "POST /host/resolve HTTP/1.1" && body == RequestJson);
         Check(headers.Count(h => h.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase)) == 1 &&
             headers.Contains("Authorization: Bearer " + Bearer) && headers.Contains($"Host: 127.0.0.1:{resolver.Port}"));
@@ -195,35 +188,34 @@ public sealed class ConnectionResolverTests
     [Test]
     public async Task RedirectIsRefusedWithoutContactingItsLocation()
     {
-        using var certificate = Certificate();
-        using var resolver = new TlsPeer(certificate);
-        using var elsewhere = new TlsPeer(certificate);
+        await using var elsewhere = new TlsTarget();
         var location = $"https://127.0.0.1:{elsewhere.Port}/stolen";
-        var served = resolver.ServeOnceAsync($"HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        using var http = TrustingClient(certificate);
-        await using var client = ConnectionResolverClient.ForHttp(Resolver($"https://127.0.0.1:{resolver.Port}/host/resolve"), httpClient: http);
+        await using var resolver = new TlsTarget(elsewhere.Root)
+        {
+            Respond = _ => $"HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        };
+        await using var client = ConnectionResolverClient.ForHttp(Resolver($"https://127.0.0.1:{resolver.Port}/host/resolve"), Trusting(resolver));
         var failure = await Failure(client.ResolveAsync(Request), ConnectionResolutionError.InvalidResponse);
-        await served;
         Check(failure.StatusCode == HttpStatusCode.TemporaryRedirect &&
             ((NativeHttpException)failure.InnerException!).Kind == NativeHttpFailureKind.Redirect);
-        Check(!elsewhere.Pending);
+        Check(elsewhere.Connections == 0);
     }
 
     [Test]
     public async Task RedirectFollowedByASuppliedClientIsStillInvalidResponse()
     {
-        using var certificate = Certificate();
-        using var resolver = new TlsPeer(certificate);
-        using var elsewhere = new TlsPeer(certificate);
-        var redirected = resolver.ServeOnceAsync("HTTP/1.1 307 Temporary Redirect\r\n" +
-            $"Location: https://127.0.0.1:{elsewhere.Port}/elsewhere\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        var refused = elsewhere.ServeOnceAsync("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        await using var elsewhere = new TlsTarget { Respond = _ => "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" };
+        await using var resolver = new TlsTarget(elsewhere.Root)
+        {
+            Respond = _ => $"HTTP/1.1 307 Temporary Redirect\r\nLocation: https://127.0.0.1:{elsewhere.Port}/elsewhere\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        };
         // A caller client that breaks the documented contract by following redirects.
-        using var http = TrustingClient(certificate, followRedirects: true);
+        var handler = NativeClient.CreateHttpHandler(Trusting(resolver));
+        handler.AllowAutoRedirect = true;
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         await using var client = ConnectionResolverClient.ForHttp(Resolver($"https://127.0.0.1:{resolver.Port}/host/resolve"), httpClient: http);
         var failure = await Failure(client.ResolveAsync(Request), ConnectionResolutionError.InvalidResponse);
-        await redirected;
-        var (_, headers, _) = await refused;
+        var (_, headers, _) = await elsewhere.Requests.ReadAsync();
         Check(((NativeHttpException)failure.InnerException!).Kind == NativeHttpFailureKind.Redirect);
         Check(!headers.Any(h => h.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase)));
     }
@@ -232,58 +224,7 @@ public sealed class ConnectionResolverTests
         TransportOptions? transport = null)
         => ConnectionResolverClient.ForHttp(Resolver(), transport, new HttpClient(new Handler(send)));
 
-    private static X509Certificate2 Certificate()
-    {
-        using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest("CN=resolver-tests", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
-        var san = new SubjectAlternativeNameBuilder();
-        san.AddIpAddress(IPAddress.Loopback);
-        request.CertificateExtensions.Add(san.Build());
-        using var ephemeral = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
-        // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
-        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pkcs12), null);
-    }
-
-    private static HttpClient TrustingClient(X509Certificate2 certificate, bool followRedirects = false)
-    {
-        var handler = NativeClient.CreateHttpHandler();
-        handler.AllowAutoRedirect = followRedirects;
-        handler.SslOptions.CertificateChainPolicy = new X509ChainPolicy
-        {
-            TrustMode = X509ChainTrustMode.CustomRootTrust, RevocationMode = X509RevocationMode.NoCheck
-        };
-        handler.SslOptions.CertificateChainPolicy.CustomTrustStore.Add(certificate);
-        return new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-    }
-
-    private sealed class TlsPeer : IDisposable
-    {
-        private readonly TcpListener listener = new(IPAddress.Loopback, 0);
-        private readonly X509Certificate2 certificate;
-        public TlsPeer(X509Certificate2 certificate) { this.certificate = certificate; listener.Start(); }
-        public int Port => ((IPEndPoint)listener.LocalEndpoint).Port;
-        public bool Pending => listener.Pending();
-
-        public async Task<(string Line, List<string> Headers, string Body)> ServeOnceAsync(string response)
-        {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
-            using var tls = new SslStream(socket.GetStream());
-            await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, timeout.Token);
-            using var reader = new StreamReader(tls, Encoding.ASCII, leaveOpen: true);
-            var line = await reader.ReadLineAsync(timeout.Token) ?? "";
-            var headers = new List<string>();
-            while (await reader.ReadLineAsync(timeout.Token) is { Length: > 0 } header) headers.Add(header);
-            var length = int.Parse(headers.Single(h => h.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))[15..]);
-            var body = new char[length];
-            await reader.ReadBlockAsync(body, timeout.Token);
-            await tls.WriteAsync(Encoding.ASCII.GetBytes(response), timeout.Token);
-            return (line, headers, new string(body));
-        }
-
-        public void Dispose() => listener.Stop();
-    }
+    private static TransportOptions Trusting(TlsTarget target) => new() { TrustedRootCertificatePath = target.RootPath };
 
     // A body that ends before its declared content, like a dropped connection.
     private sealed class TruncatedStream : MemoryStream

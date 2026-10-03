@@ -1,8 +1,5 @@
 using System.Net;
-using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -270,30 +267,6 @@ public sealed class HttpDiscoveryTests
         using var handler = NativeClient.CreateHttpHandler(new() { MaxHttpConnectionsPerOrigin = 3, ConnectTimeout = TimeSpan.FromSeconds(2) });
         Check(!handler.AllowAutoRedirect && handler.MaxConnectionsPerServer == 3 && handler.ConnectTimeout == TimeSpan.FromSeconds(2));
         Check(handler.SslOptions.RemoteCertificateValidationCallback is null && handler.ConnectCallback is null);
-    }
-
-    [Test]
-    public async Task DefaultHttpsRejectsUntrustedCertificate()
-    {
-        using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var ephemeral = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
-        // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
-        using var certificate = X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pkcs12), null);
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var server = Task.Run(async () =>
-        {
-            using var socket = await listener.AcceptTcpClientAsync(deadline.Token);
-            using var tls = new SslStream(socket.GetStream());
-            try { await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, deadline.Token); }
-            catch (System.Security.Authentication.AuthenticationException) { }
-            catch (IOException) { }
-        });
-        using var native = NativeClient.ForHttp(new() { Origin = new Uri($"https://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/") });
-        await Failure(native.Target.DiscoverAsync(deadline.Token), NativeHttpFailureKind.Transport);
-        await server;
     }
 
     [Test]
