@@ -250,7 +250,7 @@ public sealed class OecpTests
         using var cancel = new CancellationTokenSource(); cancel.Cancel();
         try { await connection.Runs.ListAsync(cancellationToken: cancel.Token); throw new InvalidOperationException(); }
         catch (OecpOperationCanceledException error) { Check(!error.Dispatch.SendStarted && !error.Dispatch.ResponseReceived); }
-        var oversized = await Failure(connection.InitializeAsync(new() { ProtocolVersion = new string('x', 200) }), NativeOecpFailureKind.SizeLimit);
+        var oversized = await Failure(connection.Runs.StatusAsync(new RunId(new string('x', 200))), NativeOecpFailureKind.SizeLimit);
         Check(!oversized.Dispatch.SendStarted);
         Check((await connection.Runs.ListAsync()).Runs.Length == 0);
         await peer.Finished;

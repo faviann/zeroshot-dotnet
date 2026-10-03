@@ -61,15 +61,11 @@ public sealed partial class OecpConnection : IDisposable, IAsyncDisposable
         }
     }
 
-    public Task<InitializeResult> InitializeAsync(InitializeParams? parameters = null, OecpRequest? request = null, CancellationToken cancellationToken = default)
-    {
-        parameters ??= new InitializeParams { ProtocolVersion = ProtocolVersion };
-        var requested = parameters.ProtocolVersion;
-        return CallAsync<InitializeResult>("initialize", NativeJson.SerializeUtf8(parameters), result =>
+    public Task<InitializeResult> InitializeAsync(OecpRequest? request = null, CancellationToken cancellationToken = default) =>
+        CallAsync<InitializeResult>("initialize", NativeJson.SerializeUtf8(new InitializeParams { ProtocolVersion = ProtocolVersion }), result =>
         {
-            if (result.ProtocolVersion != requested || result.ProtocolVersion != ProtocolVersion) throw new JsonException();
+            if (result.ProtocolVersion != ProtocolVersion) throw new JsonException();
         }, cancellationToken, request, control: true);
-    }
 
     /// <summary>Sends WebSocket $/cancelRequest for one unary ID. This has no acknowledgement and is neither subscription cancellation nor native run stop.
     /// Native NDJSON does not implement it, so stream connections throw <see cref="NotSupportedException"/>.</summary>

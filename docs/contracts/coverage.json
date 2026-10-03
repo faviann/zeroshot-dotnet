@@ -40,7 +40,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L36",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.InitializeAsync"
@@ -184,7 +184,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L44",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Cluster.GetAsync"
@@ -274,7 +274,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L58",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Runs.ListAsync"
@@ -292,7 +292,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L59",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Runs.StatusAsync"
@@ -484,7 +484,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L122",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "NativeClient.ConnectOecpAsync"
@@ -1721,7 +1721,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, unsupported protocol, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "NativeClient.ConnectOecpAsync / OecpConnection"

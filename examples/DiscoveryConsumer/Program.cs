@@ -38,14 +38,6 @@ while (status.Status is not FinishedRunStatus)
     await Task.Delay(100, budget.Token);
     status = await oecp.Runs.StatusAsync(runId, expectedSource, cancellationToken: budget.Token);
 }
-JsonRpcError unsupported;
-try
-{
-    await oecp.InitializeAsync(new() { ProtocolVersion = "openengine.cluster/unsupported-witness" });
-    throw new InvalidOperationException("Native accepted unsupported protocol.");
-}
-catch (NativeOecpException error) when (error.Kind == NativeOecpFailureKind.RpcError && error.RpcError?.Data?.Code == "UNSUPPORTED_PROTOCOL_VERSION")
-{ unsupported = error.RpcError; }
 // Stock DirectTarget inherits INVALID_PHASE for every shared cluster method except initialize/get,
 // despite initialize advertising logs and agentAttach, and refuses trusted run/submit with RUN_CONFLICT.
 var graph = NativeJson.DeserializeUtf8<GraphSpec>("""{"profile":"openengine.graph.full/v1","initialInput":{"kind":"null"},"policy":{"policy":"policy.native-v2@1","default":"deny"},"root":{"kind":"succeed","name":"done","output":{"kind":"null"},"bindings":[]}}"""u8);
@@ -91,6 +83,5 @@ Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
     cluster = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(empty)).RootElement,
     inventory = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(inventory)).RootElement,
     status = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(status)).RootElement,
-    unsupported = System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(unsupported)).RootElement,
     refusals = refusals.ToDictionary(item => item.Key, item => System.Text.Json.JsonDocument.Parse(NativeJson.SerializeUtf8(item.Value)).RootElement)
 }));

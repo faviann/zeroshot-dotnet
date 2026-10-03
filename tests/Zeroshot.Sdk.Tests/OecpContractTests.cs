@@ -80,8 +80,7 @@ public sealed class OecpContractTests
     [Test]
     public void InitializeAndErrorsPreserveNativeNegotiationAndExtensibility()
     {
-        var request = new InitializeParams { ProtocolVersion = "unsupported-version" };
-        Check(NativeJson.DeserializeUtf8<InitializeParams>(NativeJson.SerializeUtf8(request)).ProtocolVersion == request.ProtocolVersion, "Unsupported protocol could not reach native negotiation.");
+        Reject<InitializeParams>("""{"protocolVersion":"unsupported-version"}""");
         var initialized = Read<InitializeResult>("""{"protocolVersion":"openengine.cluster/v1","capabilities":{},"status":{"phase":"empty","extension":1},"extension":1}""");
         Check(initialized.Capabilities.GraphProfiles.Length == 0 && !initialized.Capabilities.Logs, "Native capability defaults were lost.");
         Reject<InitializeResult>("""{"protocolVersion":"unsupported-version","capabilities":{},"status":{"phase":"empty"}}""");
