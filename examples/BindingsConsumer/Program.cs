@@ -279,7 +279,7 @@ async Task ExerciseOecp(OecpConnection c)
 {
     TParams Golden<TParams>(string method) => NativeJson.DeserializeUtf8<TParams>(oecp.GoldenParams(method));
     var run = new RunId("run-1");
-    Require((await Call("oecp:initialize", c.InitializeAsync(Golden<InitializeParams>("initialize"), cancellationToken: token))).ProtocolVersion
+    Require((await Call("oecp:initialize", c.InitializeAsync(cancellationToken: token))).ProtocolVersion
         == OecpConnection.ProtocolVersion, "Initialize.");
     Require((await Call("oecp:plan", c.Cluster.PlanAsync(Golden<PlanParams>("plan"), cancellationToken: token))).Ok, "Plan.");
     Acknowledged(await Call("oecp:apply", c.Cluster.ApplyAsync(Golden<ApplyParams>("apply"), cancellationToken: token)), "apply");

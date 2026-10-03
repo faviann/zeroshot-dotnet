@@ -87,10 +87,10 @@ responses, fragmentation, bounds, cancellation, disconnects and liveness.
 and [`native-v2-observation.schema.json`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/protocol/openengine-cluster/v1/native-v2-observation.schema.json).
 Shared definitions remain in `contracts.schema.json`; `TokenCount` names the native
 inline token-counter schema.
-`InitializeParams` accepts arbitrary protocol strings, matching native decoding, so
-unsupported negotiation reaches the target; successful responses must use v1.
+`InitializeAsync` always sends `openengine.cluster/v1`, and a successful response
+must name v1. A target that no longer supports v1 answers with an RPC error.
 The stock Linux witness separately proves populated inventory, exact run/source
-status, unsupported protocol rejection and empty cluster get. Its recorded native
+status and empty cluster get. Its recorded native
 terminal failure is inspection evidence, not a provider execution claim. The private
 witness initializes, reads the empty get and checks run status over a private-capability
 session. Live hosted authority remains unverified; controlled peers and source-backed

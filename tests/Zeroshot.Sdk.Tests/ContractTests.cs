@@ -136,7 +136,11 @@ public sealed class ContractTests
         Check(NativeJson.DeserializeUtf8<PositiveInteger>("1e0"u8).Value == 1, "Native integral float spelling rejected.");
         Reject(() => NativeJson.DeserializeUtf8<PositiveInteger>("9007199254740992"u8));
         Reject(() => NativeJson.DeserializeUtf8<Generation>("-1"u8));
+        Reject(() => NativeJson.DeserializeUtf8<Generation>("1.5"u8));
+        Reject(() => NativeJson.DeserializeUtf8<ByteLength>("\"1\""u8));
         Check(NativeJson.DeserializeUtf8<RequestId>("-9223372036854775808"u8).Number == long.MinValue, "Signed correlation ID boundary lost.");
+        Reject(() => NativeJson.DeserializeUtf8<RequestId>("9223372036854775808"u8));
+        Reject(() => NativeJson.DeserializeUtf8<RequestId>("1e0"u8));
         _ = NativeJson.DeserializeUtf8<RunId>("\"\""u8); // Generic RunId is not the target UUIDv7 boundary.
         Reject(() => PreparedSubmission.ImportUtf8("{\"runId\":\"\\ud800\",\"submission\":{}}"u8));
         var bytes = Fixture("prepared.json");
@@ -148,17 +152,18 @@ public sealed class ContractTests
     }
 
     [Test]
-    public void NativeAliasesCanonicalizeOnlyTypedSerialization()
+    public void PreRenameRunSizesAreRejected()
     {
-        var raw = Encoding.UTF8.GetString(Fixture("prepared.json")).Replace("\"small\"", "\"tiny\"", StringComparison.Ordinal);
-        var prepared = PreparedSubmission.ImportUtf8(Encoding.UTF8.GetBytes(raw));
-        Check(((CodexRuntime)prepared.Submission.Runtime).Size == RunSize.Small, "Alias not decoded.");
-        Check(Encoding.UTF8.GetString(prepared.ExportUtf8()) == raw, "Alias changed in retained bytes.");
-        Check(Encoding.UTF8.GetString(NativeJson.SerializeUtf8(prepared.Submission.Runtime)).Contains("\"small\""), "Typed runtime serialization is not canonical.");
+        foreach (var legacy in new[] { "tiny", "standard" })
+        {
+            var raw = Encoding.UTF8.GetString(Fixture("prepared.json")).Replace("\"small\"", $"\"{legacy}\"", StringComparison.Ordinal);
+            Reject(() => PreparedSubmission.ImportUtf8(Encoding.UTF8.GetBytes(raw)));
+            Reject(() => NativeJson.DeserializeUtf8<RunSize>(Encoding.UTF8.GetBytes($"\"{legacy}\"")));
+        }
     }
 
     [Test]
-    public void WorkerInvariantsAndStandaloneWireShapesDiffer()
+    public void WorkerDescriptorInvariantsFailLocally()
     {
         var worker = JsonNode.Parse(Fixture("worker.json"))!;
         worker["binding"]!["protocol"] = "builtin";
@@ -166,12 +171,20 @@ public sealed class ContractTests
         worker = JsonNode.Parse(Fixture("worker.json"))!;
         worker["contract"]!["errors"] = new JsonArray("crash");
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
-        _ = NativeJson.DeserializeUtf8<WorkerContract>(Encoding.UTF8.GetBytes(worker["contract"]!.ToJsonString()));
         Reject(() => NativeJson.DeserializeUtf8<WorkerOutcome>("""{"status":"error","code":"crash","reason":"policy_denied"}"""u8));
         Reject(() => NativeJson.DeserializeUtf8<PayloadType>("""{"kind":"null","extra":true}"""u8));
         // Escaped tags must receive the same native-only validation as literal spellings.
         Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"co\u0064ex","provider":"openai","size":"small","nodes":{"work":{"kind":"ag\u0065nt","model":"ok","connections":{"a":["TOKEN"],"b":["TOKEN"]}}}}"""u8));
+        Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"codex","provider":"openai","size":"small","nodes":{"work":{"kind":"agent","model":"ok","connections":{"a":["NOT-AN-ENV-NAME"]}}}}"""u8));
         var duplicateErrors = Encoding.UTF8.GetString(Fixture("worker.json")).Replace("\"timeout\"", "\"cr\\u0061sh\"", StringComparison.Ordinal);
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(duplicateErrors)));
+        foreach (var (path, value) in new[] { ("graphProfiles", "[]"), ("artifactProfile.allowedTypeIds", "[]"), ("artifactProfile.allowedMediaTypes", "[\"text/plain\",\"text/plain\"]"),
+            ("binding.protocol", "\"external\\n\"") })
+        {
+            worker = JsonNode.Parse(Fixture("worker.json"))!;
+            var parent = path.Contains('.') ? worker[path.Split('.')[0]]! : worker;
+            parent[path.Split('.')[^1]] = JsonNode.Parse(value);
+            Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
+        }
     }
 }

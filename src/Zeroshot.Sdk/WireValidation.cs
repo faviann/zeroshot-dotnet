@@ -23,7 +23,7 @@ internal static class WireValidation
             CheckSchema(value, type);
             return null;
         }
-        if (typeof(NativeString).IsAssignableFrom(type)) return null;
+        if (typeof(NativeString).IsAssignableFrom(type) || typeof(INativeScalar).IsAssignableFrom(type)) return null;
         if (!typeof(NativeContract).IsAssignableFrom(type)) throw new ArgumentException("Unsupported native contract type.");
         // Required fields, nullability, exact field names, per-type extension strictness and nested pinned schemas.
         var result = (NativeContract?)JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
@@ -51,36 +51,18 @@ internal static class WireValidation
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
         var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
         foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
-        // Version negotiation accepts arbitrary request versions so the peer can report its
-        // unsupported-protocol error. A successful reply must still name the supported version.
-        definitions["InitializeParams"]!["properties"]!["protocolVersion"]!.AsObject().Remove("const");
-        // The native decoder accepts these legacy spellings although its generated enum schema does not.
-        definitions["RunSize"]!["enum"] = new JsonArray("small", "medium", "large", "tiny", "standard");
-        // Rust string::trim and byte counts, rather than a regex character bound, own instructions.
-        definitions["NodeInstructions"]!.AsObject().Remove("pattern");
-        // These collection restrictions belong to WorkerDescriptor::validate, not standalone serde DTOs.
-        definitions["WorkerContract"]!["properties"]!["errors"] = new JsonObject
-        {
-            ["type"] = "array", ["items"] = new JsonObject { ["$ref"] = "#/$defs/WorkerErrorCode" }
-        };
-        foreach (var property in new[] { "allowedTypeIds", "allowedMediaTypes" })
-        {
-            var collection = definitions["ArtifactResultProfile"]!["properties"]![property]!.AsObject();
-            collection.Remove("minItems"); collection.Remove("uniqueItems");
-        }
-        foreach (var name in new[] { "Generation", "PositiveInteger", "ByteLength" })
-            definitions[name] = new JsonObject { ["type"] = "integer", ["minimum"] = name == "PositiveInteger" ? 1 : 0, ["maximum"] = Generation.Maximum };
-        definitions["RequestId"] = JsonNode.Parse("""{"anyOf":[{"type":"string"},{"type":"integer","minimum":-9223372036854775808,"maximum":9223372036854775807}]}""");
         FixPatterns(definitions);
         return definitions;
     }
 
+    // JsonSchema.Net evaluates patterns with .NET Regex, where $ also matches before a final LF.
+    // JSON Schema patterns are ECMA-262, where it matches only at the end (issue #105).
     private static void FixPatterns(JsonNode node)
     {
         if (node is JsonObject obj)
         {
             if (obj["pattern"] is JsonValue pattern && pattern.TryGetValue<string>(out var text) && text.EndsWith('$'))
-                obj["pattern"] = text + "(?![\\s\\S])"; // Require the actual end, including after a trailing LF.
+                obj["pattern"] = text + "(?![\\s\\S])";
             foreach (var property in obj.ToArray()) if (property.Value is { } child) FixPatterns(child);
         }
         else if (node is JsonArray array) foreach (var child in array) if (child is not null) FixPatterns(child);
@@ -109,7 +91,6 @@ internal static class WireValidation
             if (!value.TryGetProperty("variables", out var variables)) return;
             foreach (var variable in variables.EnumerateObject()) _ = new EnvironmentVariableName(variable.Name);
         },
-        ["WorkerDescriptor"] = CheckDescriptor,
     };
 
     private static void CheckNative(JsonElement value, JsonNode schema, string? name = null)
@@ -159,22 +140,8 @@ internal static class WireValidation
             _ = new ConnectionKey(connection.Name);
             if (connection.Value.GetArrayLength() == 0) throw new JsonException("Empty declared connection.");
             foreach (var field in connection.Value.EnumerateArray())
-            {
-                _ = new EnvironmentVariableName(field.GetString()!);
                 if (!names.Add(field.GetString()!)) throw new JsonException("Duplicate declared environment name.");
-            }
         }
         if (names.Count > 64) throw new JsonException("Too many declared environment names.");
-    }
-
-    private static void CheckDescriptor(JsonElement descriptor)
-    {
-        static bool Unique(JsonElement values, bool nonempty) => (!nonempty || values.GetArrayLength() > 0) &&
-            values.EnumerateArray().Select(v => v.GetString()).Distinct(StringComparer.Ordinal).Count() == values.GetArrayLength();
-        var errors = descriptor.GetProperty("contract").GetProperty("errors");
-        var artifacts = descriptor.GetProperty("artifactProfile");
-        if (!Unique(descriptor.GetProperty("graphProfiles"), true) || !Unique(errors, true) || errors.GetArrayLength() != 4 ||
-            !Unique(artifacts.GetProperty("allowedTypeIds"), true) || !Unique(artifacts.GetProperty("allowedMediaTypes"), true) ||
-            !Unique(descriptor.GetProperty("credentialRequirements"), false)) throw new JsonException("Invalid worker descriptor collections.");
     }
 }

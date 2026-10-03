@@ -25,7 +25,7 @@ public sealed class ClusterTests
 
     private static async Task<(object? Result, Exception? Failure)> Invoke(OecpConnection connection, string method, string parameters) => method switch
     {
-        "initialize" => (await connection.InitializeAsync(Parse<InitializeParams>(parameters)), null),
+        "initialize" => (await connection.InitializeAsync(), null),
         "plan" => (await connection.Cluster.PlanAsync(Parse<PlanParams>(parameters)), null),
         "get" => (await connection.Cluster.GetAsync(Parse<GetParams>(parameters)), null),
         "apply" => Settled(await connection.Cluster.ApplyAsync(Parse<ApplyParams>(parameters))),
