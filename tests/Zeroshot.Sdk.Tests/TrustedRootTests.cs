@@ -47,12 +47,13 @@ public sealed class TrustedRootTests
     {
         var https = new Uri("https://target.example/");
         var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".pem");
-        using var invalid = new RootFile(null);
-        foreach (var path in new[] { missing, invalid.Path })
-            Check(Throws(() => NativeClient.ForHttp(Options(https, path))).ParamName == nameof(TransportOptions.TrustedRootCertificatePath));
-
         using var root = TlsTarget.CreateRoot("CN=Test Root");
         using var readable = new RootFile(root);
+        File.WriteAllText(readable.Path, "not a certificate");
+        Check(Throws(() => NativeClient.ForHttp(Options(https, readable.Path))).ParamName == nameof(TransportOptions.TrustedRootCertificatePath));
+        Check(Throws(() => NativeClient.ForHttp(Options(https, missing))).ParamName == nameof(TransportOptions.TrustedRootCertificatePath));
+
+        readable.Write(root);
         using var http = new HttpClient(NativeClient.CreateHttpHandler()) { Timeout = Timeout.InfiniteTimeSpan };
         Check(Throws(() => NativeClient.ForHttp(Options(https, readable.Path), http)).ParamName == nameof(TransportOptions.TrustedRootCertificatePath));
 

@@ -4,15 +4,14 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Threading.Channels;
 using Zeroshot.Native.Contracts;
 
 namespace Zeroshot.Client.Tests;
 
 /// <summary>
 /// A loopback HTTPS peer whose certificate an intermediate of <see cref="Root"/> issued, as Caddy's internal CA does.
-/// Each request is recorded in <see cref="Requests"/> and answered with the raw response from <see cref="Respond"/>;
-/// a 101 response keeps the connection open until disposal.
+/// Each request is recorded in <see cref="Requests"/> before it is answered with the raw response from
+/// <see cref="Respond"/>; a 101 response keeps the connection open until disposal.
 /// </summary>
 internal sealed class TlsTarget : IAsyncDisposable
 {
@@ -21,19 +20,17 @@ internal sealed class TlsTarget : IAsyncDisposable
 
     private readonly TcpListener listener = new(IPAddress.Loopback, 0);
     private readonly CancellationTokenSource stop = new();
-    private readonly Channel<Request> requests = Channel.CreateUnbounded<Request>();
-    private readonly X509Certificate2? ownedRoot;
+    private readonly List<Request> requests = new();
     private readonly RootFile rootFile;
     private readonly X509Certificate2 certificate;
+    private readonly X509Certificate2 intermediate;
     private readonly SslStreamCertificateContext chain;
     private readonly Task serving;
-    private int connections;
 
-    /// <summary>Uses <paramref name="root"/> when given, or a root of its own; the certificate names 127.0.0.1 unless <paramref name="hostName"/> says otherwise.</summary>
-    public TlsTarget(X509Certificate2? root = null, string? hostName = null)
+    /// <summary>The certificate names 127.0.0.1 unless <paramref name="hostName"/> says otherwise.</summary>
+    public TlsTarget(string? hostName = null)
     {
-        Root = root ?? (ownedRoot = CreateRoot("CN=Test Root"));
-        rootFile = new RootFile(Root);
+        Root = CreateRoot("CN=Test Root");
         using var key = RSA.Create(2048);
         var request = new CertificateRequest("CN=" + (hostName ?? "127.0.0.1"), key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var names = new SubjectAlternativeNameBuilder();
@@ -41,12 +38,14 @@ internal sealed class TlsTarget : IAsyncDisposable
         else names.AddDnsName(hostName);
         request.CertificateExtensions.Add(names.Build());
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
-        using var intermediate = Intermediate(Root);
-        using var issued = request.Create(intermediate, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(5), [1, 2, 3, 4]);
+        using var issuer = Intermediate(Root);
+        using var issued = request.Create(issuer, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(5), [1, 2, 3, 4]);
         using var withKey = issued.CopyWithPrivateKey(key);
         // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
         certificate = X509CertificateLoader.LoadPkcs12(withKey.Export(X509ContentType.Pkcs12), null);
-        chain = SslStreamCertificateContext.Create(certificate, [X509CertificateLoader.LoadCertificate(intermediate.RawData)], offline: true);
+        intermediate = X509CertificateLoader.LoadCertificate(issuer.RawData);
+        chain = SslStreamCertificateContext.Create(certificate, [intermediate], offline: true);
+        rootFile = new RootFile(Root);
         listener.Start();
         Origin = new Uri($"https://127.0.0.1:{Port}/");
         serving = Serve();
@@ -59,9 +58,7 @@ internal sealed class TlsTarget : IAsyncDisposable
     public Uri Origin { get; }
     public TargetOecpSession Session => new() { Endpoint = new UriBuilder(Origin) { Scheme = "wss", Path = "/native-v2/oecp" }.Uri.AbsoluteUri };
     public Func<Request, string> Respond { get; set; } = _ => NotFound;
-    public ChannelReader<Request> Requests => requests.Reader;
-    /// <summary>Accepted TCP connections, including ones whose TLS handshake failed.</summary>
-    public int Connections => Volatile.Read(ref connections);
+    public IReadOnlyList<Request> Requests { get { lock (requests) return requests.ToList(); } }
 
     /// <summary>Answers a WebSocket upgrade with 101 and anything else with 404.</summary>
     public static string UpgradeOrNotFound(Request request)
@@ -96,12 +93,7 @@ internal sealed class TlsTarget : IAsyncDisposable
         var answering = new List<Task>();
         try
         {
-            while (true)
-            {
-                var socket = await listener.AcceptTcpClientAsync(stop.Token);
-                Interlocked.Increment(ref connections);
-                answering.Add(Answer(socket));
-            }
+            while (true) answering.Add(Answer(await listener.AcceptTcpClientAsync(stop.Token)));
         }
         catch (Exception) when (stop.IsCancellationRequested) { } // Stop() can fault a pending accept instead of cancelling it.
         await Task.WhenAll(answering);
@@ -115,7 +107,8 @@ internal sealed class TlsTarget : IAsyncDisposable
         {
             await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificateContext = chain }, stop.Token);
             using var reader = new StreamReader(tls, Encoding.ASCII, leaveOpen: true);
-            var line = await reader.ReadLineAsync(stop.Token) ?? "";
+            // A client that refused the certificate can still let the server's handshake finish, then close.
+            if (await reader.ReadLineAsync(stop.Token) is not { } line) return;
             var headers = new List<string>();
             while (await reader.ReadLineAsync(stop.Token) is { Length: > 0 } header) headers.Add(header);
             var length = headers.SingleOrDefault(h => h.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) is { } declared ? int.Parse(declared[15..]) : 0;
@@ -123,7 +116,7 @@ internal sealed class TlsTarget : IAsyncDisposable
             // An empty read still waits for stream data, which a request without a body never sends.
             if (length > 0) await reader.ReadBlockAsync(body, stop.Token);
             var request = new Request(line, headers, new string(body));
-            requests.Writer.TryWrite(request);
+            lock (requests) requests.Add(request);
             var response = Respond(request);
             await tls.WriteAsync(Encoding.ASCII.GetBytes(response), stop.Token);
             if (response.StartsWith("HTTP/1.1 101", StringComparison.Ordinal)) await Task.Delay(Timeout.Infinite, stop.Token);
@@ -138,16 +131,17 @@ internal sealed class TlsTarget : IAsyncDisposable
         await serving;
         rootFile.Dispose();
         certificate.Dispose();
-        ownedRoot?.Dispose();
+        intermediate.Dispose();
+        Root.Dispose();
         stop.Dispose();
     }
 }
 
-/// <summary>A temporary PEM file holding a root, or text that is not a certificate.</summary>
+/// <summary>A temporary PEM file holding a root.</summary>
 internal sealed class RootFile : IDisposable
 {
     public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".pem");
-    public RootFile(X509Certificate2? root) { if (root is null) File.WriteAllText(Path, "not a certificate"); else Write(root); }
+    public RootFile(X509Certificate2 root) => Write(root);
     public void Write(X509Certificate2 root) => File.WriteAllText(Path, root.ExportCertificatePem());
     public void Dispose() => File.Delete(Path);
 }

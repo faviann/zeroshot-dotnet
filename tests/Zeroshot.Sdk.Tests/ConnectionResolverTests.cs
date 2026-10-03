@@ -178,7 +178,7 @@ public sealed class ConnectionResolverTests
         var endpoint = $"https://127.0.0.1:{resolver.Port}/host/resolve";
         await using var client = ConnectionResolverClient.ForHttp(Resolver(endpoint), Trusting(resolver));
         var result = await client.ResolveAsync(Request);
-        var (line, headers, body) = await resolver.Requests.ReadAsync();
+        var (line, headers, body) = resolver.Requests.Single();
         Check(line == "POST /host/resolve HTTP/1.1" && body == RequestJson);
         Check(headers.Count(h => h.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase)) == 1 &&
             headers.Contains("Authorization: Bearer " + Bearer) && headers.Contains($"Host: 127.0.0.1:{resolver.Port}"));
@@ -188,37 +188,32 @@ public sealed class ConnectionResolverTests
     [Test]
     public async Task RedirectIsRefusedWithoutContactingItsLocation()
     {
-        await using var elsewhere = new TlsTarget();
-        var location = $"https://127.0.0.1:{elsewhere.Port}/stolen";
-        await using var resolver = new TlsTarget(elsewhere.Root)
-        {
-            Respond = _ => $"HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        };
+        await using var resolver = new TlsTarget { Respond = Redirect };
         await using var client = ConnectionResolverClient.ForHttp(Resolver($"https://127.0.0.1:{resolver.Port}/host/resolve"), Trusting(resolver));
         var failure = await Failure(client.ResolveAsync(Request), ConnectionResolutionError.InvalidResponse);
         Check(failure.StatusCode == HttpStatusCode.TemporaryRedirect &&
             ((NativeHttpException)failure.InnerException!).Kind == NativeHttpFailureKind.Redirect);
-        Check(elsewhere.Connections == 0);
+        Check(resolver.Requests.Count == 1);
     }
 
     [Test]
     public async Task RedirectFollowedByASuppliedClientIsStillInvalidResponse()
     {
-        await using var elsewhere = new TlsTarget { Respond = _ => "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" };
-        await using var resolver = new TlsTarget(elsewhere.Root)
-        {
-            Respond = _ => $"HTTP/1.1 307 Temporary Redirect\r\nLocation: https://127.0.0.1:{elsewhere.Port}/elsewhere\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        };
+        await using var resolver = new TlsTarget { Respond = Redirect };
         // A caller client that breaks the documented contract by following redirects.
         var handler = NativeClient.CreateHttpHandler(Trusting(resolver));
         handler.AllowAutoRedirect = true;
         using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         await using var client = ConnectionResolverClient.ForHttp(Resolver($"https://127.0.0.1:{resolver.Port}/host/resolve"), httpClient: http);
         var failure = await Failure(client.ResolveAsync(Request), ConnectionResolutionError.InvalidResponse);
-        var (_, headers, _) = await elsewhere.Requests.ReadAsync();
-        Check(((NativeHttpException)failure.InnerException!).Kind == NativeHttpFailureKind.Redirect);
-        Check(!headers.Any(h => h.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase)));
+        var followed = resolver.Requests[1];
+        Check(((NativeHttpException)failure.InnerException!).Kind == NativeHttpFailureKind.Redirect && followed.Line == "POST /elsewhere HTTP/1.1");
+        Check(!followed.Headers.Any(h => h.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase)));
     }
+
+    private static string Redirect(TlsTarget.Request request) => request.Line.StartsWith("POST /host/resolve ", StringComparison.Ordinal)
+        ? "HTTP/1.1 307 Temporary Redirect\r\nLocation: /elsewhere\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        : "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 
     private static ConnectionResolverClient Client(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send,
         TransportOptions? transport = null)

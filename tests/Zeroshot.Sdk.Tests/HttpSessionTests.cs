@@ -352,7 +352,7 @@ public sealed class HttpSessionTests
         var session = await client.Target.CreateOecpSessionAsync(Discovery(TargetAuthentication.HostedOauth),
             credentials: new(TargetAuthentication.HostedOauth, Control));
         Check(session.Endpoint == endpoint && session.BearerToken == Session);
-        var (line, headers, body) = await target.Requests.ReadAsync();
+        var (line, headers, body) = target.Requests.Single();
         Check(line == "POST /native-v2/oecp-session HTTP/1.1" && body == "{}");
         Check(headers.Count(h => h.StartsWith("Authorization:")) == 1 && headers.Contains("Authorization: Bearer " + Control));
         Check(!headers.Any(h => h.Contains(Session)));
