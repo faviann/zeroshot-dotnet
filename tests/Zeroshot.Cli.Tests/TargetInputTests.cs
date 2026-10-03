@@ -11,8 +11,8 @@ public sealed class TargetInputTests
 {
     private const string TargetBearer = "ZS_CLI_TEST_TARGET_BEARER";
     private const string ProviderKey = "ZS_CLI_TEST_PROVIDER_KEY";
-    private const string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
-    private const string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
+    private static readonly string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
+    private static readonly string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
     /// <summary>Replaced by the loopback target's origin when a test runs.</summary>
     private const string Loopback = "LOOPBACK-ORIGIN";
 

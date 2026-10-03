@@ -15,8 +15,8 @@ public sealed class StreamTests
 {
     private const string RunId = "0195af77-1000-7000-8000-000000000002";
     private const string Execution = "nv2-execution-1";
-    private const string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
-    private const string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
+    private static readonly string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
+    private static readonly string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
     private const ulong Timestamp = 1_767_225_600_000; // 2026-01-01T00:00:00Z
 
     private static CliWorkspace Workspace(TargetPeer peer, string transport = "{}")

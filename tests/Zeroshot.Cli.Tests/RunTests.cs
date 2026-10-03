@@ -15,8 +15,8 @@ public sealed class RunTests
 {
     private const string Proposed = PrepareTests.RunId;
     private const string Acknowledged = "0195af77-1000-7000-8000-000000000002";
-    private const string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
-    private const string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
+    private static readonly string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
+    private static readonly string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
 
     private static readonly string Binding = $$"""{ "provenance": "caller-supplied", "release": "{{Release}}", "sourceRevision": "{{Revision}}" }""";
 

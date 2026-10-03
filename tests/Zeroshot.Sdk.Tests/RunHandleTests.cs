@@ -10,8 +10,8 @@ namespace Zeroshot.Sdk.Tests;
 
 public sealed class RunHandleTests
 {
-    private const string Release = NativeSchemas.NativeVersion;
-    private const string Revision = NativeSchemas.SourceRevision;
+    private static readonly string Release = NativeSchemas.NativeVersion;
+    private static readonly string Revision = NativeSchemas.SourceRevision;
     private const string RunA = "0195af77-1000-7000-8000-000000000001";
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
     private static readonly NativeBinding Supported = NativeBinding.CallerSupplied(Release, Revision);

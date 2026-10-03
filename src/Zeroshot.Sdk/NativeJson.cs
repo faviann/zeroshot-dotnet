@@ -79,8 +79,8 @@ public static class NativeJson
 /// <summary>Pinned, local schema data. No compiler or remote compilation operation is supplied.</summary>
 public static class NativeSchemas
 {
-    public const string NativeVersion = "10.10.0";
-    public const string SourceRevision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
+    public static readonly string NativeVersion = "10.10.0";
+    public static readonly string SourceRevision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
     public static byte[] ExportCompiledIrUtf8() => Read("compiled-ir.schema.json");
     public static byte[] ExportContractsUtf8() => Read("contracts.schema.json");
     internal static byte[] Read(string name)
