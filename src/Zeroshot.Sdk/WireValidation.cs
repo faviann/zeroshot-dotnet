@@ -23,7 +23,7 @@ internal static class WireValidation
             CheckSchema(value, type);
             return null;
         }
-        if (typeof(NativeString).IsAssignableFrom(type)) return null;
+        if (typeof(NativeString).IsAssignableFrom(type) || typeof(INativeScalar).IsAssignableFrom(type)) return null;
         if (!typeof(NativeContract).IsAssignableFrom(type)) throw new ArgumentException("Unsupported native contract type.");
         // Required fields, nullability, exact field names, per-type extension strictness and nested pinned schemas.
         var result = (NativeContract?)JsonSerializer.Deserialize(value, type, NativeJson.Options) ?? throw new JsonException();
@@ -51,8 +51,6 @@ internal static class WireValidation
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
         var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
         foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
-        foreach (var name in new[] { "Generation", "PositiveInteger", "ByteLength" })
-            definitions[name] = new JsonObject { ["type"] = "integer", ["minimum"] = name == "PositiveInteger" ? 1 : 0, ["maximum"] = Generation.Maximum };
         definitions["RequestId"] = JsonNode.Parse("""{"anyOf":[{"type":"string"},{"type":"integer","minimum":-9223372036854775808,"maximum":9223372036854775807}]}""");
         FixPatterns(definitions);
         return definitions;

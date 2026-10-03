@@ -136,6 +136,8 @@ public sealed class ContractTests
         Check(NativeJson.DeserializeUtf8<PositiveInteger>("1e0"u8).Value == 1, "Native integral float spelling rejected.");
         Reject(() => NativeJson.DeserializeUtf8<PositiveInteger>("9007199254740992"u8));
         Reject(() => NativeJson.DeserializeUtf8<Generation>("-1"u8));
+        Reject(() => NativeJson.DeserializeUtf8<Generation>("1.5"u8));
+        Reject(() => NativeJson.DeserializeUtf8<ByteLength>("\"1\""u8));
         Check(NativeJson.DeserializeUtf8<RequestId>("-9223372036854775808"u8).Number == long.MinValue, "Signed correlation ID boundary lost.");
         _ = NativeJson.DeserializeUtf8<RunId>("\"\""u8); // Generic RunId is not the target UUIDv7 boundary.
         Reject(() => PreparedSubmission.ImportUtf8("{\"runId\":\"\\ud800\",\"submission\":{}}"u8));

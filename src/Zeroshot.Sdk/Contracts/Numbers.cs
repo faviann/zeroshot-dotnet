@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace Zeroshot.Native.Contracts;
 
-[WireContract("Generation")]
 [JsonConverter(typeof(SafeIntegerConverter<Generation>))]
 public readonly record struct Generation : ISafeInteger<Generation>
 {
@@ -14,7 +13,6 @@ public readonly record struct Generation : ISafeInteger<Generation>
     public static implicit operator Generation(ulong value) => new(value);
 }
 
-[WireContract("PositiveInteger")]
 [JsonConverter(typeof(SafeIntegerConverter<PositiveInteger>))]
 public readonly record struct PositiveInteger : ISafeInteger<PositiveInteger>
 {
@@ -24,7 +22,6 @@ public readonly record struct PositiveInteger : ISafeInteger<PositiveInteger>
     public static implicit operator PositiveInteger(ulong value) => new(value);
 }
 
-[WireContract("ByteLength")]
 [JsonConverter(typeof(SafeIntegerConverter<ByteLength>))]
 public readonly record struct ByteLength : ISafeInteger<ByteLength>
 {
@@ -34,7 +31,10 @@ public readonly record struct ByteLength : ISafeInteger<ByteLength>
     public static implicit operator ByteLength(ulong value) => new(value);
 }
 
-internal interface ISafeInteger<T> where T : ISafeInteger<T>
+/// <summary>A wire value whose own converter enforces the native rule, so it has no schema definition.</summary>
+internal interface INativeScalar;
+
+internal interface ISafeInteger<T> : INativeScalar where T : ISafeInteger<T>
 {
     ulong Value { get; }
     static abstract T Create(ulong value);
