@@ -15,9 +15,10 @@ public sealed class RunTests
 {
     private const string Proposed = PrepareTests.RunId;
     private const string Acknowledged = "0195af77-1000-7000-8000-000000000002";
-    private const string Revision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
+    private const string Release = Zeroshot.Native.NativeSchemas.NativeVersion;
+    private const string Revision = Zeroshot.Native.NativeSchemas.SourceRevision;
 
-    private static readonly string Binding = $$"""{ "provenance": "caller-supplied", "release": "10.10.0", "sourceRevision": "{{Revision}}" }""";
+    private static readonly string Binding = $$"""{ "provenance": "caller-supplied", "release": "{{Release}}", "sourceRevision": "{{Revision}}" }""";
 
     /// <summary>A workspace holding target.json for <paramref name="peer"/> and a request that proposes <see cref="Proposed"/>.</summary>
     private static CliWorkspace Workspace(TargetPeer peer, bool binding = true)

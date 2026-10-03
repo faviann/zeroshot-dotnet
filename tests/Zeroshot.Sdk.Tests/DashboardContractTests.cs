@@ -33,7 +33,7 @@ public sealed class DashboardContractTests
     [Test]
     public async Task BootstrapPreservesNativeCatalogAndRejectsMalformedData()
     {
-        // Trimmed from stock native `target serve` output: two templates, both worker kinds, target workspace.
+        // Trimmed from stock 10.9.0 `target serve` output: two templates, both worker kinds, target workspace.
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures/dashboard-bootstrap.json"));
         var bootstrap = NativeJson.DeserializeUtf8<DashboardBootstrap>(bytes);
         Check(bootstrap.Workspace.Kind == DashboardWorkspaceKind.Target && bootstrap.Workspace.Id == "01a0e31e-4f6e-7f51-b114-59a1df1c2c17");

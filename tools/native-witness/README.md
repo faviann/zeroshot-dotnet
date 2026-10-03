@@ -26,8 +26,7 @@ Pinned provenance:
 - Native version: **10.10.0**.
 - [Source revision](https://github.com/the-open-engine/zeroshot/tree/3ee1192cec359a0b997f464e703a936e8b67d63c): `3ee1192cec359a0b997f464e703a936e8b67d63c`.
 - [Release](https://github.com/the-open-engine/zeroshot/releases/tag/v10.10.0) names that source revision in its `target_commitish`.
-- Linux x64 musl archive SHA-256: `ca7305a0a165f3909481ccfcccce367d3bc2c40a9ab65760f6d6cad2a38d002d` (official release asset digest / `SHA256SUMS`).
-- Actual extracted `zeroshot` executable SHA-256: `f39952b98652301db58a89c4132a0476ae4ec570749b5945cc5200c2d22fad94` (measured and independently rechecked each run).
+- The Linux x64 musl archive SHA-256 (the release's `SHA256SUMS`) and the extracted `zeroshot` executable SHA-256 are the `readonly` values at the top of `run.sh`. Each run checks both.
 
 Each run also appends the SDK build under test to `provenance.txt`: the repository
 commit, whether the worktree was clean, `dotnet --version` and the SHA-256 of the packed
