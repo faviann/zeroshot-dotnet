@@ -51,16 +51,6 @@ internal static class WireValidation
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
         var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
         foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
-        // These collection restrictions belong to WorkerDescriptor::validate, not standalone serde DTOs.
-        definitions["WorkerContract"]!["properties"]!["errors"] = new JsonObject
-        {
-            ["type"] = "array", ["items"] = new JsonObject { ["$ref"] = "#/$defs/WorkerErrorCode" }
-        };
-        foreach (var property in new[] { "allowedTypeIds", "allowedMediaTypes" })
-        {
-            var collection = definitions["ArtifactResultProfile"]!["properties"]![property]!.AsObject();
-            collection.Remove("minItems"); collection.Remove("uniqueItems");
-        }
         foreach (var name in new[] { "Generation", "PositiveInteger", "ByteLength" })
             definitions[name] = new JsonObject { ["type"] = "integer", ["minimum"] = name == "PositiveInteger" ? 1 : 0, ["maximum"] = Generation.Maximum };
         definitions["RequestId"] = JsonNode.Parse("""{"anyOf":[{"type":"string"},{"type":"integer","minimum":-9223372036854775808,"maximum":9223372036854775807}]}""");
@@ -102,7 +92,6 @@ internal static class WireValidation
             if (!value.TryGetProperty("variables", out var variables)) return;
             foreach (var variable in variables.EnumerateObject()) _ = new EnvironmentVariableName(variable.Name);
         },
-        ["WorkerDescriptor"] = CheckDescriptor,
     };
 
     private static void CheckNative(JsonElement value, JsonNode schema, string? name = null)
@@ -158,16 +147,5 @@ internal static class WireValidation
             }
         }
         if (names.Count > 64) throw new JsonException("Too many declared environment names.");
-    }
-
-    private static void CheckDescriptor(JsonElement descriptor)
-    {
-        static bool Unique(JsonElement values, bool nonempty) => (!nonempty || values.GetArrayLength() > 0) &&
-            values.EnumerateArray().Select(v => v.GetString()).Distinct(StringComparer.Ordinal).Count() == values.GetArrayLength();
-        var errors = descriptor.GetProperty("contract").GetProperty("errors");
-        var artifacts = descriptor.GetProperty("artifactProfile");
-        if (!Unique(descriptor.GetProperty("graphProfiles"), true) || !Unique(errors, true) || errors.GetArrayLength() != 4 ||
-            !Unique(artifacts.GetProperty("allowedTypeIds"), true) || !Unique(artifacts.GetProperty("allowedMediaTypes"), true) ||
-            !Unique(descriptor.GetProperty("credentialRequirements"), false)) throw new JsonException("Invalid worker descriptor collections.");
     }
 }

@@ -159,7 +159,7 @@ public sealed class ContractTests
     }
 
     [Test]
-    public void WorkerInvariantsAndStandaloneWireShapesDiffer()
+    public void WorkerDescriptorInvariantsFailLocally()
     {
         var worker = JsonNode.Parse(Fixture("worker.json"))!;
         worker["binding"]!["protocol"] = "builtin";
@@ -167,12 +167,19 @@ public sealed class ContractTests
         worker = JsonNode.Parse(Fixture("worker.json"))!;
         worker["contract"]!["errors"] = new JsonArray("crash");
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
-        _ = NativeJson.DeserializeUtf8<WorkerContract>(Encoding.UTF8.GetBytes(worker["contract"]!.ToJsonString()));
+        Reject(() => NativeJson.DeserializeUtf8<WorkerContract>(Encoding.UTF8.GetBytes(worker["contract"]!.ToJsonString())));
         Reject(() => NativeJson.DeserializeUtf8<WorkerOutcome>("""{"status":"error","code":"crash","reason":"policy_denied"}"""u8));
         Reject(() => NativeJson.DeserializeUtf8<PayloadType>("""{"kind":"null","extra":true}"""u8));
         // Escaped tags must receive the same native-only validation as literal spellings.
         Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"co\u0064ex","provider":"openai","size":"small","nodes":{"work":{"kind":"ag\u0065nt","model":"ok","connections":{"a":["TOKEN"],"b":["TOKEN"]}}}}"""u8));
         var duplicateErrors = Encoding.UTF8.GetString(Fixture("worker.json")).Replace("\"timeout\"", "\"cr\\u0061sh\"", StringComparison.Ordinal);
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(duplicateErrors)));
+        foreach (var (path, value) in new[] { ("graphProfiles", "[]"), ("artifactProfile.allowedTypeIds", "[]"), ("artifactProfile.allowedMediaTypes", "[\"text/plain\",\"text/plain\"]") })
+        {
+            worker = JsonNode.Parse(Fixture("worker.json"))!;
+            var parent = path.Contains('.') ? worker[path.Split('.')[0]]! : worker;
+            parent[path.Split('.')[^1]] = JsonNode.Parse(value);
+            Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
+        }
     }
 }
