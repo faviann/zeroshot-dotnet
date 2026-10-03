@@ -148,13 +148,14 @@ public sealed class ContractTests
     }
 
     [Test]
-    public void NativeAliasesCanonicalizeOnlyTypedSerialization()
+    public void PreRenameRunSizesAreRejected()
     {
-        var raw = Encoding.UTF8.GetString(Fixture("prepared.json")).Replace("\"small\"", "\"tiny\"", StringComparison.Ordinal);
-        var prepared = PreparedSubmission.ImportUtf8(Encoding.UTF8.GetBytes(raw));
-        Check(((CodexRuntime)prepared.Submission.Runtime).Size == RunSize.Small, "Alias not decoded.");
-        Check(Encoding.UTF8.GetString(prepared.ExportUtf8()) == raw, "Alias changed in retained bytes.");
-        Check(Encoding.UTF8.GetString(NativeJson.SerializeUtf8(prepared.Submission.Runtime)).Contains("\"small\""), "Typed runtime serialization is not canonical.");
+        foreach (var legacy in new[] { "tiny", "standard" })
+        {
+            var raw = Encoding.UTF8.GetString(Fixture("prepared.json")).Replace("\"small\"", $"\"{legacy}\"", StringComparison.Ordinal);
+            Reject(() => PreparedSubmission.ImportUtf8(Encoding.UTF8.GetBytes(raw)));
+            Reject(() => NativeJson.DeserializeUtf8<RunSize>(Encoding.UTF8.GetBytes($"\"{legacy}\"")));
+        }
     }
 
     [Test]

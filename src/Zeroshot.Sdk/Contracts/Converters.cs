@@ -70,8 +70,8 @@ internal sealed class RunSizeConverter : JsonConverter<RunSize>
 {
     public override RunSize Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) => reader.GetString() switch
     {
-        "tiny" or "small" => RunSize.Small,
-        "standard" or "medium" => RunSize.Medium,
+        "small" => RunSize.Small,
+        "medium" => RunSize.Medium,
         "large" => RunSize.Large,
         _ => throw new JsonException("Invalid run size.")
     };

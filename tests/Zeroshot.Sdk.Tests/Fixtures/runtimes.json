@@ -2,7 +2,7 @@
   {
     "harness": "codex",
     "provider": "openai",
-    "size": "tiny",
+    "size": "small",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -29,7 +29,7 @@
   {
     "harness": "codex",
     "provider": "openrouter",
-    "size": "tiny",
+    "size": "small",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -56,7 +56,7 @@
   {
     "harness": "codex",
     "provider": "gateway",
-    "size": "tiny",
+    "size": "small",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -83,7 +83,7 @@
   {
     "harness": "codex",
     "provider": "bedrock",
-    "size": "tiny",
+    "size": "small",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -110,7 +110,7 @@
   {
     "harness": "claude",
     "provider": "anthropic",
-    "size": "standard",
+    "size": "medium",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -137,7 +137,7 @@
   {
     "harness": "claude",
     "provider": "openrouter",
-    "size": "standard",
+    "size": "medium",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -164,7 +164,7 @@
   {
     "harness": "claude",
     "provider": "gateway",
-    "size": "standard",
+    "size": "medium",
     "nodes": {
       "work": {
         "kind": "agent",
@@ -191,7 +191,7 @@
   {
     "harness": "claude",
     "provider": "bedrock",
-    "size": "standard",
+    "size": "medium",
     "nodes": {
       "work": {
         "kind": "agent",

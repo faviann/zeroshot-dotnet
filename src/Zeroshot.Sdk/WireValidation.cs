@@ -51,8 +51,6 @@ internal static class WireValidation
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
         var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
         foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
-        // The native decoder accepts these legacy spellings although its generated enum schema does not.
-        definitions["RunSize"]!["enum"] = new JsonArray("small", "medium", "large", "tiny", "standard");
         // Rust string::trim and byte counts, rather than a regex character bound, own instructions.
         definitions["NodeInstructions"]!.AsObject().Remove("pattern");
         // These collection restrictions belong to WorkerDescriptor::validate, not standalone serde DTOs.
