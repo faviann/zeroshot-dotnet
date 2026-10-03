@@ -184,6 +184,7 @@ public sealed class ContractTests
         Reject(() => NativeJson.DeserializeUtf8<PayloadType>("""{"kind":"null","extra":true}"""u8));
         // Escaped tags must receive the same native-only validation as literal spellings.
         Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"co\u0064ex","provider":"openai","size":"small","nodes":{"work":{"kind":"ag\u0065nt","model":"ok","connections":{"a":["TOKEN"],"b":["TOKEN"]}}}}"""u8));
+        Reject(() => NativeJson.DeserializeUtf8<RuntimePlan>("""{"harness":"codex","provider":"openai","size":"small","nodes":{"work":{"kind":"agent","model":"ok","connections":{"a":["NOT-AN-ENV-NAME"]}}}}"""u8));
         var duplicateErrors = Encoding.UTF8.GetString(Fixture("worker.json")).Replace("\"timeout\"", "\"cr\\u0061sh\"", StringComparison.Ordinal);
         Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(duplicateErrors)));
         foreach (var (path, value) in new[] { ("graphProfiles", "[]"), ("artifactProfile.allowedTypeIds", "[]"), ("artifactProfile.allowedMediaTypes", "[\"text/plain\",\"text/plain\"]") })

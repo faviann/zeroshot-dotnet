@@ -140,10 +140,7 @@ internal static class WireValidation
             _ = new ConnectionKey(connection.Name);
             if (connection.Value.GetArrayLength() == 0) throw new JsonException("Empty declared connection.");
             foreach (var field in connection.Value.EnumerateArray())
-            {
-                _ = new EnvironmentVariableName(field.GetString()!);
                 if (!names.Add(field.GetString()!)) throw new JsonException("Duplicate declared environment name.");
-            }
         }
         if (names.Count > 64) throw new JsonException("Too many declared environment names.");
     }
