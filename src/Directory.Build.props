@@ -1,7 +1,7 @@
 <Project>
   <!-- One version and one set of package metadata for the library and the matching locally built CLI. -->
   <PropertyGroup>
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.2.0-preview.1</Version>
     <Authors>faviann</Authors>
     <Copyright>Copyright (c) 2026 faviann</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

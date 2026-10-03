@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Zeroshot.Client" Version="0.1.0-preview.1" />
+    <PackageReference Include="Zeroshot.Client" Version="0.2.0-preview.1" />
   </ItemGroup>
   <ItemGroup>
     <!-- Reuses the binding consumer's controlled peers and the SDK tests' fixtures. -->

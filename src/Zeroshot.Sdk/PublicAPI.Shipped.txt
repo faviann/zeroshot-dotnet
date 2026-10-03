@@ -7,8 +7,6 @@ const Zeroshot.Native.Contracts.ConnectionKinds.Static = "static" -> string!
 const Zeroshot.Native.Contracts.Generation.Maximum = 9007199254740991 -> ulong
 const Zeroshot.Native.Contracts.RunCheckpointsParams.DefaultLimit = 50 -> uint
 const Zeroshot.Native.Contracts.RunCheckpointsParams.MaximumLimit = 100 -> uint
-const Zeroshot.Native.NativeSchemas.NativeVersion = "10.9.0" -> string!
-const Zeroshot.Native.NativeSchemas.SourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa" -> string!
 const Zeroshot.Native.OecpConnection.ProtocolVersion = "openengine.cluster/v1" -> string!
 override abstract Zeroshot.Native.Contracts.AgentAttachEvent.<Clone>$() -> Zeroshot.Native.Contracts.AgentAttachEvent!
 override abstract Zeroshot.Native.Contracts.DashboardAuthoringAction.<Clone>$() -> Zeroshot.Native.Contracts.DashboardAuthoringAction!
@@ -1439,6 +1437,8 @@ override Zeroshot.TerminalEvidence.ToString() -> string!
 override Zeroshot.ZeroshotClientOptions.Equals(object? obj) -> bool
 override Zeroshot.ZeroshotClientOptions.GetHashCode() -> int
 override Zeroshot.ZeroshotClientOptions.ToString() -> string!
+static readonly Zeroshot.Native.NativeSchemas.NativeVersion -> string!
+static readonly Zeroshot.Native.NativeSchemas.SourceRevision -> string!
 static Zeroshot.HistoryCheckpoint.operator !=(Zeroshot.HistoryCheckpoint? left, Zeroshot.HistoryCheckpoint? right) -> bool
 static Zeroshot.HistoryCheckpoint.operator ==(Zeroshot.HistoryCheckpoint? left, Zeroshot.HistoryCheckpoint? right) -> bool
 static Zeroshot.HistoryCheckpoint.Parse(string! json) -> Zeroshot.HistoryCheckpoint!
@@ -5165,6 +5165,9 @@ Zeroshot.Native.NativeHttpFailureKind.Protocol = 4 -> Zeroshot.Native.NativeHttp
 Zeroshot.Native.NativeHttpFailureKind.Redirect = 6 -> Zeroshot.Native.NativeHttpFailureKind
 Zeroshot.Native.NativeHttpFailureKind.SizeLimit = 2 -> Zeroshot.Native.NativeHttpFailureKind
 Zeroshot.Native.NativeHttpFailureKind.Transport = 3 -> Zeroshot.Native.NativeHttpFailureKind
+Zeroshot.Native.NativeHttpOperationCanceledException
+Zeroshot.Native.NativeHttpOperationCanceledException.CorrelationId.get -> System.Guid
+Zeroshot.Native.NativeHttpOperationCanceledException.SendStarted.get -> bool
 Zeroshot.Native.NativeJson
 Zeroshot.Native.NativeMergePlansClient
 Zeroshot.Native.NativeMergePlansClient.CreateAsync(Zeroshot.Native.Contracts.TargetDiscoveryDocument! discovery, Zeroshot.Native.Contracts.MergePlanSubmitRequest! request, Zeroshot.Native.TargetControlCredentials! credentials, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Zeroshot.Native.NativeAttempt<Zeroshot.Native.Contracts.MergePlan!>!>!
@@ -5263,7 +5266,7 @@ Zeroshot.Native.OecpConnection.Completion.get -> System.Threading.Tasks.Task<Zer
 Zeroshot.Native.OecpConnection.CreateRequest() -> Zeroshot.Native.OecpRequest!
 Zeroshot.Native.OecpConnection.Dispose() -> void
 Zeroshot.Native.OecpConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Zeroshot.Native.OecpConnection.InitializeAsync(Zeroshot.Native.Contracts.InitializeParams? parameters = null, Zeroshot.Native.OecpRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Zeroshot.Native.Contracts.InitializeResult!>!
+Zeroshot.Native.OecpConnection.InitializeAsync(Zeroshot.Native.OecpRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Zeroshot.Native.Contracts.InitializeResult!>!
 Zeroshot.Native.OecpConnection.Runs.get -> Zeroshot.Native.OecpRunsClient!
 Zeroshot.Native.OecpConnectionFailure
 Zeroshot.Native.OecpConnectionFailure.<Clone>$() -> Zeroshot.Native.OecpConnectionFailure!
@@ -5349,6 +5352,8 @@ Zeroshot.Native.TransportOptions.RequestTimeout.init -> void
 Zeroshot.Native.TransportOptions.ReservedControlRequests.get -> int
 Zeroshot.Native.TransportOptions.ReservedControlRequests.init -> void
 Zeroshot.Native.TransportOptions.TransportOptions() -> void
+Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.get -> string?
+Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.init -> void
 Zeroshot.Native.TransportOptions.WebSocketPingInterval.get -> System.TimeSpan
 Zeroshot.Native.TransportOptions.WebSocketPingInterval.init -> void
 Zeroshot.Native.TransportOptions.WebSocketPongTimeout.get -> System.TimeSpan

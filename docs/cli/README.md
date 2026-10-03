@@ -18,7 +18,7 @@ so that the CLI and the SDK have the same version and source commit:
 ```sh
 git clone https://github.com/faviann/zeroshot-dotnet-sdk.git
 cd zeroshot-dotnet-sdk
-git checkout v0.1.0-preview.1
+git checkout v0.2.0-preview.1
 dotnet build src/Zeroshot.Cli --configuration Release
 dotnet run --project src/Zeroshot.Cli --configuration Release --no-build -- --version
 ```
@@ -27,9 +27,9 @@ To use it as a .NET tool, pack it and install it from that local folder:
 
 ```sh
 dotnet pack src/Zeroshot.Cli --configuration Release --output ./packages
-dotnet tool install --global Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages
-dotnet tool install --local Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages   # needs a tool manifest
-dotnet tool install Zeroshot.Cli --version 0.1.0-preview.1 --source ./packages --tool-path ./tools
+dotnet tool install --global Zeroshot.Cli --version 0.2.0-preview.1 --source ./packages
+dotnet tool install --local Zeroshot.Cli --version 0.2.0-preview.1 --source ./packages   # needs a tool manifest
+dotnet tool install Zeroshot.Cli --version 0.2.0-preview.1 --source ./packages --tool-path ./tools
 ```
 
 Run a local tool as `dotnet tool run zeroshot-dotnet -- ARGUMENTS`. Without `--`,
@@ -37,10 +37,10 @@ Run a local tool as `dotnet tool run zeroshot-dotnet -- ARGUMENTS`. Without `--`
 and its `Zeroshot.Client` library's versions, each followed by `+` and the source commit.
 
 These are SDK versions, independent of native Zeroshot versions. Version
-`0.1.0-preview.1` supports native Zeroshot 10.9.0 at source
-`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only, so its configurations declare that release.
-The next release, built from `main`, supports native 10.10.0 at source
-`3ee1192cec359a0b997f464e703a936e8b67d63c` only, as the examples on this page do.
+`0.2.0-preview.1` supports native Zeroshot 10.10.0 at source
+`3ee1192cec359a0b997f464e703a936e8b67d63c` only. Version `0.1.0-preview.1` supports native
+10.9.0 at source `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only, so its configurations
+declare that release.
 
 ## Prepare a retained request
 
