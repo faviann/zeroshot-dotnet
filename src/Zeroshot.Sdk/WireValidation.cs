@@ -55,12 +55,14 @@ internal static class WireValidation
         return definitions;
     }
 
+    // JsonSchema.Net evaluates patterns with .NET Regex, where $ also matches before a final LF.
+    // JSON Schema patterns are ECMA-262, where it matches only at the end (issue #105).
     private static void FixPatterns(JsonNode node)
     {
         if (node is JsonObject obj)
         {
             if (obj["pattern"] is JsonValue pattern && pattern.TryGetValue<string>(out var text) && text.EndsWith('$'))
-                obj["pattern"] = text + "(?![\\s\\S])"; // Require the actual end, including after a trailing LF.
+                obj["pattern"] = text + "(?![\\s\\S])";
             foreach (var property in obj.ToArray()) if (property.Value is { } child) FixPatterns(child);
         }
         else if (node is JsonArray array) foreach (var child in array) if (child is not null) FixPatterns(child);

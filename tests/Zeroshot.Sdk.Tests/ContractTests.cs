@@ -163,6 +163,14 @@ public sealed class ContractTests
     }
 
     [Test]
+    public void SchemaPatternsRejectATrailingNewline()
+    {
+        var worker = JsonNode.Parse(Fixture("worker.json"))!;
+        worker["binding"]!["protocol"] = "external\n";
+        Reject(() => NativeJson.DeserializeUtf8<WorkerDescriptor>(Encoding.UTF8.GetBytes(worker.ToJsonString())));
+    }
+
+    [Test]
     public void WorkerDescriptorInvariantsFailLocally()
     {
         var worker = JsonNode.Parse(Fixture("worker.json"))!;
