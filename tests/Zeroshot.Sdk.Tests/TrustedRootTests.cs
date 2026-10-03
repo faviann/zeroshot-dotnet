@@ -89,6 +89,16 @@ public sealed class TrustedRootTests
         return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(10));
     }
 
+    private static X509Certificate2 Intermediate(X509Certificate2 root)
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=Intermediate", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign, true));
+        using var issued = request.Create(root, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(8), [5, 6, 7, 8]);
+        return issued.CopyWithPrivateKey(key);
+    }
+
     private sealed class RootFile : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".pem");
@@ -97,12 +107,13 @@ public sealed class TrustedRootTests
         public void Dispose() => File.Delete(Path);
     }
 
-    /// <summary>A loopback TLS target whose certificate the root issued. It answers a WebSocket upgrade with 101 and any other request with 404.</summary>
+    /// <summary>A loopback TLS target whose certificate an intermediate of the root issued, as Caddy's internal CA does. It answers a WebSocket upgrade with 101 and any other request with 404.</summary>
     private sealed class TlsTarget : IAsyncDisposable
     {
         private readonly TcpListener listener = new(IPAddress.Loopback, 0);
         private readonly CancellationTokenSource stop = new();
         private readonly X509Certificate2 certificate;
+        private readonly SslStreamCertificateContext chain;
         private readonly Task serving;
         private readonly Uri origin;
 
@@ -115,10 +126,12 @@ public sealed class TrustedRootTests
             else names.AddDnsName(hostName);
             request.CertificateExtensions.Add(names.Build());
             request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
-            using var issued = request.Create(root, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(5), [1, 2, 3, 4]);
+            using var intermediate = Intermediate(root);
+            using var issued = request.Create(intermediate, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(5), [1, 2, 3, 4]);
             using var withKey = issued.CopyWithPrivateKey(key);
             // Windows TLS (SChannel) cannot serve an ephemeral private key; a PKCS#12 round trip gives it a usable one.
             certificate = X509CertificateLoader.LoadPkcs12(withKey.Export(X509ContentType.Pkcs12), null);
+            chain = SslStreamCertificateContext.Create(certificate, [X509CertificateLoader.LoadCertificate(intermediate.RawData)], offline: true);
             listener.Start();
             origin = new Uri($"https://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/");
             serving = Serve();
@@ -142,7 +155,7 @@ public sealed class TrustedRootTests
             await using var tls = new SslStream(socket.GetStream());
             try
             {
-                await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, stop.Token);
+                await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificateContext = chain }, stop.Token);
                 var header = new List<byte>();
                 var one = new byte[1];
                 while (!Encoding.ASCII.GetString(header.ToArray()).EndsWith("\r\n\r\n", StringComparison.Ordinal))
