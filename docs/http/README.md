@@ -80,6 +80,31 @@ shared after it has been disposed. Caller-created handlers must preserve these
 settings. A supplied HttpClient must have an infinite timeout or a timeout at least
 as long as `RequestTimeout`; a shorter setting is rejected before contact.
 
+## Trusted root
+
+Set `TransportOptions.TrustedRootCertificatePath` to a file that holds one PEM
+certificate, and every HTTPS connection the SDK creates trusts only that root: owned
+HTTP requests, every OECP WebSocket connection and handlers from `CreateHttpHandler`.
+The target certificate must chain to exactly that root for server authentication.
+The system store plays no part, the host name must still match, and revocation is
+not checked. `ZeroshotClient` and `ConnectionResolverClient` take the setting through
+their `TransportOptions`.
+
+```csharp
+var transport = new TransportOptions { TrustedRootCertificatePath = "/etc/zeroshot/root.crt" };
+await using var client = new ZeroshotClient(new ZeroshotClientOptions { Target = origin, NativeBinding = binding, Transport = transport });
+```
+
+Creating a client for an HTTPS origin reads the file once and throws
+`ArgumentException` naming `TrustedRootCertificatePath` when it is missing,
+unreadable or not a certificate, before anything is sent. Each new TLS connection
+reads the file again, so replacing it takes effect on the next connection; a file
+that cannot be read then fails that connection as a `Transport` failure. A numeric
+loopback HTTP origin and named pipe or Unix socket connections ignore the setting.
+A supplied HttpClient conceals its handler, so supplying one together with the
+setting for an HTTPS origin throws `ArgumentException`; leave the setting out of the
+`TransportOptions` passed to `ForHttp` in that case.
+
 An arbitrary HttpClient conceals its handler. Supplying one explicitly asserts
 that its entire handler chain preserves certificate/hostname validation, never
 follows redirects or downgrades, never injects authentication, bounds actual connections per origin and connection
