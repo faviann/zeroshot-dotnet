@@ -299,16 +299,20 @@ public sealed class HttpDiscoveryTests
     [Test]
     public async Task TlsHandshakeUsesTheConnectDeadline()
     {
+        // The test connects the TCP socket itself, so the handler's connect budget can only run out inside the TLS
+        // handshake. An SDK-made connect raced that budget on a loaded host, and a lost race left no connection to accept.
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
-        using var native = NativeClient.ForHttp(new()
-        {
-            Origin = new Uri($"https://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/"),
-            Transport = new() { ConnectTimeout = TimeSpan.FromMilliseconds(150), RequestTimeout = TimeSpan.FromSeconds(5) }
-        });
-        var request = native.Target.DiscoverAsync();
-        using var socket = await listener.AcceptTcpClientAsync(); // Deliberately never answer the TLS handshake.
-        var failure = await Failure(request, NativeHttpFailureKind.Deadline);
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port);
+        using var server = await listener.AcceptTcpClientAsync().WaitAsync(TimeSpan.FromSeconds(30)); // Never answers the TLS handshake.
+        var transport = new TransportOptions { ConnectTimeout = TimeSpan.FromMilliseconds(150), RequestTimeout = TimeSpan.FromSeconds(5) };
+        var handler = NativeClient.CreateHttpHandler(transport);
+        handler.ConnectCallback = (_, _) => ValueTask.FromResult<Stream>(client.GetStream());
+        using var native = NativeClient.ForHttp(new() { Origin = new Uri($"https://127.0.0.1:{port}/"), Transport = transport },
+            new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan }, ownsHttpClient: true);
+        var failure = await Failure(native.Target.DiscoverAsync(), NativeHttpFailureKind.Deadline);
         Check(failure.Stage == "Connect");
     }
 
