@@ -1,4 +1,4 @@
-// Browser dashboard wire shapes from native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa:
+// Browser dashboard wire shapes from the pinned native source:
 // zeroshot/src/profile_ui.rs, workspace.rs, profile_ui/{catalog,outcomes,data}.rs. Native publishes
 // no schema for these serde DTOs; nested execution definitions reuse the pinned generated contracts.
 using System.Collections.Immutable;

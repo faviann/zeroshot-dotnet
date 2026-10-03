@@ -9,7 +9,7 @@ using static Zeroshot.Client.Tests.OecpTests;
 
 namespace Zeroshot.Client.Tests;
 
-// Fixtures/cluster holds verbatim pinned native 10.9.0 protocol goldens (protocol/openengine-cluster/v1).
+// Fixtures/cluster holds verbatim pinned native protocol goldens (protocol/openengine-cluster/v1).
 public sealed class ClusterTests
 {
     private const string Operational = """{"labels":{},"logLevel":"info","dispatchState":"active","inFlight":0}""";

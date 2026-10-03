@@ -1,4 +1,4 @@
-// Native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa workspace checkpoint and recovery contracts.
+// Pinned native workspace checkpoint and recovery contracts.
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;

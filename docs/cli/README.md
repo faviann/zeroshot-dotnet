@@ -38,7 +38,9 @@ and its `Zeroshot.Client` library's versions, each followed by `+` and the sourc
 
 These are SDK versions, independent of native Zeroshot versions. Version
 `0.1.0-preview.1` supports native Zeroshot 10.9.0 at source
-`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only.
+`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only, so its configurations declare that release.
+The next release, built from `main`, supports native 10.10.0 at source
+`3ee1192cec359a0b997f464e703a936e8b67d63c` only, as the examples on this page do.
 
 ## Prepare a retained request
 
@@ -187,7 +189,7 @@ Secret values are never stored in this file. Unknown or duplicate fields are ref
 {
   "schema": "zeroshot-dotnet/target-config/v1",
   "target": "https://target.example/",
-  "nativeBinding": { "provenance": "caller-supplied", "release": "10.9.0", "sourceRevision": "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa" },
+  "nativeBinding": { "provenance": "caller-supplied", "release": "10.10.0", "sourceRevision": "3ee1192cec359a0b997f464e703a936e8b67d63c" },
   "credentials": {
     "targetBearerEnvironment": "ZEROSHOT_TARGET_TOKEN",
     "githubTokenEnvironment": "ZEROSHOT_GITHUB_TOKEN",

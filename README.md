@@ -1,7 +1,7 @@
 # Zeroshot .NET SDK
 
-`Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.9.0** at source
-`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. It currently provides typed execution
+`Zeroshot.Client` is a .NET 10 library for native Zeroshot **10.10.0** at source
+`3ee1192cec359a0b997f464e703a936e8b67d63c`. It currently provides typed execution
 definitions, local wire validation, immutable credential-free prepared submissions,
 [bounded HTTP discovery, session acquisition, direct submission attempts, private target bootstrap and private operator diagnostics/history exports](docs/http/README.md), and
 [WebSocket OECP inspection, bounded watch/log/attachment subscriptions, native force attempts, checkpoints and workspace recovery, shared cluster bindings and trusted run submit](docs/oecp/README.md) of existing targets,
@@ -158,7 +158,10 @@ package owner opens the package settings on GitHub, changes the visibility to pu
 re-runs the failed job. Nothing is pushed again.
 
 SDK versions are independent of native Zeroshot versions. `0.1.0-preview.1` supports
-native Zeroshot 10.9.0 at source `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only.
+native Zeroshot 10.9.0 at source `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` only. The next
+release, built from `main`, supports native 10.10.0 at source
+`3ee1192cec359a0b997f464e703a936e8b67d63c` only. Move your native pin and target image
+together with the SDK.
 
 ## Using the published package
 

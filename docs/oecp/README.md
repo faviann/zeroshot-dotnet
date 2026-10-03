@@ -84,8 +84,8 @@ native `run/force`; disposing a connection never stops a native run.
 responses, fragmentation, bounds, cancellation, disconnects and liveness.
 `OecpContractTests` verifies the full source-backed inspection closure in
 `Schemas/oecp.schema.json`, extracted from the pinned
-[`schema.json`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/protocol/openengine-cluster/v1/schema.json)
-and [`native-v2-observation.schema.json`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/protocol/openengine-cluster/v1/native-v2-observation.schema.json).
+[`schema.json`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/protocol/openengine-cluster/v1/schema.json)
+and [`native-v2-observation.schema.json`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/protocol/openengine-cluster/v1/native-v2-observation.schema.json).
 Shared definitions remain in `contracts.schema.json`; `TokenCount` names the native
 inline token-counter schema.
 `InitializeAsync` always sends `openengine.cluster/v1`, and a successful response
@@ -530,6 +530,6 @@ user. Other tests cover owned closure, borrowed-pipe reuse, remote and non-canon
 path refusal, and connect cancellation and deadline. These are simulated endpoints.
 Native conformance is recorded separately by
 `tools/native-witness/windows-controller.ps1` on Windows x64, the only Windows
-architecture native 10.9.0 ships. The packed `ControllerConsumer` runs against a stock
+architecture native 10.10.0 ships. The packed `ControllerConsumer` runs against a stock
 local-run controller's pipe and checks the same support and refusal matrix as the
 Unix witness.

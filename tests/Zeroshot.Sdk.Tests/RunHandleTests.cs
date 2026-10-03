@@ -10,10 +10,11 @@ namespace Zeroshot.Sdk.Tests;
 
 public sealed class RunHandleTests
 {
-    private const string Revision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
+    private static readonly string Release = NativeSchemas.NativeVersion;
+    private static readonly string Revision = NativeSchemas.SourceRevision;
     private const string RunA = "0195af77-1000-7000-8000-000000000001";
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-    private static readonly NativeBinding Supported = NativeBinding.CallerSupplied("10.9.0", Revision);
+    private static readonly NativeBinding Supported = NativeBinding.CallerSupplied(Release, Revision);
     private static T Catch<T>(Action action) where T : Exception
     {
         try { action(); }
@@ -71,7 +72,7 @@ public sealed class RunHandleTests
     {
         var reference = new RunReference(new Uri("https://target.example"), new RunId(RunA), Supported);
         var json = reference.ToJson();
-        Check(json == $$$"""{"schema":"zeroshot-dotnet/run-reference/v1","target":"https://target.example/","runId":"{{{RunA}}}","nativeBinding":{"provenance":"caller-supplied","release":"10.9.0","sourceRevision":"{{{Revision}}}"}}""", json);
+        Check(json == $$$"""{"schema":"zeroshot-dotnet/run-reference/v1","target":"https://target.example/","runId":"{{{RunA}}}","nativeBinding":{"provenance":"caller-supplied","release":"{{{Release}}}","sourceRevision":"{{{Revision}}}"}}""", json);
         foreach (var (from, to) in new[]
         {
             ("run-reference/v1", "run-reference/v2"),
@@ -81,7 +82,7 @@ public sealed class RunHandleTests
             ("\"sourceRevision\"", "\"hash\":\"x\",\"sourceRevision\""),
             ("https://target.example/", "https://target.example/path"),
             ("https://target.example/", "http://target.example/"),
-            ("\"10.9.0\"", "10"),
+            ($"\"{Release}\"", "10"),
         })
             Catch<JsonException>(() => RunReference.Parse(json.Replace(from, to)));
     }

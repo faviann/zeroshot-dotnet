@@ -81,8 +81,8 @@ internal static class Required
     public static bool MayBeUnobserved(bool windows, string entry) => windows && entry == "error attempt.cancelled";
 
     public const string Repository = "https://github.com/faviann/zeroshot-dotnet-sdk";
-    public const string NativeVersion = "10.9.0";
-    public const string NativeSourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
+    public const string NativeVersion = "10.10.0";
+    public const string NativeSourceRevision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
 }
 
 internal static class Tools

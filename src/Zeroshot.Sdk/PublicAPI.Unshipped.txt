@@ -4,5 +4,9 @@ Zeroshot.Native.NativeHttpOperationCanceledException.CorrelationId.get -> System
 Zeroshot.Native.NativeHttpOperationCanceledException.SendStarted.get -> bool
 *REMOVED*Zeroshot.Native.OecpConnection.InitializeAsync(Zeroshot.Native.Contracts.InitializeParams? parameters = null, Zeroshot.Native.OecpRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Zeroshot.Native.Contracts.InitializeResult!>!
 Zeroshot.Native.OecpConnection.InitializeAsync(Zeroshot.Native.OecpRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Zeroshot.Native.Contracts.InitializeResult!>!
+*REMOVED*const Zeroshot.Native.NativeSchemas.NativeVersion = "10.9.0" -> string!
+*REMOVED*const Zeroshot.Native.NativeSchemas.SourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa" -> string!
+static readonly Zeroshot.Native.NativeSchemas.NativeVersion -> string!
+static readonly Zeroshot.Native.NativeSchemas.SourceRevision -> string!
 Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.get -> string?
 Zeroshot.Native.TransportOptions.TrustedRootCertificatePath.init -> void

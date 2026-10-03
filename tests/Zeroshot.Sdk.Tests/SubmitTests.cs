@@ -15,7 +15,7 @@ public sealed class SubmitTests
 {
     private const string Acknowledged = "0195af77-1000-7000-8000-000000000002";
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-    private static readonly NativeBinding Supported = NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa");
+    private static readonly NativeBinding Supported = NativeBinding.CallerSupplied(NativeSchemas.NativeVersion, NativeSchemas.SourceRevision);
     private static PreparedSubmission Retained() => PreparedSubmission.ImportUtf8(File.ReadAllBytes(Path.Combine(Fixtures, "prepared.json")));
     private static string Receipt(string id) => JsonSerializer.Serialize(new { runId = id });
 
@@ -184,6 +184,12 @@ public sealed class SubmitTests
             var error = await CatchAsync<SubmissionException>(() => missing.SubmitAsync(retained));
             Check(error.Attempt.Outcome == NativeAttemptOutcome.NotSent &&
                 error.InnerException is NativeBindingException { Reason: NativeBindingProblem.Missing }, "Ordinary binding refusal carries the attempt.");
+        }
+        await using (var previous = Client(handler, NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa")))
+        {
+            var attempt = await previous.SubmitAttemptAsync(Retained());
+            Check(attempt is { Outcome: NativeAttemptOutcome.NotSent, Failure: NativeBindingException { Reason: NativeBindingProblem.Mismatched } },
+                "The previous native release is refused.");
         }
         var sdk = Client(handler);
         await CatchAsync<ArgumentNullException>(() => sdk.SubmitAttemptAsync(null!));

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Pinned native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa OECP inspection, cluster admission/lifecycle/observation, trusted run submit, run subscription and workspace recovery closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
+  "$comment": "Pinned native OECP inspection, cluster admission/lifecycle/observation, trusted run submit, run subscription and workspace recovery closure; shared definitions come from contracts.schema.json. TokenCount and UnixTimestampMillis name native inline inputTokens and timestamp schemas.",
   "$defs": {
     "ActiveExecution": {
       "additionalProperties": false,

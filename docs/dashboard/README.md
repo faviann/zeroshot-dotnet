@@ -1,7 +1,7 @@
 # Browser dashboard routes
 
-`native.Dashboard` binds native's browser UI router at native 10.9.0 / source
-`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa` (`profile_ui.rs`, `profile_ui/server.rs`,
+`native.Dashboard` binds native's browser UI router at native 10.10.0 / source
+`3ee1192cec359a0b997f464e703a936e8b67d63c` (`profile_ui.rs`, `profile_ui/server.rs`,
 `workspace.rs`). Construct the native client with the UI's configured public origin:
 `zeroshot target serve --public-origin` for a direct target's UI mount, or the
 loopback origin of `zeroshot ui`. A target built without UI support answers these
