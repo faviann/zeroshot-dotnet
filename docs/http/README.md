@@ -13,8 +13,8 @@ normalization. Discovery sends one GET to `/.well-known/zeroshot-native-v2` with
 body or library-added credentials. There is no HEAD preflight or application retry.
 
 Discovery models retain all fixed fields, OAuth/login descriptors and all eight
-known extension descriptors at native 10.9.0 source
-`75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`. Use `NativeJson` for validated serialization.
+known extension descriptors at native 10.10.0 source
+`3ee1192cec359a0b997f464e703a936e8b67d63c`. Use `NativeJson` for validated serialization.
 The hosted-runs and hosted-workspace-recovery descriptor fields use snake_case;
 history, connections, profiles and merge plans use their native camelCase fields.
 Known objects reject unknown fields; unknown names inside `extensions` are ignored
@@ -286,7 +286,7 @@ credentials omits values, bearers and remote problem text; explicit property
 access, `NativeJson` serialization and opted-in raw diagnostics reveal them.
 
 `HttpConnectionTests.cs` covers every operation against controlled hosted
-authorities. Stock native 10.9.0 only consumes these routes and serves none, so
+authorities. Stock native 10.10.0 only consumes these routes and serves none, so
 the native witness cannot exercise them. Live hosted interoperability is
 unverified.
 
@@ -356,7 +356,7 @@ the GitHub token, bearers and remote problem text. Explicit property access and
 `NativeJson` serialization reveal them.
 
 `HttpProfileTests.cs` covers every operation against controlled hosted authorities.
-Stock native 10.9.0 only consumes these routes and serves none, so the native
+Stock native 10.10.0 only consumes these routes and serves none, so the native
 witness cannot exercise them. Live hosted interoperability is unverified.
 
 ## Hosted run lifecycle
@@ -426,7 +426,7 @@ cancellation after dispatch is `Unknown`. `NotSent` means nothing was dispatched
 Results must fit in 64 KiB (or the smaller configured limit).
 
 `HttpHostedRunTests.cs` covers every route and failure mode against controlled hosted
-peers. Stock native 10.9.0 only consumes these routes and serves none, so the native
+peers. Stock native 10.10.0 only consumes these routes and serves none, so the native
 witness cannot exercise them. Live hosted interoperability is unverified.
 
 ## Hosted merge plans
@@ -488,7 +488,7 @@ need not be terminal. Results may be up to 1 MiB (or the smaller configured limi
 native's merge-plan bound.
 
 `HttpMergePlanTests.cs` covers the three operations against controlled hosted
-authorities. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct
+authorities. Stock native 10.10.0 serves no merge-plan routes and refuses them for direct
 targets, so the native witness cannot exercise them. Live hosted interoperability is
 unverified.
 
@@ -531,7 +531,7 @@ other than the requested ones, or another run's discard) is `Unknown`. Results m
 in 64 KiB (or the smaller configured limit), native's hosted bound.
 
 `HttpHostedRecoveryTests.cs` covers the three operations against controlled hosted peers
-with source-backed fixtures. Stock native 10.9.0 only consumes these routes and serves
+with source-backed fixtures. Stock native 10.10.0 only consumes these routes and serves
 none, so the native witness cannot exercise them. Live hosted interoperability is
 unverified.
 
@@ -621,7 +621,7 @@ controls). A token native would accept but that contains spaces or non-ASCII
 characters cannot be verified through this binding.
 
 `revocationEndpoint` stays visible on discovery and `OAuthMetadata.RevocationEndpoint`
-and is validated like native. Native 10.9.0 never calls it, so there is no revocation
+and is validated like native. Native 10.10.0 never calls it, so there is no revocation
 or logout operation; the coverage ledger keeps it as an advertised-only gap.
 
 Default formatting of device authorizations, tokens, attempts,
@@ -630,7 +630,7 @@ tokens and remote error text. Explicit property access and `NativeJson`
 serialization reveal them.
 
 `HttpOAuthTests.cs` covers every flow and failure against controlled hosted
-authorities without production credentials. Stock native 10.9.0 consumes these
+authorities without production credentials. Stock native 10.10.0 consumes these
 endpoints but serves none, so the native witness cannot exercise them. Live hosted
 interoperability is unverified.
 
@@ -695,7 +695,7 @@ the client, results and exceptions omits the bearer and resolved values.
 table, malformed/oversized/declared-oversized/truncated bodies, the deadline and cancellation, and
 controlled HTTPS endpoints: an off-target resolver that receives only its own
 bearer, a 307 whose `Location` is never contacted, and a redirect that a
-non-compliant supplied client follows, still classified `InvalidResponse`. Stock native 10.9.0 only
+non-compliant supplied client follows, still classified `InvalidResponse`. Stock native 10.10.0 only
 calls this contract and serves none, so no native witness applies.
 
 ## Run history
@@ -836,7 +836,7 @@ malformed problem, a lost reply, a deadline or post-dispatch cancellation is
 
 `PrivateBootstrapTests.cs` covers the exact request, refusal classification,
 unknown-effect contact and pre-dispatch refusals. The
-[native witness](../../tools/native-witness/README.md) runs a stock 10.9.0
+[native witness](../../tools/native-witness/README.md) runs a stock 10.10.0
 private-mode target with isolated key and capability material. It proves invalid,
 accepted and closed outcomes.
 

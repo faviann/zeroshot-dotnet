@@ -1,4 +1,4 @@
-// Native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa shared cluster admission, lifecycle and
+// Pinned native shared cluster admission, lifecycle and
 // observation contracts, plus the trusted run/submit result. Backend support is per target.
 using System.Collections.Immutable;
 using System.Text.Json;

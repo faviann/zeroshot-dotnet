@@ -15,9 +15,9 @@ public sealed class RunTests
 {
     private const string Proposed = PrepareTests.RunId;
     private const string Acknowledged = "0195af77-1000-7000-8000-000000000002";
-    private const string Revision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
+    private const string Revision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
 
-    private static readonly string Binding = $$"""{ "provenance": "caller-supplied", "release": "10.9.0", "sourceRevision": "{{Revision}}" }""";
+    private static readonly string Binding = $$"""{ "provenance": "caller-supplied", "release": "10.10.0", "sourceRevision": "{{Revision}}" }""";
 
     /// <summary>A workspace holding target.json for <paramref name="peer"/> and a request that proposes <see cref="Proposed"/>.</summary>
     private static CliWorkspace Workspace(TargetPeer peer, bool binding = true)

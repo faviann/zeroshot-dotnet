@@ -93,8 +93,8 @@ internal static class CommandLine
         return new Invocation(args[0], flags, values, positionals);
     }
 
-    public const string Usage = """
-        zeroshot-dotnet: thin command line over the Zeroshot .NET SDK (native 10.9.0).
+    public const string Usage = $"""
+        zeroshot-dotnet: thin command line over the Zeroshot .NET SDK (native {Native.NativeSchemas.NativeVersion}).
 
         Usage:
           zeroshot-dotnet prepare --request FILE --out FILE [--overwrite]

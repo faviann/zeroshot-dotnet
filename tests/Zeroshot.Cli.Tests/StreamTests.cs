@@ -15,7 +15,7 @@ public sealed class StreamTests
 {
     private const string RunId = "0195af77-1000-7000-8000-000000000002";
     private const string Execution = "nv2-execution-1";
-    private const string Revision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
+    private const string Revision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
     private const ulong Timestamp = 1_767_225_600_000; // 2026-01-01T00:00:00Z
 
     private static CliWorkspace Workspace(TargetPeer peer, string transport = "{}")
@@ -23,7 +23,7 @@ public sealed class StreamTests
         var workspace = new CliWorkspace();
         workspace.Write("target.json", $$"""
             { "schema": "zeroshot-dotnet/target-config/v1", "target": "{{peer.Origin}}",
-              "nativeBinding": { "provenance": "caller-supplied", "release": "10.9.0", "sourceRevision": "{{Revision}}" },
+              "nativeBinding": { "provenance": "caller-supplied", "release": "10.10.0", "sourceRevision": "{{Revision}}" },
               "transport": {{transport}}, "observation": { "recoveryDelay": "0ms" } }
             """);
         return workspace;

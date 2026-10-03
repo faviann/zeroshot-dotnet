@@ -6,7 +6,7 @@ using Zeroshot.Native.Execution;
 namespace Zeroshot.Native;
 
 /// <summary>
-/// Calls one host-owned connection-resolver callback as native hosting does (native 10.9.0
+/// Calls one host-owned connection-resolver callback as native hosting does (pinned native
 /// <c>native_v2_hosting/connections.rs</c>). The endpoint is the host's own HTTPS authority, never a
 /// target capability route, and the resolver bearer is sent only to it. There is no retry.
 /// </summary>

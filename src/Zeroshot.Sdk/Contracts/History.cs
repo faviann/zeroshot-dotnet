@@ -1,4 +1,4 @@
-// Native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa public run-history wire records
+// Pinned native public run-history wire records
 // (native_v2_observability/history/{wire,status,control}.rs, v2_run_ledger.rs). Native publishes
 // no schema for them; nested graph/runtime/source/result/outcome values use the pinned schemas.
 using System.Collections.Immutable;

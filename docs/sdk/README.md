@@ -8,7 +8,7 @@ needs none of the SDK's binding, waiting or recovery policy.
 await using var zeroshot = new ZeroshotClient(new ZeroshotClientOptions
 {
     Target = new Uri("https://target.example/"),
-    NativeBinding = NativeBinding.CallerSupplied("10.9.0", "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"),
+    NativeBinding = NativeBinding.CallerSupplied("10.10.0", "3ee1192cec359a0b997f464e703a936e8b67d63c"),
 });
 
 RunResult done = await zeroshot.RunAsync(request, runCredentials, timeout: null, ct); // submit, then wait
@@ -96,7 +96,7 @@ reported as remote attestation. Before each run operation, the SDK refuses with 
 `NativeBindingException` (inside a `NotSent` attempt for submission) with:
 
 - `Missing` when the client has no binding;
-- `Mismatched` when the binding is not native 10.9.0 at `75ae54b6…`, or when a reopened
+- `Mismatched` when the binding is not native 10.10.0 at `3ee1192c…`, or when a reopened
   reference's binding differs from the client's.
 
 Neither case dispatches anything. Discovery and every other `NativeClient` call stay
@@ -105,7 +105,7 @@ available. `run.Reference` throws `Missing` when there is no binding to record.
 A `RunReference` is the exact target, run ID and binding, with no credentials or history:
 
 ```json
-{"schema":"zeroshot-dotnet/run-reference/v1","target":"https://target.example/","runId":"…","nativeBinding":{"provenance":"caller-supplied","release":"10.9.0","sourceRevision":"75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa"}}
+{"schema":"zeroshot-dotnet/run-reference/v1","target":"https://target.example/","runId":"…","nativeBinding":{"provenance":"caller-supplied","release":"10.10.0","sourceRevision":"3ee1192cec359a0b997f464e703a936e8b67d63c"}}
 ```
 
 `Parse` accepts exactly these fields. `GetRun(reference)` rejects a different target; it

@@ -1,4 +1,4 @@
-// Hosted run lifecycle wire shapes from native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa
+// Hosted run lifecycle wire shapes from the pinned native source
 // (openengine-cluster-protocol native_v2_hosted.rs).
 using System.Collections.Immutable;
 using System.Text.Json;

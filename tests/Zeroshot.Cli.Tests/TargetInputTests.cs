@@ -11,7 +11,7 @@ public sealed class TargetInputTests
 {
     private const string TargetBearer = "ZS_CLI_TEST_TARGET_BEARER";
     private const string ProviderKey = "ZS_CLI_TEST_PROVIDER_KEY";
-    private const string Revision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa";
+    private const string Revision = "3ee1192cec359a0b997f464e703a936e8b67d63c";
     /// <summary>Replaced by the loopback target's origin when a test runs.</summary>
     private const string Loopback = "LOOPBACK-ORIGIN";
 
@@ -22,7 +22,7 @@ public sealed class TargetInputTests
         {
           "schema": "zeroshot-dotnet/target-config/v1",
           "target": "{{target}}",
-          "nativeBinding": { "provenance": "caller-supplied", "release": "10.9.0", "sourceRevision": "{{Revision}}" },
+          "nativeBinding": { "provenance": "caller-supplied", "release": "10.10.0", "sourceRevision": "{{Revision}}" },
           "credentials": {
             "targetBearerEnvironment": "{{TargetBearer}}",
             "connections": { "openai": { "OPENAI_API_KEY": "{{ProviderKey}}" } }
@@ -42,7 +42,7 @@ public sealed class TargetInputTests
         using var workspace = new CliWorkspace();
         workspace.Write("target.json", config.Replace(Loopback, peer.Origin.AbsoluteUri));
         workspace.Write("request.json", PrepareTests.Request());
-        workspace.Write("run.json", $$$"""{"schema":"zeroshot-dotnet/run-reference/v1","target":"{{{peer.Origin}}}","runId":"{{{PrepareTests.RunId}}}","nativeBinding":{"provenance":"caller-supplied","release":"10.9.0","sourceRevision":"{{{Revision}}}"}}""");
+        workspace.Write("run.json", $$$"""{"schema":"zeroshot-dotnet/run-reference/v1","target":"{{{peer.Origin}}}","runId":"{{{PrepareTests.RunId}}}","nativeBinding":{"provenance":"caller-supplied","release":"10.10.0","sourceRevision":"{{{Revision}}}"}}""");
         return await workspace.RunAsync(environment, [.. args, "--json"]);
     }
 

@@ -1,5 +1,7 @@
 # Complete native HTTP/OECP interface at Zeroshot 10.9.0
 
+> The SDK now binds native 10.10.0 at `3ee1192cec359a0b997f464e703a936e8b67d63c`. `v10.9.0...v10.10.0` changes no file under `protocol/` or `crates/`, so this inventory still describes the 10.10.0 interface. Its source links stay pinned to the 10.9.0 revision it was read from.
+
 Research for [Inventory the complete native HTTP/OECP client surface](https://github.com/faviann/zeroshot-dotnet-sdk/issues/13), completed 2026-09-27. This is an inventory for an independently usable, exhaustive native client beneath the higher-level .NET SDK. The user has also selected dashboard, private operator/controller and host-integration client bindings. This report does not choose .NET names, packages, or retry policy, and does not require implementing native servers or launching native processes.
 
 ## Evidence boundary and reading guide

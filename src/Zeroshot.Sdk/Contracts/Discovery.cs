@@ -1,4 +1,4 @@
-// Discovery wire shapes from native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa.
+// Discovery wire shapes from the pinned native source.
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;

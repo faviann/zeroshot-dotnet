@@ -18,14 +18,14 @@ else
 fi
 sha256sum "${cli_files[@]}" >> "$witness_dir/provenance.txt"
 "${cli_command[@]}" --version >> "$witness_dir/provenance.txt"
-python3 - "$witness_dir" "$origin" "$source_revision" <<'PY'
+python3 - "$witness_dir" "$origin" "$native_version" "$source_revision" <<'PY'
 import json, pathlib, sys
-directory, origin, revision = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+directory, origin, release, revision = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
 work = directory / 'cli' / 'work'
 request = json.loads((directory / 'attachment-request.json').read_text())
 (work / 'target.json').write_text(json.dumps({
     'schema': 'zeroshot-dotnet/target-config/v1', 'target': origin + '/',
-    'nativeBinding': {'provenance': 'caller-supplied', 'release': '10.9.0', 'sourceRevision': revision},
+    'nativeBinding': {'provenance': 'caller-supplied', 'release': release, 'sourceRevision': revision},
     'credentials': {'connections': {'openai': {'OPENAI_API_KEY': 'ZEROSHOT_WITNESS_OPENAI_KEY'}}}}) + '\n')
 # CLI request files: the native submission fields plus the proposed run ID. Credentials come from the configuration.
 for name, run_id, title in (('failed', '0195af77-2300-7000-8000-000000000001', 'Native CLI completion witness'),

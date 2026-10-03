@@ -4,11 +4,11 @@ set -euo pipefail
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || { echo 'Linux x64 is required.' >&2; exit 1; }
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 witness_dir=$(mktemp -d "${TMPDIR:-/tmp}/zeroshot-native-witness.XXXXXXXX")
-readonly native_version=10.9.0
-readonly source_revision=75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa
-readonly archive=zeroshot-v10.9.0-x86_64-unknown-linux-musl.tar.gz
-readonly archive_sha256=ca7305a0a165f3909481ccfcccce367d3bc2c40a9ab65760f6d6cad2a38d002d
-readonly executable_sha256=f39952b98652301db58a89c4132a0476ae4ec570749b5945cc5200c2d22fad94
+readonly native_version=10.10.0
+readonly source_revision=3ee1192cec359a0b997f464e703a936e8b67d63c
+readonly archive=zeroshot-v10.10.0-x86_64-unknown-linux-musl.tar.gz
+readonly archive_sha256=fbc13b2385a088ff0f8fa03fdf72d4aa7ae6202d4289204e57ba1617628d6f16
+readonly executable_sha256=d0c84ffbafa731ef7fa6b61f87af9c000cc4e5b4d2e0d3b7df461fd239bb923e
 native_pid=''
 native_target_pid=''
 native_control=()

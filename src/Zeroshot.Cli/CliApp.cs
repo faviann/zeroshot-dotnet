@@ -325,8 +325,8 @@ public static class CliApp
     }
 
     private static string BindingMessage(NativeBindingException binding) => binding.Reason == NativeBindingProblem.Missing
-        ? "No native binding is configured; run operations require the caller-supplied native 10.9.0 binding."
-        : "A native binding does not match: the configuration and any run file must declare the supported native 10.9.0 source revision.";
+        ? $"No native binding is configured; run operations require the caller-supplied native {NativeSchemas.NativeVersion} binding."
+        : $"A native binding does not match: the configuration and any run file must declare the supported native {NativeSchemas.NativeVersion} source revision.";
 
     private static string Name(Exception? error) => error?.GetType().Name ?? "no detail";
 

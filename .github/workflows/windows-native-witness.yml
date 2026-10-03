@@ -17,7 +17,7 @@ on:
 
 jobs:
   controller-pipe:
-    # Native 10.9.0 ships no Windows arm64 build, so x64 is the only applicable platform.
+    # Native 10.10.0 ships no Windows arm64 build, so x64 is the only applicable platform.
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v7

@@ -7,8 +7,8 @@ const Zeroshot.Native.Contracts.ConnectionKinds.Static = "static" -> string!
 const Zeroshot.Native.Contracts.Generation.Maximum = 9007199254740991 -> ulong
 const Zeroshot.Native.Contracts.RunCheckpointsParams.DefaultLimit = 50 -> uint
 const Zeroshot.Native.Contracts.RunCheckpointsParams.MaximumLimit = 100 -> uint
-const Zeroshot.Native.NativeSchemas.NativeVersion = "10.9.0" -> string!
-const Zeroshot.Native.NativeSchemas.SourceRevision = "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa" -> string!
+const Zeroshot.Native.NativeSchemas.NativeVersion = "10.10.0" -> string!
+const Zeroshot.Native.NativeSchemas.SourceRevision = "3ee1192cec359a0b997f464e703a936e8b67d63c" -> string!
 const Zeroshot.Native.OecpConnection.ProtocolVersion = "openengine.cluster/v1" -> string!
 override abstract Zeroshot.Native.Contracts.AgentAttachEvent.<Clone>$() -> Zeroshot.Native.Contracts.AgentAttachEvent!
 override abstract Zeroshot.Native.Contracts.DashboardAuthoringAction.<Clone>$() -> Zeroshot.Native.Contracts.DashboardAuthoringAction!

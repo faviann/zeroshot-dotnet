@@ -1,6 +1,6 @@
 {
-  "nativeVersion": "10.9.0",
-  "sourceRevision": "75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa",
+  "nativeVersion": "10.10.0",
+  "sourceRevision": "3ee1192cec359a0b997f464e703a936e8b67d63c",
   "inventoryRevision": "3c64d3ba39ddd8599b748e5938cba35bc1026e11",
   "scope": "Named complete native HTTP/OECP bindings; endpoint applicability is not a claim of support on every target.",
   "commonContracts": {
@@ -22,9 +22,9 @@
     "status": "implemented: caller-supplied NDJSON streams, caller-known Unix controller sockets and Windows controller pipes (#26)",
     "binding": "OecpConnection.FromStreamsAsync (leaveOpen: true by default); OecpConnection.ConnectUnixAsync (owned socket); OecpConnection.ConnectNamedPipeAsync (owned, security-validated pipe)",
     "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
-    "nativeConformance": "tools/native-witness/controller.sh: stock 10.9.0 local-run portable controller over its Unix socket and a borrowed socket stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
+    "nativeConformance": "tools/native-witness/controller.sh: stock 10.10.0 local-run portable controller over its Unix socket and a borrowed socket stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
     "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. The witness shows controller resume/discard_workspace INVALID_PHASE refusals live; the older cluster methods' INVALID_PHASE on the controller is source-backed only. Stdio NDJSON is exercised only by deterministic peers.",
-    "windowsPipeEvidence": "See operations binding:windows-controller: tests/Zeroshot.Sdk.Tests/NamedPipeConnectionTests.cs on Windows CI runners and tools/native-witness/windows-controller.ps1 against the stock 10.9.0 Windows x64 controller"
+    "windowsPipeEvidence": "See operations binding:windows-controller: tests/Zeroshot.Sdk.Tests/NamedPipeConnectionTests.cs on Windows CI runners and tools/native-witness/windows-controller.ps1 against the stock 10.10.0 Windows x64 controller"
   },
   "operations": [
     {
@@ -40,7 +40,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L36",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.InitializeAsync"
@@ -58,7 +58,7 @@
         "status": "typed verification call returning PlanResult diagnostics and optional structural bounds",
         "inventory": "native-inventory.md#L37",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements plan; the result shape rests on pinned native goldens, and the only live evidence is the stock INVALID_PHASE refusal."
       },
       "binding": "OecpConnection.Cluster.PlanAsync"
@@ -76,7 +76,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L38",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.ApplyAsync"
@@ -94,7 +94,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L39",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.UpdateAsync"
@@ -112,7 +112,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch; reserved control capacity",
         "inventory": "native-inventory.md#L40",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.StopAsync"
@@ -130,7 +130,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L41",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.RetryAsync"
@@ -148,7 +148,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L42",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.ResubmitAsync"
@@ -166,7 +166,7 @@
         "status": "one-send binding returning NativeAttempt<T> with per-operation pre-effect refusals taken from the shared admission server's store-error mapping; unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L43",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this method; acknowledgement shapes and refusal classification rest on pinned native goldens and admission-server source, and the only live evidence is the stock INVALID_PHASE refusal. No retry or waiting."
       },
       "binding": "OecpConnection.Cluster.DeleteAsync"
@@ -184,7 +184,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L44",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Cluster.GetAsync"
@@ -202,7 +202,7 @@
         "status": "bounded NativeSubscription<WatchResult,EventNotification> over the complete WatchEvent algebra; requested or resolved run identity is enforced, and a parked subscription takes its run from the first record",
         "inventory": "native-inventory.md#L45",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
       },
       "binding": "OecpConnection.Cluster.WatchAsync"
@@ -220,7 +220,7 @@
         "status": "bounded, future-only, cursorless NativeSubscription<LogsResult,LogEventNotification>; a close carrying a cursor is a protocol failure",
         "inventory": "native-inventory.md#L46",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
       },
       "binding": "OecpConnection.Cluster.LogsAsync"
@@ -238,7 +238,7 @@
         "status": "bounded, future-only, cursorless NativeSubscription<AgentAttachResult,AgentAttachEventNotification> with no run selector; a close carrying a cursor is a protocol failure",
         "inventory": "native-inventory.md#L47",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No stock backend implements this subscription; delivery rests on pinned native session goldens and controlled peers, and the only live evidence is the stock INVALID_PHASE refusal. Capability booleans are not treated as support. No automatic reopening."
       },
       "binding": "OecpConnection.Cluster.AttachAgentAsync"
@@ -256,7 +256,7 @@
         "status": "one-send binding returning NativeAttempt<RunSubmitResult>; any acknowledged run ID is retained because native deduplication can return an earlier run; -32602/GRAPH_INVALID, IDEMPOTENCY_REUSE, RUN_CONFLICT and INVALID_PHASE are pre-effect refusals",
         "inventory": "native-inventory.md#L57",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ClusterTests.cs (pinned native protocol goldens in tests/Zeroshot.Sdk.Tests/Fixtures/cluster)",
-        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.9.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
+        "nativeConformance": "tools/native-witness/run.sh and examples/DiscoveryConsumer: stock 10.10.0 direct target refuses all ten cluster methods with -32000/INVALID_PHASE despite initialize advertising logs and agentAttach, refuses run/submit with RUN_CONFLICT, and afterwards still returns empty get and the unchanged inventory",
         "limitations": "No working native run/submit backend is exercised: the stock target and portable controller refuse it, so acknowledgement and the non-RUN_CONFLICT refusals have controlled-peer evidence only. Direct runs are submitted over HTTP."
       },
       "binding": "OecpConnection.Runs.SubmitAsync"
@@ -274,7 +274,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L58",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Runs.ListAsync"
@@ -292,7 +292,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts; reserved control capacity",
         "inventory": "native-inventory.md#L59",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "OecpConnection.Runs.StatusAsync"
@@ -310,7 +310,7 @@
         "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
         "inventory": "native-inventory.md#L60",
         "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.10.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "OecpConnection.Runs.WatchAsync"
@@ -328,7 +328,7 @@
         "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
         "inventory": "native-inventory.md#L61",
         "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.10.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "OecpConnection.Runs.LogsAsync"
@@ -346,7 +346,7 @@
         "status": "complete exact-execution live read-only attachment binding using shared subscription lifecycle and bounds",
         "inventory": "native-inventory.md#L62",
         "deterministic": "tests/Zeroshot.Sdk.Tests/AttachmentTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh, attachment.sh and examples/AttachmentConsumer: stock 10.9.0 controlled active execution, genuinely live working/output/settled, cursorless close, inactive GONE and unknown NOT_FOUND",
+        "nativeConformance": "tools/native-witness/run.sh, attachment.sh and examples/AttachmentConsumer: stock 10.10.0 controlled active execution, genuinely live working/output/settled, cursorless close, inactive GONE and unknown NOT_FOUND",
         "limitations": "No replay, input channel or automatic recovery. Settlement is attachment data, not a terminal run result. Controlled provider and local source in a private mount namespace; live hosted/private authorities and external provider services remain unverified."
       },
       "binding": "OecpConnection.Runs.AttachAsync"
@@ -364,7 +364,7 @@
         "status": "complete one-send control binding returning NativeAttempt<RunForceResult> with pre-effect refusal classification and unknown effect after possible dispatch",
         "inventory": "native-inventory.md#L63",
         "deterministic": "tests/Zeroshot.Sdk.Tests/ForceTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh, force.sh and examples/ForceConsumer: stock 10.9.0 controlled active execution, acknowledged force with recorded phase, durable stopping history before force_stopped terminal history/status, acknowledged repeated force and unknown-run NOT_FOUND rejection",
+        "nativeConformance": "tools/native-witness/run.sh, force.sh and examples/ForceConsumer: stock 10.10.0 controlled active execution, acknowledged force with recorded phase, durable stopping history before force_stopped terminal history/status, acknowledged repeated force and unknown-run NOT_FOUND rejection",
         "limitations": "No retry, waiting composition or physical-cessation guarantee. Stock native normally acknowledges after cleanup with a terminal status; a stopping acknowledgement is covered by deterministic fixtures. Hosted HTTP force and live hosted/private authorities remain unverified."
       },
       "binding": "OecpConnection.Runs.ForceAsync"
@@ -382,7 +382,7 @@
         "status": "complete one-page read with native default/limit bounds, opaque exclusive cursor and page contract checks",
         "inventory": "native-inventory.md#L64",
         "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; worker entry checkpoints paged with limit 1 and default page on source and successor; noncanonical run SCHEMA_VIOLATION",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.10.0 retained worker_failed workspaces with connection requirements; worker entry checkpoints paged with limit 1 and default page on source and successor; noncanonical run SCHEMA_VIOLATION",
         "limitations": "Each witnessed run has one checkpoint, so multi-page continuation is deterministic only. INVALID_PHASE capability refusal is deterministic only; hosted HTTP checkpoints and the portable controller remain unverified."
       },
       "binding": "OecpConnection.Runs.CheckpointsAsync"
@@ -400,7 +400,7 @@
         "status": "complete one-send binding returning NativeAttempt<RunResumeResult> with separate fresh credentials, omitted/restart/checkpoint selection and pre-effect refusal classification",
         "inventory": "native-inventory.md#L65",
         "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; latest-workspace resume and checkpoint resume admitting linked successors, repeated resume INTERNAL_ERROR admitting nothing, unknown NOT_FOUND, noncanonical SCHEMA_VIOLATION, succeeded/force-stopped/discarded source INTERNAL_ERROR",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.10.0 retained worker_failed workspaces with connection requirements; latest-workspace resume and checkpoint resume admitting linked successors, repeated resume INTERNAL_ERROR admitting nothing, unknown NOT_FOUND, noncanonical SCHEMA_VIOLATION, succeeded/force-stopped/discarded source INTERNAL_ERROR",
         "limitations": "Native does not deduplicate resume and reports non-recoverable, already-resumed and conflicting successors only as INTERNAL_ERROR, which stays Unknown. No retry or reconciliation. INVALID_PHASE and IDEMPOTENCY_REUSE are deterministic only; hosted HTTP recovery and provider success remain unverified."
       },
       "binding": "OecpConnection.Runs.ResumeAsync"
@@ -418,7 +418,7 @@
         "status": "complete one-send binding returning NativeAttempt<RunDiscardWorkspaceResult> with pre-effect refusal classification",
         "inventory": "native-inventory.md#L66",
         "deterministic": "tests/Zeroshot.Sdk.Tests/RecoveryTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.9.0 retained worker_failed workspaces with connection requirements; discard true then false with run status retained, force-stopped workspace already disposed, unknown NOT_FOUND",
+        "nativeConformance": "tools/native-witness/run.sh, recovery.sh and examples/RecoveryConsumer: stock 10.10.0 retained worker_failed workspaces with connection requirements; discard true then false with run status retained, force-stopped workspace already disposed, unknown NOT_FOUND",
         "limitations": "Cleanup failure is INTERNAL_ERROR and stays Unknown. INVALID_PHASE is deterministic only; hosted HTTP discard remains unverified."
       },
       "binding": "OecpConnection.Runs.DiscardWorkspaceAsync"
@@ -433,7 +433,7 @@
       "authenticationPrerequisites": "No auth required; nonempty body falls through to 404. [transport.rs:L260-L275][http-21]",
       "typeClosure": "Empty body -> 200 `TargetDiscoveryDocument`",
       "evidence": {
-        "status": "typed HTTP binding; local bounds/ownership/security tests; stock native 10.9.0 discovery and fixed-route HEAD refusal; fresh packed-package consumer",
+        "status": "typed HTTP binding; local bounds/ownership/security tests; stock native 10.10.0 discovery and fixed-route HEAD refusal; fresh packed-package consumer",
         "inventory": "native-inventory.md#L119",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpDiscoveryTests.cs; examples/DiscoveryConsumer; tools/native-witness/run.sh"
       },
@@ -449,7 +449,7 @@
       "authenticationPrerequisites": "Direct identity, hosted control bearer, or private capability bearer. Malformed request/ID gives 400 `request.invalid`; admission invalid gives 400 `run.rejected`. [transport.rs:L308-L323][http-22] [transport.rs:L433-L456][http-23] [transport_http.rs:L257-L261][http-24]",
       "typeClosure": "TargetRunRequest {runId, submission: RunSubmission, connections, connectionResolver?: TargetConnectionResolver, githubToken?}; canonical UUIDv7 runId -> HTTP 200 TargetRunReceipt {runId}; TargetHttpProblem; NativeAttempt<TargetRunReceipt> / TargetSubmissionAttempt preserve request, origin, correlation and both identities",
       "evidence": {
-        "status": "Typed and exact retained HTTP binding; deterministic one-send, known-refusal/not-sent/unknown classification, identity mismatch, malformed/oversized/dropped/late replies and cancellation/cleanup races; stock native 10.9.0 complete asset admission, contained-provider normalization, normalized deduplication, exact replay and proposed/acknowledged identity through fresh packed-package consumer. Stock native 10.9.0 private-mode admission with a bootstrapped capability (tools/native-witness/private.sh, examples/PrivateBootstrapConsumer). Live hosted submission interoperability unverified.",
+        "status": "Typed and exact retained HTTP binding; deterministic one-send, known-refusal/not-sent/unknown classification, identity mismatch, malformed/oversized/dropped/late replies and cancellation/cleanup races; stock native 10.10.0 complete asset admission, contained-provider normalization, normalized deduplication, exact replay and proposed/acknowledged identity through fresh packed-package consumer. Stock native 10.10.0 private-mode admission with a bootstrapped capability (tools/native-witness/private.sh, examples/PrivateBootstrapConsumer). Live hosted submission interoperability unverified.",
         "inventory": "native-inventory.md#L120",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpSubmissionTests.cs; examples/SubmissionConsumer; tools/native-witness/run.sh; examples/PrivateBootstrapConsumer; tools/native-witness/private.sh"
       },
@@ -465,7 +465,7 @@
       "authenticationPrerequisites": "Same control auth. Direct result omits bearer; private result carries capability; hosted authority issues an OECP-purpose bearer. [transport.rs:L325-L379][http-25]",
       "typeClosure": "`TargetOecpSessionRequest` (`{}` or optional canonical UUIDv7 `runId`) -> 200 `TargetOecpSession`; no-store",
       "evidence": {
-        "status": "typed HTTP session binding; deterministic direct/hosted/private authority, trusted HTTPS and WSS endpoint validation, credential-canary, bounds and refusal tests; stock native 10.9.0 direct session acquisition and private-mode session acquisition with a bootstrapped capability, followed by OECP initialize/get/status over that session; fresh packed-package consumers. Live hosted interoperability unverified.",
+        "status": "typed HTTP session binding; deterministic direct/hosted/private authority, trusted HTTPS and WSS endpoint validation, credential-canary, bounds and refusal tests; stock native 10.10.0 direct session acquisition and private-mode session acquisition with a bootstrapped capability, followed by OECP initialize/get/status over that session; fresh packed-package consumers. Live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L121",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpSessionTests.cs; examples/DiscoveryConsumer; tools/native-witness/run.sh; examples/PrivateBootstrapConsumer; tools/native-witness/private.sh"
       },
@@ -484,7 +484,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#L122",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.10.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "NativeClient.ConnectOecpAsync"
@@ -499,10 +499,10 @@
       "authenticationPrerequisites": "Private constructor only; cryptographic bootstrap envelope, not OAuth. Invalid envelope 400; closed bootstrap or nonprivate server 404. [transport.rs:L291-L305][http-28]",
       "typeClosure": "Strict `TargetPrivateBootstrapRequest {nonce,ciphertext}` (lowercase hex, 12-byte nonce, 64-byte token + 16-byte tag) -> 204 empty; NativeAttempt<EmptyResponse>; TargetHttpProblem",
       "evidence": {
-        "status": "Unauthenticated one-send binding gated on private_capability discovery with a same-origin privateBootstrapPath; envelope shape checked before dispatch; deterministic exact request, 400 request.invalid / 404 request.not_found / 408 request.timeout rejection, other contact unknown; stock native 10.9.0 private-mode target with isolated key/capability: wrong-key 400, acknowledged empty 204, then closed 404 through fresh packed-package consumer.",
+        "status": "Unauthenticated one-send binding gated on private_capability discovery with a same-origin privateBootstrapPath; envelope shape checked before dispatch; deterministic exact request, 400 request.invalid / 404 request.not_found / 408 request.timeout rejection, other contact unknown; stock native 10.10.0 private-mode target with isolated key/capability: wrong-key 400, acknowledged empty 204, then closed 404 through fresh packed-package consumer.",
         "inventory": "native-inventory.md#L123",
         "validation": "tests/Zeroshot.Sdk.Tests/PrivateBootstrapTests.cs; examples/PrivateBootstrapConsumer; tools/native-witness/private.sh",
-        "nativeConformance": "tools/native-witness/private.sh: stock 10.9.0 target serve --bootstrap-key-file; invalid, accepted and closed bootstrap",
+        "nativeConformance": "tools/native-witness/private.sh: stock 10.10.0 target serve --bootstrap-key-file; invalid, accepted and closed bootstrap",
         "limitations": "A closed bootstrap and a nonprivate target are indistinguishable on the wire; mode comes from supplied discovery, so a target that changes mode after discovery reads as closed. Live private submission, session and OECP authority not claimed."
       },
       "binding": "NativeClient.Private.BootstrapAsync"
@@ -520,7 +520,7 @@
         "status": "Fixed-route GET with required PrivateCapability credentials; foreign-run or over-4 KiB text rejected as malformed, 64 KiB response bound; truncation flags and exitStatus omission preserved; payload absent from default formatting",
         "inventory": "native-inventory.md#L124",
         "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: valid read of its diagnostics as received, empty list for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.10.0 private-mode target after bootstrap; admitted inspection run: valid read of its diagnostics as received, empty list for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
         "limitations": "Non-empty and truncated diagnostics are fixture-only: stock native records them only for checkout, push and local-controller failures, which the witness target does not reach. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
       },
       "binding": "NativeClient.Private.GetOperatorDiagnosticsAsync"
@@ -538,7 +538,7 @@
         "status": "Fixed-route POST with required PrivateCapability credentials; 4096-byte request bound; #35 definition checks and 8 MiB bound; history problem categories",
         "inventory": "native-inventory.md#L125",
         "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: definition of the finished run, run_not_found for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.10.0 private-mode target after bootstrap; admitted inspection run: definition of the finished run, run_not_found for an unknown run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
         "limitations": "No retention guarantee. Other history categories use #35's shared problem mapping and are not exercised on this route. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
       },
       "binding": "NativeClient.Private.GetHistoryDefinitionAsync"
@@ -556,7 +556,7 @@
         "status": "Fixed-route POST with required PrivateCapability credentials; 4096-byte request bound; #35 page checks and 8 MiB bound; history problem categories",
         "inventory": "native-inventory.md#L126",
         "deterministic": "tests/Zeroshot.Sdk.Tests/PrivateExportsTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode target after bootstrap; admitted inspection run: complete page with its terminal event and exclusive empty end page, run_not_found for an unknown run, invalid_cursor ahead of the run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
+        "nativeConformance": "tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.10.0 private-mode target after bootstrap; admitted inspection run: complete page with its terminal event and exclusive empty end page, run_not_found for an unknown run, invalid_cursor ahead of the run, 401 request.unauthorized for a wrong capability; tools/native-witness/run.sh and examples/HistoryConsumer: direct target refuses with 404 request.not_found",
         "limitations": "No retention guarantee. Other history categories use #35's shared problem mapping and are not exercised on this route. Wrong mode is witnessed only on a direct target; hosted mode is source-backed. A missing capability is refused locally and never sent."
       },
       "binding": "NativeClient.Private.GetHistoryPageAsync"
@@ -571,7 +571,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
       "typeClosure": "GET, `Accept: application/json`, `Cache-Control: no-store` -> any 2xx (64 KiB response) `HostedRunListResult {runs: HostedRunStatusResult[]}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L184",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
       },
@@ -587,7 +587,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
       "typeClosure": "GET `{run_id}`, `Accept: application/json`, `Cache-Control: no-store` -> any 2xx (64 KiB) `HostedRunStatusResult {runId, title, source, size, atCursor, status: HostedRunStatus (strict `{phase:\"queued\"}` | native `RunStatus`), workspaceRecovery?}`; the result must name the requested run",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L185",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
       },
@@ -603,7 +603,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
       "typeClosure": "GET `{run_id}`, optional `from_cursor` (`RunWatchParams`), `Accept: application/x-ndjson`, `Cache-Control: no-store`; any 2xx admits `HostedRunStream<HostedRunWatchEventNotification>` over strict NDJSON `{type:\"event\",event}` | `{type:\"closed\",reason: SubscriptionCloseReason}` frames. The event is `{subscriptionId, runId, title, source, size, cursor, status: HostedRunStatus}` with no workspaceRecovery; records keep the run and the first record's subscription ID and source",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L186",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
       },
@@ -619,7 +619,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
       "typeClosure": "GET `{run_id}`, optional `from_cursor` and `execution` (`RunLogsParams`), NDJSON headers as watch; any 2xx admits `HostedRunStream<RunLogEventNotification>` over the same frames; records keep the run, the first record's subscription ID and any execution filter",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L187",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
       },
@@ -635,7 +635,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only.",
       "typeClosure": "POST `{}` at the `{run_id}` route -> any 2xx (64 KiB) `HostedRunStatusResult` naming the requested run, returned as `NativeAttempt<HostedRunStatusResult>`: `Rejected` only for 400 `invalid_request`, 401 `unauthorized`, 403 `forbidden` or 404 `not_found` problems; other post-dispatch failures are `Unknown`. Acknowledged queued or stopping status is not terminal; no retry or wait",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers: exact advertised routes and encoding, headers and bodies, queued and every target phase, workspaceRecovery presence/omission, refusal before dispatch, identity checks, and (streams) NDJSON framing, all three close reasons, malformed/foreign/truncated frames, 64 KiB and configured frame ceilings, queue overflow; (force) acknowledged, rejected, not-sent and unknown outcomes. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L188",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRunTests.cs"
       },
@@ -651,7 +651,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
       "typeClosure": "POST the shared #24 `RunResumeParams {runId, successorRunId, from?, connections?, connectionResolver?, githubToken?}` (Contracts/Recovery.cs, as `oecp:run/resume`) at `{run_id}` -> any 2xx (64 KiB) `RunResumeResult {runId, resumedFrom}` naming the requested successor and source, returned as `NativeAttempt<RunResumeResult>`: `Rejected` only for 400 `invalid_request` / 401 `unauthorized` / 403 `forbidden` / 404 `not_found` problems; other received failures, lost replies, malformed, foreign and oversized results are `Unknown` (the OECP binding's JSON-RPC refusal codes have no pinned hosted equivalent); no retry or reconciliation",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; omitted/checkpoint selection with separate fresh credentials, foreign successor/source acknowledgements, refusal-pair classification, reply loss and the 64 KiB bound. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; omitted/checkpoint selection with separate fresh credentials, foreign successor/source acknowledgements, refusal-pair classification, reply loss and the 64 KiB bound. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
         "inventory": "native-inventory.md#L189",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
       },
@@ -667,7 +667,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
       "typeClosure": "POST the shared #24 `RunCheckpointsParams {runId, after?, limit?}` (Contracts/Recovery.cs, as `oecp:run/checkpoints`; default limit 50, accepted 1-100) at `{run_id}` -> any 2xx (64 KiB) `RunCheckpointsResult {runId, checkpoints, nextAfter?}` under the same page contract (requested run, at most the effective limit, `nextAfter` only as the last checkpoint); failures throw `NativeHttpException`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; page contract violations, preserved problem on refusal and the 64 KiB bound. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; page contract violations, preserved problem on refusal and the 64 KiB bound. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
         "inventory": "native-inventory.md#L190",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
       },
@@ -683,7 +683,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent once; requests send `Accept: application/json` and `Cache-Control: no-store`. Fresh resume connection values, resolver and GitHub token come from a separate `TargetRunCredentials` argument and exist only in that request body.",
       "typeClosure": "POST the shared #24 `RunDiscardWorkspaceParams {runId}` (Contracts/Recovery.cs, as `oecp:run/discard_workspace`) at `{run_id}` -> any 2xx (64 KiB) `RunDiscardWorkspaceResult {runId, discarded}` naming the requested run, returned as `NativeAttempt<RunDiscardWorkspaceResult>`: `Rejected` only for 400 `invalid_request` / 401 `unauthorized` / 403 `forbidden` / 404 `not_found` problems; other received failures, lost replies, malformed, foreign and oversized results are `Unknown` (the OECP binding's JSON-RPC refusal codes have no pinned hosted equivalent); destroys only the retained workspace, not the run or history",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; foreign acknowledgements, refusal-pair classification and reply loss. Stock native 10.9.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
+        "status": "Typed binding with deterministic controlled hosted peers using source-backed fixtures: exact advertised routes, encoding, headers and bodies; refusals before dispatch for direct targets, absent, incompatible or malformed recovery and hosted-runs descriptors and unaddressable run IDs; foreign acknowledgements, refusal-pair classification and reply loss. Stock native 10.10.0 only consumes these routes and serves none, so no native witness applies; no actual hosted-service evidence, and live hosted interoperability is unverified.",
         "inventory": "native-inventory.md#L191",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpHostedRecoveryTests.cs"
       },
@@ -699,7 +699,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `ConnectionListRequest {scope: user|org}` -> any 2xx `ConnectionListResult {connections: ConnectionSummary[]}`; summary `{key, scope, kind: open string, fields: EnvironmentVariableName[]}`; 64 KiB response; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L192",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
       },
@@ -715,7 +715,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `ConnectionSetRequest {key, scope, values}` (1-64 fields; values nonempty, NUL-free, <= 64 KiB, <= 256 KiB aggregate with names) -> any 2xx `ConnectionMutationResult {connection}`; `NativeAttempt<ConnectionMutationResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L193",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
       },
@@ -731,7 +731,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `ConnectionDeleteRequest {key, scope}` -> any 2xx `ConnectionDeleteResult {deleted}`; `NativeAttempt<ConnectionDeleteResult>` with the same refusal pairs as set",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, open kinds, any-2xx results, wrong-target/absent-capability/descriptor refusals before dispatch, static-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no connection routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L194",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpConnectionTests.cs"
       },
@@ -747,7 +747,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileListRequest {scope: user|org}` -> any 2xx (64 KiB response) `RunProfileListResult {profiles: RunProfileSummary[]}`; summary `{id, name, scope, isDefault}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L195",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -763,7 +763,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileSelector {scope, name}` -> any 2xx (64 KiB response) `RunProfile {id, name, scope, graph: GraphSpec, runtime: RuntimePlan, isDefault}`; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L196",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -779,7 +779,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileSetRequest {name, scope, graph, runtime, setDefault}` (setDefault false by default) -> any 2xx (64 KiB response) `RunProfileMutationResult {profile: RunProfile}`; `NativeAttempt<RunProfileMutationResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L197",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -795,7 +795,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileSelector {scope, name}` -> any 2xx (64 KiB response) `RunProfileDeleteResult {deleted}`; `NativeAttempt<RunProfileDeleteResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L198",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -811,7 +811,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileDefaultRequest {scope, name?}` (omitted name clears the default) -> any 2xx (64 KiB response) `RunProfileDefaultResult {scope, name: RunProfileName|null}` (missing name reads as null, as native); `NativeAttempt<RunProfileDefaultResult>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L199",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -827,7 +827,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only; requests send `Cache-Control: no-store`.",
       "typeClosure": "POST `RunProfileRunRequest {runId, profile: RunProfileSelector, title, initialInput, source: ResolvedSource, submissionKey, environment?, connections, githubToken?}` (omitted environment permits the host default, `{}` selects the base environment; connections required, static-value bounds) -> any 2xx (64 KiB response) `TargetRunReceipt {runId}`, which may differ from the proposed runId; `NativeAttempt<TargetRunReceipt>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.9.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes for both scopes, any-2xx results, complete graph/runtime round-trip, omitted versus empty environment and nullable default name, wrong-target/absent-capability/descriptor refusals before dispatch, profile-name and connection-value bounds, malformed results, refusal-pair classification and credential-safe formatting. Stock native 10.10.0 serves no profile routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L200",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpProfileTests.cs"
       },
@@ -843,7 +843,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
       "typeClosure": "POST `MergePlanSubmitRequest {submissionKey, title, expiresAt, source: MergePlanSource {repository, branch}, profile: RunProfileSelector {scope, name}, runs: MergePlanRunRequest {name, needs?, initialInput}[] (1-64, needs verbatim, omitted when null), environment?: RuntimeEnvironment (omitted permits the host default, `{}` selects base), connections?: static run connection values, githubToken?}` -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; `NativeAttempt<MergePlan>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures, malformed and oversized results are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.10.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L201",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
       },
@@ -859,7 +859,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
       "typeClosure": "GET at `{plan_id}` (`Accept: application/json`) -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; the reply's planId must equal the requested ID; failures throw `NativeHttpException` with any valid `TargetHttpProblem`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.10.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L202",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
       },
@@ -875,7 +875,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth) in the Authorization header only, sent only to the same-origin capability routes; requests send `Cache-Control: no-store`. Native's one resend after an auth rejection is not reproduced: every call sends exactly once.",
       "typeClosure": "POST `{}` at `{plan_id}` -> `MergePlan {planId: RunId, title: RunTitle, state: MergePlanState, repository: SourceRepositoryId, branch: SourceBranchId, submittedAt, expiresAt, runs: MergePlanRunStatus[]}`; `MergePlanRunStatus {name: RunProfileName, runId: RunId, state: MergePlanRunState, needs: RunProfileName[], sourceRevision: SourceRevisionId|null, readyAt|null, queueExpiresAt|null, terminalAt|null, waitingReason|null, errorCode|null}` (the six nullable fields must be present); `MergePlanState` queued|running|succeeded|failed|cancelled|expired; `MergePlanRunState` blocked|materializing|queued|provisioning|running|cancelling|succeeded|failed|cancelled|expired; strict objects; any 2xx; 1 MiB response bound; the reply's planId must equal the requested ID and need not be terminal; `NativeAttempt<MergePlan>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures, malformed and oversized results are Unknown",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.9.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact wire and advertised routes, percent-encoded opaque plan IDs, every plan and run state, present-null versus missing nullable fields, foreign plan replies, wrong-target/absent-capability/descriptor/plan-ID/run-count refusals before dispatch, refusal-pair classification, reply loss, the 1 MiB bound and a single request on auth rejection. Stock native 10.10.0 serves no merge-plan routes and refuses them for direct targets, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L203",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpMergePlanTests.cs"
       },
@@ -894,7 +894,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L204",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.ListAsync"
@@ -912,7 +912,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L205",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.DetailAsync"
@@ -930,7 +930,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L206",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.PageAsync"
@@ -948,7 +948,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L258",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
       },
       "binding": "NativeClient.Dashboard.GetRootAsync"
     },
@@ -965,7 +965,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L258",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
       },
       "binding": "NativeClient.Dashboard.HeadRootAsync"
     },
@@ -982,7 +982,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L258",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
       },
       "binding": "NativeClient.Dashboard.GetUiAsync"
     },
@@ -999,7 +999,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L258",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; GET/HEAD 307 Location /ui/, not followed"
       },
       "binding": "NativeClient.Dashboard.HeadUiAsync"
     },
@@ -1016,7 +1016,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L259",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
       },
       "binding": "NativeClient.Dashboard.GetIndexAsync"
     },
@@ -1033,7 +1033,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L259",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
       },
       "binding": "NativeClient.Dashboard.HeadIndexAsync"
     },
@@ -1050,7 +1050,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L259",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
       },
       "binding": "NativeClient.Dashboard.GetAssetAsync"
     },
@@ -1067,7 +1067,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L259",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; index/assets text/html|javascript|css with HEAD length parity, missing asset bare 404"
       },
       "binding": "NativeClient.Dashboard.HeadAssetAsync"
     },
@@ -1084,7 +1084,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L260",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
       },
       "binding": "NativeClient.Dashboard.GetBootstrapAsync"
     },
@@ -1101,7 +1101,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L260",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; complete catalog, target workspace, HEAD length, 403 origin_rejected via consumer-owned handler"
       },
       "binding": "NativeClient.Dashboard.HeadBootstrapAsync"
     },
@@ -1118,7 +1118,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L261",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; empty after drafts, then the one saved profile; curl readback matches"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount, fresh isolated --storage profile store; empty after drafts, then the one saved profile; curl readback matches"
       },
       "binding": "NativeClient.Dashboard.ListProfilesAsync"
     },
@@ -1135,7 +1135,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L261",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json"
       },
       "binding": "NativeClient.Dashboard.HeadProfilesAsync"
     },
@@ -1152,7 +1152,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L262",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; create/update read back with the acknowledged revision; missing profile 500 profile_store_error"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount, fresh isolated --storage profile store; create/update read back with the acknowledged revision; missing profile 500 profile_store_error"
       },
       "binding": "NativeClient.Dashboard.GetProfileAsync"
     },
@@ -1169,7 +1169,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L262",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json for a stored profile; missing profile status-only 500"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount, fresh isolated --storage profile store; 200 application/json for a stored profile; missing profile status-only 500"
       },
       "binding": "NativeClient.Dashboard.HeadProfileAsync"
     },
@@ -1186,7 +1186,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L263",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardProfileTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount, fresh isolated --storage profile store; create without revision, name-taken and stale-revision profile_conflict, revision update keeping the profile ID, two concurrent saves from one revision with exactly one winner, foreign workspace workspace_changed and unbound runtime 422 invalid_profile leaving the store unchanged"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount, fresh isolated --storage profile store; create without revision, name-taken and stale-revision profile_conflict, revision update keeping the profile ID, two concurrent saves from one revision with exactly one winner, foreign workspace workspace_changed and unbound runtime 422 invalid_profile leaving the store unchanged"
       },
       "binding": "NativeClient.Dashboard.SaveProfileAsync"
     },
@@ -1203,7 +1203,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L264",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; complete asset valid, unbound draft 422 invalid_profile, 415 json_required via consumer-owned handler"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; complete asset valid, unbound draft 422 invalid_profile, 415 json_required via consumer-owned handler"
       },
       "binding": "NativeClient.Dashboard.ValidateAsync"
     },
@@ -1220,7 +1220,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L265",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; failure-reason draft edit and misplaced edit 422"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; failure-reason draft edit and misplaced edit 422"
       },
       "binding": "NativeClient.Dashboard.AuthorAsync"
     },
@@ -1237,7 +1237,7 @@
         "status": "controlled HTTP peers and stock-native UI mount",
         "inventory": "native-inventory.md#L266",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardTests.cs; tests/Zeroshot.Sdk.Tests/DashboardContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 target serve UI mount; run-input add/remove draft round trip; profile store unchanged"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 target serve UI mount; run-input add/remove draft round trip; profile store unchanged"
       },
       "binding": "NativeClient.Dashboard.TransformDataAsync"
     },
@@ -1254,7 +1254,7 @@
         "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L267",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
       },
       "binding": "NativeClient.Dashboard.ListRunsAsync"
     },
@@ -1271,7 +1271,7 @@
         "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L267",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount HEAD status and media type"
       },
       "binding": "NativeClient.Dashboard.HeadRunsAsync"
     },
@@ -1288,7 +1288,7 @@
         "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L268",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
       },
       "binding": "NativeClient.Dashboard.GetRunAsync"
     },
@@ -1305,7 +1305,7 @@
         "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L268",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount HEAD status and media type"
       },
       "binding": "NativeClient.Dashboard.HeadRunAsync"
     },
@@ -1322,7 +1322,7 @@
         "status": "fixed browser route reusing #35 history contracts, bounds, host checks and UiProblem history categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L269",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount; results equal the discovered run-history binding over the same retained runs"
       },
       "binding": "NativeClient.Dashboard.GetHistoryAsync"
     },
@@ -1339,7 +1339,7 @@
         "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L269",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount HEAD status and media type"
       },
       "binding": "NativeClient.Dashboard.HeadHistoryAsync"
     },
@@ -1356,7 +1356,7 @@
         "status": "one bounded SSE observation through shared ObservationDelivery; 8 MiB event-data ceiling plus 1 KiB framing allowance; #35 page rules chained across events; Last-Event-ID and after both sent",
         "inventory": "native-inventory.md#L270",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount; finished run's retained pages then server close, Last-Event-ID precedence over after, run_not_found/invalid_cursor, 403 origin_rejected via consumer-owned handler; live pages of an active run through its terminal event with one sibling observation disposed alone",
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount; finished run's retained pages then server close, Last-Event-ID precedence over after, run_not_found/invalid_cursor, 403 origin_rejected via consumer-owned handler; live pages of an active run through its terminal event with one sibling observation disposed alone",
         "limitations": "history_error events, keepalive comments, malformed/oversized/gapped streams and slow-consumer overflow are fixture-only. No reopen, retention guarantee or run outcome from stream closure. An open stream holds one HTTP connection per origin for its lifetime."
       },
       "binding": "NativeClient.Dashboard.OpenRunEventsAsync"
@@ -1374,7 +1374,7 @@
         "status": "HEAD for the fixed browser route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L270",
         "deterministic": "tests/Zeroshot.Sdk.Tests/DashboardHistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.9.0 direct UI mount HEAD status and media type"
+        "nativeConformance": "tools/native-witness/run.sh + examples/DashboardConsumer: stock 10.10.0 direct UI mount HEAD status and media type"
       },
       "binding": "NativeClient.Dashboard.HeadRunEventsAsync"
     },
@@ -1391,7 +1391,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L271",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.ListAsync"
@@ -1409,7 +1409,7 @@
         "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L271",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.HeadListAsync"
@@ -1427,7 +1427,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L272",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.DetailAsync"
@@ -1445,7 +1445,7 @@
         "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L272",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.HeadDetailAsync"
@@ -1463,7 +1463,7 @@
         "status": "discovered-route binding with native bounds, contract checks and closed problem categories; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L273",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.PageAsync"
@@ -1481,7 +1481,7 @@
         "status": "HEAD for the discovered route; 2xx headers or HttpStatus refusal without a body; UI-routed requests close their connection",
         "inventory": "native-inventory.md#L273",
         "deterministic": "tests/Zeroshot.Sdk.Tests/HistoryTests.cs; tests/Zeroshot.Sdk.Tests/Fixtures/history.json",
-        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.9.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
+        "nativeConformance": "tools/native-witness/run.sh, examples/HistoryConsumer and examples/ObservationConsumer: stock 10.10.0 direct UI mount list/after, detail, paging and exclusive end, HEAD, run_not_found/invalid_cursor categories, control request after history on the same client; history while active, at completion and after target restart",
         "limitations": "No retention guarantee or history SSE route. Hosted history and HEAD on hosted hosts, prior_execution/execution_voided/token_usage/force-stop events and control records are fixture-only. Native reader problem sanitization is not reproduced; unknown problem codes keep the raw status and problem."
       },
       "binding": "NativeClient.History.HeadPageAsync"
@@ -1496,7 +1496,7 @@
       "authenticationPrerequisites": "Unauthenticated; `Accept: application/json`.",
       "typeClosure": "GET discovered `metadataUrl` -> any 2xx `OAuthMetadata {device_authorization_endpoint, token_endpoint, revocation_endpoint}` (other fields ignored); each endpoint must be a canonical same-origin URL equal to discovery, else Protocol failure; 64 KiB; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.10.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L216",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
       },
@@ -1512,7 +1512,7 @@
       "authenticationPrerequisites": "Unauthenticated form; reqwest's default `Accept: */*`.",
       "typeClosure": "POST form `client_id` -> any 2xx strict `DeviceAuthorization {device_code, user_code, verification_uri, verification_uri_complete?, expires_in, interval}`: codes nonempty without ASCII controls (device <= 16 KiB, user <= 256 bytes), expiry 1..86400, interval <= 300, verification URLs <= 4096 bytes, HTTPS or `127.0.0.1` HTTP, no userinfo/fragment, query only on the complete URL, which must share the base origin; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.10.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L217",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
       },
@@ -1528,7 +1528,7 @@
       "authenticationPrerequisites": "Unauthenticated form carrying the device code and the caller's registered device token (UUID); reqwest's default `Accept: */*`.",
       "typeClosure": "POST form `grant_type, device_code, client_id, device_token, device_label=zeroshot-cli, audience` -> any 2xx strict `OAuthTokens` (`Bearer`, tokens 1..16 KiB without controls, expiry 1..86400, refresh expiry 1..31536000, scope 1..512 bytes); `NativeAttempt<OAuthTokens>`: a strict `{error}` of authorization_pending/slow_down/access_denied/expired_token is Rejected with `NativeHttpException.DeviceTokenError`; other received failures and malformed tokens are Unknown. No polling loop or backoff.",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.10.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L218",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
       },
@@ -1544,7 +1544,7 @@
       "authenticationPrerequisites": "Unauthenticated form carrying the caller's refresh token (1..16 KiB, no controls); reqwest's default `Accept: */*`.",
       "typeClosure": "POST form `grant_type=refresh_token, client_id, refresh_token, audience` -> any 2xx strict `OAuthTokens` with the same bounds; `NativeAttempt<OAuthTokens>`: Rejected only for 400 invalid_request / 401 unauthorized / 403 forbidden / 404 not_found problems, otherwise received failures are Unknown, including OAuth `{error}` bodies such as 400 invalid_grant (the refresh token may have rotated). No storage, caching or automatic refresh.",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.10.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L219",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
       },
@@ -1560,7 +1560,7 @@
       "authenticationPrerequisites": "Caller-supplied hosted OAuth access bearer (`TargetControlCredentials` HostedOauth, ASCII graphic only, stricter than native's no-control rule); `Accept: application/json`, `Cache-Control: no-store`.",
       "typeClosure": "GET discovered login route -> any 2xx strict `TargetLoginSession {kind: openengine.target-session/v1, organization_id: 1..256 bytes}`; failures throw `NativeHttpException`",
       "evidence": {
-        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.9.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
+        "status": "Typed binding with deterministic controlled hosted authorities: exact method, URL, headers and form fields, discovery refusals before dispatch, metadata agreement, verification-URL rules, code/token/expiry bounds, device-token error classification, refresh refusal pairs, lost-reply/not-sent evidence and credential-safe formatting. Stock native 10.10.0 serves no OAuth routes, so no native witness applies; live hosted interoperability unverified.",
         "inventory": "native-inventory.md#L220",
         "validation": "tests/Zeroshot.Sdk.Tests/HttpOAuthTests.cs"
       },
@@ -1579,7 +1579,7 @@
         "status": "all six subscription bodies are bound: run/watch and run/logs (#21), run/attach (#22), and cluster watch, logs and agent/attach (#27)",
         "inventory": "native-inventory.md#L74",
         "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs; tests/Zeroshot.Sdk.Tests/AttachmentTests.cs; tests/Zeroshot.Sdk.Tests/ClusterTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart. Live-witnessed bodies are run/watch and run/logs (ObservationConsumer) and run/attach (AttachmentConsumer); cluster watch, logs and agent/attach bodies rest on pinned native goldens only",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.10.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart. Live-witnessed bodies are run/watch and run/logs (ObservationConsumer) and run/attach (AttachmentConsumer); cluster watch, logs and agent/attach bodies rest on pinned native goldens only",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "NativeSubscription<TEstablishment,TEvent>.ReadAllAsync",
@@ -1606,7 +1606,7 @@
         "status": "complete for all six subscriptions; cluster logs and agent/attach closes must be cursorless (LogsClosedNotification/AgentAttachClosedNotification), and a close carrying a cursor is a protocol failure",
         "inventory": "native-inventory.md#L75",
         "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs; tests/Zeroshot.Sdk.Tests/AttachmentTests.cs; tests/Zeroshot.Sdk.Tests/ClusterTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart. Live-witnessed bodies are run/watch and run/logs (ObservationConsumer) and run/attach (AttachmentConsumer); cluster watch, logs and agent/attach bodies rest on pinned native goldens only",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.10.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart. Live-witnessed bodies are run/watch and run/logs (ObservationConsumer) and run/attach (AttachmentConsumer); cluster watch, logs and agent/attach bodies rest on pinned native goldens only",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "NativeSubscription<TEstablishment,TEvent>.Completion",
@@ -1625,7 +1625,7 @@
         "status": "complete run watch/log WebSocket binding; common notification routing is limited to implemented subscription types",
         "inventory": "native-inventory.md#L76",
         "deterministic": "tests/Zeroshot.Sdk.Tests/SubscriptionTests.cs; tests/Zeroshot.Sdk.Tests/SubscriptionContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.9.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
+        "nativeConformance": "tools/native-witness/run.sh and examples/ObservationConsumer: stock 10.10.0 direct target watch/log history replay, new records after establishment, exact run/source and exclusive replay after target restart",
         "limitations": "No automatic reopening or terminal waiting; native setup failure supplies records without provider credentials. Live hosted/private authorities, execution-filtered native logs, native SLOW_CONSUMER/SOURCE_UNAVAILABLE and other subscription event bodies remain unverified by stock witness; deterministic fixtures cover selectors and close reasons."
       },
       "binding": "NativeSubscription<TEstablishment,TEvent>.DisposeAsync",
@@ -1660,7 +1660,7 @@
       "authenticationPrerequisites": "The resolver's own run-scoped bearer, sent only in that request's Authorization header (1..16384 ASCII graphic bytes, narrower than native's non-control rule). Redirects refused.",
       "typeClosure": "POST ConnectionResolveRequest {runId, connections: map<ConnectionKey, EnvironmentVariableName[]>} (keys among declared) -> any 2xx ConnectionResolveResult {connections: RunConnectionValues}; 30 s and 300 KiB bounds; ConnectionResolutionException Refused (401/403) / Unavailable (408/429/500-599, transport, deadline, capacity) / InvalidResponse (other status, redirect even when a supplied client followed it, malformed, received or declared oversized)",
       "evidence": {
-        "status": "Typed standalone client with deterministic fixtures: exact wire, descriptor and declared-key refusals before dispatch, status categories ignoring problem bodies, malformed/oversized/declared-oversized/truncated bodies, deadline and cancellation; controlled HTTPS endpoints prove an off-target resolver origin receiving only its own bearer, a 307 refused without contacting its Location, and a redirect followed by a non-compliant supplied client still classified InvalidResponse. Stock native 10.9.0 only calls this contract, so no native witness applies; live host interoperability unverified.",
+        "status": "Typed standalone client with deterministic fixtures: exact wire, descriptor and declared-key refusals before dispatch, status categories ignoring problem bodies, malformed/oversized/declared-oversized/truncated bodies, deadline and cancellation; controlled HTTPS endpoints prove an off-target resolver origin receiving only its own bearer, a 307 refused without contacting its Location, and a redirect followed by a non-compliant supplied client still classified InvalidResponse. Stock native 10.10.0 only calls this contract, so no native witness applies; live host interoperability unverified.",
         "inventory": "native-inventory.md#L246",
         "validation": "tests/Zeroshot.Sdk.Tests/ConnectionResolverTests.cs"
       },
@@ -1721,7 +1721,7 @@
         "status": "deterministic loopback WebSocket peers and source-backed full inspection contracts",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings",
         "deterministic": "tests/Zeroshot.Sdk.Tests/OecpTests.cs; tests/Zeroshot.Sdk.Tests/OecpContractTests.cs",
-        "nativeConformance": "tools/native-witness/run.sh: stock 10.9.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.9.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
+        "nativeConformance": "tools/native-witness/run.sh: stock 10.10.0 direct target; initialize, populated inventory, exact run/source terminal status, empty get; tools/native-witness/private.sh and examples/PrivateBootstrapConsumer: stock 10.10.0 private-mode session with a bootstrapped capability, initialize, empty get and exact run/source status",
         "limitations": "Live hosted/private authority, provider success, populated workspace recovery and terminal-event durability not claimed."
       },
       "binding": "NativeClient.ConnectOecpAsync / OecpConnection"
@@ -1739,7 +1739,7 @@
       "evidence": {
         "status": "deterministic in-memory NDJSON peers",
         "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
-        "nativeConformance": "tools/native-witness/controller.sh: a borrowed Unix socket stream to the stock 10.9.0 local-run controller, reused after its first connection is disposed",
+        "nativeConformance": "tools/native-witness/controller.sh: a borrowed Unix socket stream to the stock 10.10.0 local-run controller, reused after its first connection is disposed",
         "limitations": "No $/cancelRequest on NDJSON; unary cancellation only detaches. Stdio NDJSON is exercised only by deterministic peers.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
@@ -1757,7 +1757,7 @@
       "evidence": {
         "status": "deterministic local Unix socket peer",
         "validationEvidence": "tests/Zeroshot.Sdk.Tests/StreamConnectionTests.cs",
-        "nativeConformance": "tools/native-witness/controller.sh: stock 10.9.0 local-run portable controller over its Unix socket; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, watch/log records and closes, disconnect at controller exit",
+        "nativeConformance": "tools/native-witness/controller.sh: stock 10.10.0 local-run portable controller over its Unix socket; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, watch/log records and closes, disconnect at controller exit",
         "limitations": "The older cluster methods' INVALID_PHASE on the controller is source-backed only.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
@@ -1775,8 +1775,8 @@
       "evidence": {
         "status": "deterministic controlled local pipes on Windows Server 2025 x64 and Windows 11 arm64 CI runners",
         "validationEvidence": "tests/Zeroshot.Sdk.Tests/NamedPipeConnectionTests.cs",
-        "nativeConformance": "tools/native-witness/windows-controller.ps1 (.github/workflows/windows-native-witness.yml): stock 10.9.0 Windows x64 local-run portable controller over its validated pipe and a borrowed pipe stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
-        "limitations": "Native 10.9.0 ships no Windows arm64 build, so arm64 has deterministic evidence only. Refused descriptors are exercised only with controlled pipes; a stock controller always creates a private pipe.",
+        "nativeConformance": "tools/native-witness/windows-controller.ps1 (.github/workflows/windows-native-witness.yml): stock 10.10.0 Windows x64 local-run portable controller over its validated pipe and a borrowed pipe stream; initialize, empty get, one-run list/status, foreign status/force NOT_FOUND, resume/discard INVALID_PHASE, borrowed-stream reuse, watch/log records and closes, disconnect at controller exit",
+        "limitations": "Native 10.10.0 ships no Windows arm64 build, so arm64 has deterministic evidence only. Refused descriptors are exercised only with controlled pipes; a stock controller always creates a private pipe.",
         "inventory": "native-inventory.md#existing-local-and-caller-owned-stream-bindings"
       }
     }

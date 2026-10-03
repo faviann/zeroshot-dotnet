@@ -23,9 +23,9 @@ consumers and the client library do not depend on it.
 
 Pinned provenance:
 
-- Native version: **10.9.0**.
-- [Source revision](https://github.com/the-open-engine/zeroshot/tree/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa): `75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa`.
-- [Release](https://github.com/the-open-engine/zeroshot/releases/tag/v10.9.0) names that source revision in its `target_commitish`.
+- Native version: **10.10.0**.
+- [Source revision](https://github.com/the-open-engine/zeroshot/tree/3ee1192cec359a0b997f464e703a936e8b67d63c): `3ee1192cec359a0b997f464e703a936e8b67d63c`.
+- [Release](https://github.com/the-open-engine/zeroshot/releases/tag/v10.10.0) names that source revision in its `target_commitish`.
 - Linux x64 musl archive SHA-256: `ca7305a0a165f3909481ccfcccce367d3bc2c40a9ab65760f6d6cad2a38d002d` (official release asset digest / `SHA256SUMS`).
 - Actual extracted `zeroshot` executable SHA-256: `f39952b98652301db58a89c4132a0476ae4ec570749b5945cc5200c2d22fad94` (measured and independently rechecked each run).
 
@@ -184,16 +184,16 @@ HTTP peers; HTTPS acquisition uses a temporary trusted certificate in determinis
 tests, and WSS scheme/authority/port rules are tested without dialing WebSockets.
 
 The wire and dispatch authorities are
-[`native_v2_target.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/crates/openengine-cluster-protocol/src/native_v2_target.rs),
-[`transport.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target_authority/transport.rs),
-and [`serve.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_target/serve.rs).
+[`native_v2_target.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/crates/openengine-cluster-protocol/src/native_v2_target.rs),
+[`transport.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/zeroshot/src/native_v2_target_authority/transport.rs),
+and [`serve.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/zeroshot/src/native_v2_target/serve.rs).
 
 The preparation witness uses stock
-[`preparation.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_cloud/preparation.rs)
+[`preparation.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/zeroshot/src/native_v2_cloud/preparation.rs)
 for ledger-owned `SafeLog` records,
-[`allocator.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_hosting/allocator.rs)
+[`allocator.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/zeroshot/src/native_v2_hosting/allocator.rs)
 for setup-before-checkout ordering, and
-[`environment.rs`](https://github.com/the-open-engine/zeroshot/blob/75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa/zeroshot/src/native_v2_hosting/environment.rs)
+[`environment.rs`](https://github.com/the-open-engine/zeroshot/blob/3ee1192cec359a0b997f464e703a936e8b67d63c/zeroshot/src/native_v2_hosting/environment.rs)
 for hook execution and output capture.
 
 The fourth packed consumer exercises `Runs.AttachAsync` on an actual active
@@ -362,7 +362,7 @@ with native `INVALID_PHASE`; the older cluster methods are not exercised here.
 
 `windows-controller.ps1` is the Windows counterpart of `controller.sh`. Run it with
 PowerShell 7 on Windows x64 with .NET 10, Git, Python 3 and tar; the
-`windows-native-witness` workflow runs it on `windows-2025`. Native 10.9.0 ships no
+`windows-native-witness` workflow runs it on `windows-2025`. Native 10.10.0 ships no
 Windows arm64 build, so no arm64 native witness exists. The script downloads the
 pinned `x86_64-pc-windows-msvc` archive, verifies it and the extracted executable,
 packs the library and restores the packed `ControllerConsumer` from that feed with an

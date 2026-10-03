@@ -1,4 +1,4 @@
-// Hosted OAuth wire shapes from native 10.9.0 / 75ae54b6693b6ae4cedeedd37a79ce3919d9a8fa
+// Hosted OAuth wire shapes from the pinned native source
 // (controller_authority/contract.rs). Every shape uses native snake_case field names.
 using System.Text;
 using System.Text.Json;
@@ -14,7 +14,7 @@ public sealed record OAuthMetadata : TargetHttpContract
     public required string DeviceAuthorizationEndpoint { get; init; }
     [JsonPropertyName("token_endpoint")]
     public required string TokenEndpoint { get; init; }
-    /// <summary>Advertised only: native 10.9.0 has no revocation operation, so none is offered.</summary>
+    /// <summary>Advertised only: native has no revocation operation, so none is offered.</summary>
     [JsonPropertyName("revocation_endpoint")]
     public required string RevocationEndpoint { get; init; }
 }

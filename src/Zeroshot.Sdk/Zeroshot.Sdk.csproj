@@ -10,7 +10,7 @@
     <!-- Kind translations are exhaustive switches: a new member must fail the build, not map silently. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
     <NoWarn>$(NoWarn);CS8524</NoWarn>
-    <Description>Native Zeroshot 10.9.0 execution contracts, exact prepared submissions, bounded HTTP operations, and correlated WebSocket OECP inspection and watch/log subscriptions, discovered run history, browser dashboard routes, and ZeroshotClient run handles with local preparation, caller-supplied native binding checks, status results, terminal waits, force-stop and live attachment.</Description>
+    <Description>Native Zeroshot 10.10.0 execution contracts, exact prepared submissions, bounded HTTP operations, and correlated WebSocket OECP inspection and watch/log subscriptions, discovered run history, browser dashboard routes, and ZeroshotClient run handles with local preparation, caller-supplied native binding checks, status results, terminal waits, force-stop and live attachment.</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
