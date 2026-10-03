@@ -139,6 +139,8 @@ public sealed class ContractTests
         Reject(() => NativeJson.DeserializeUtf8<Generation>("1.5"u8));
         Reject(() => NativeJson.DeserializeUtf8<ByteLength>("\"1\""u8));
         Check(NativeJson.DeserializeUtf8<RequestId>("-9223372036854775808"u8).Number == long.MinValue, "Signed correlation ID boundary lost.");
+        Reject(() => NativeJson.DeserializeUtf8<RequestId>("9223372036854775808"u8));
+        Reject(() => NativeJson.DeserializeUtf8<RequestId>("1e0"u8));
         _ = NativeJson.DeserializeUtf8<RunId>("\"\""u8); // Generic RunId is not the target UUIDv7 boundary.
         Reject(() => PreparedSubmission.ImportUtf8("{\"runId\":\"\\ud800\",\"submission\":{}}"u8));
         var bytes = Fixture("prepared.json");

@@ -47,9 +47,8 @@ internal sealed class SafeIntegerConverter<T> : JsonConverter<T> where T : ISafe
 }
 
 /// <summary>An OECP correlation ID: an opaque string or a signed 64-bit integer.</summary>
-[WireContract("RequestId")]
 [JsonConverter(typeof(RequestIdConverter))]
-public readonly record struct RequestId
+public readonly record struct RequestId : INativeScalar
 {
     public string? Text { get; }
     public long? Number { get; }

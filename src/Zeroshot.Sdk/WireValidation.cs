@@ -51,7 +51,6 @@ internal static class WireValidation
         var definitions = JsonNode.Parse(NativeSchemas.Read("contracts.schema.json"))!["$defs"]!.AsObject();
         var oecp = JsonNode.Parse(NativeSchemas.Read("oecp.schema.json"))!["$defs"]!.AsObject();
         foreach (var definition in oecp) definitions[definition.Key] = definition.Value!.DeepClone();
-        definitions["RequestId"] = JsonNode.Parse("""{"anyOf":[{"type":"string"},{"type":"integer","minimum":-9223372036854775808,"maximum":9223372036854775807}]}""");
         FixPatterns(definitions);
         return definitions;
     }
